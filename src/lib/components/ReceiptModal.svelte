@@ -109,8 +109,13 @@
 						{/if}
 						{#if transaction.tax > 0}
 							<div class="flex justify-between text-gray-600">
-								<span>Pajak (PB1 10%)</span>
+								<span>Pajak</span>
 								<span>{formatRupiah(transaction.tax)}</span>
+							</div>
+						{:else}
+							<div class="flex justify-between text-gray-400 text-[10px]">
+								<span>Pajak</span>
+								<span>Bebas Pajak (0%)</span>
 							</div>
 						{/if}
 						<div class="flex justify-between text-sm font-bold pt-1 border-t border-gray-200">

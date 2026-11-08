@@ -164,4 +164,15 @@ export async function seedInitialData(): Promise<void> {
 		timestamp: now,
 		synced: true
 	});
+
+	// Default tax settings: PPN 11% aktif
+	await db.app_settings.put({
+		key: 'tax_settings',
+		value: {
+			enabled: true,
+			rate: 11,
+			name: 'PPN',
+			updated_at: now
+		}
+	});
 }

@@ -3,7 +3,7 @@
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
-	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod } from '../types/index.js';
+	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
 		Search,
@@ -24,10 +24,21 @@
 	let selectedCategory = $state<string>('all');
 	let searchQuery = $state<string>('');
 
-	// Keranjang Belanja
+	// Keranjang Belanja & Pengaturan Pajak
 	let cart = $state<CartItem[]>([]);
 	let discount = $state<number>(0);
-	let taxRate = $state<number>(0.1); // PB1 10%
+	let taxSettings = $state<TaxSettings>({
+		enabled: true,
+		rate: 11,
+		name: 'PPN'
+	});
+
+	let taxRate = $derived(taxSettings.enabled ? taxSettings.rate / 100 : 0);
+	let taxLabel = $derived(
+		taxSettings.enabled && taxSettings.rate > 0
+			? `${taxSettings.name} (${taxSettings.rate}%)`
+			: 'Bebas Pajak (0%)'
+	);
 
 	// Modal Pembayaran
 	let isPaymentModalOpen = $state<boolean>(false);
@@ -41,7 +52,19 @@
 
 	onMount(async () => {
 		await loadProductsAndCategories();
+		await loadTaxSettings();
 	});
+
+	async function loadTaxSettings() {
+		try {
+			const setting = await db.app_settings.get('tax_settings');
+			if (setting && setting.value) {
+				taxSettings = setting.value as TaxSettings;
+			}
+		} catch (e) {
+			console.warn('Gagal memuat pengaturan pajak di kasir:', e);
+		}
+	}
 
 	async function loadProductsAndCategories() {
 		categories = await db.categories.toArray();
@@ -401,7 +424,7 @@
 				</div>
 
 				<div class="flex justify-between text-xs text-gray-600">
-					<span>Pajak Resto (10%)</span>
+					<span>{taxLabel}</span>
 					<span class="font-medium text-gray-800">{formatRupiah(taxAmount)}</span>
 				</div>
 
