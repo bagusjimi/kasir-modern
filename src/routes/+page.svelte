@@ -9,6 +9,7 @@
 	import AdminMonitoring from '../lib/components/AdminMonitoring.svelte';
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
 	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
+	import AdminTaxSettings from '../lib/components/AdminTaxSettings.svelte';
 
 	let activeTab = $state<string>('pos');
 
@@ -55,6 +56,8 @@
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
+				{:else if activeTab === 'tax'}
+					<AdminTaxSettings />
 				{/if}
 			{:else if authState.user.role === 'admin'}
 				{#if activeTab === 'users'}
@@ -65,6 +68,8 @@
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
+				{:else if activeTab === 'tax'}
+					<AdminTaxSettings />
 				{/if}
 			{/if}
 		</main>

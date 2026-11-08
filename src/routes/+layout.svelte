@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import '../app.css';
 	import favicon from '#lib/assets/favicon.svg';
-	import { seedInitialData } from '../lib/db/index.js';
+	import { seedInitialData } from '#lib/db/index.js';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();

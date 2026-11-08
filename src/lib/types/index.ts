@@ -150,3 +150,9 @@ export interface SyncStatus {
 	lastError: string | null;
 }
 
+export interface TaxSettings {
+	enabled: boolean;
+	rate: number; // Persentase pajak, contoh: 11 untuk 11%, 10 untuk 10%
+	name: string; // Contoh: 'PPN', 'PB1 (Pajak Resto)'
+	updated_at?: string;
+}

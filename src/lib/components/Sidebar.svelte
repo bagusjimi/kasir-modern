@@ -309,6 +309,20 @@
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>
+
+					<!-- Pengaturan Pajak (Admin View) -->
+					<button
+						onclick={() => selectTab('tax')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'tax' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Receipt class="h-4 w-4 {activeTab === 'tax' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Pengaturan Pajak</span>
+						</div>
+						{#if activeTab === 'tax'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
 				{/if}
 			</nav>
 		</div>
