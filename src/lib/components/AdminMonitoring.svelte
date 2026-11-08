@@ -49,30 +49,60 @@
 
 		branches = await db.branches.toArray();
 
-		// Ambil log aktivitas terbaru
-		const allLogs = await db.activity_logs
-			.reverse()
-			.sortBy('timestamp');
-
-		activityLogs = allLogs;
-
-		// Hitung statistik ringkasan per cabang dari transaksi
-		const allTx = await db.transactions.toArray();
-		const statsMap: typeof branchStats = {};
-
-		for (const b of branches) {
-			const bTx = allTx.filter(t => t.branch_id === b.id && t.status === 'completed');
-			const totalRev = bTx.reduce((sum, t) => sum + t.total, 0);
-			const lastTx = bTx.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-
-			statsMap[b.id] = {
-				txCount: bTx.length,
-				totalRevenue: totalRev,
-				lastActivity: lastTx ? lastTx.created_at : '-'
-			};
+		// Jika online, coba ambil data monitoring real-time langsung dari endpoint backend D1
+		let loadedFromServer = false;
+		if (navigator.onLine) {
+			try {
+				const res = await fetch(`/api/monitoring?branch_id=${selectedBranch}`);
+				if (res.ok) {
+					const data = await res.json() as any;
+					if (data.success) {
+						if (data.activityLogs && data.activityLogs.length > 0) {
+							activityLogs = data.activityLogs;
+						}
+						if (data.branchSummaries) {
+							const statsMap: typeof branchStats = {};
+							for (const b of branches) {
+								const summary = data.branchSummaries.find((s: any) => s.branch_id === b.id);
+								statsMap[b.id] = {
+									txCount: summary ? Number(summary.total_transactions) : 0,
+									totalRevenue: summary ? Number(summary.total_revenue) : 0,
+									lastActivity: summary?.last_activity || '-'
+								};
+							}
+							branchStats = statsMap;
+							loadedFromServer = true;
+						}
+					}
+				}
+			} catch (e) {
+				console.warn('Gagal memuat monitoring dari server D1, beralih ke cache lokal:', e);
+			}
 		}
 
-		branchStats = statsMap;
+		// Fallback ke IndexedDB lokal jika offline atau server belum merespon
+		if (!loadedFromServer) {
+			const allLogs = await db.activity_logs
+				.reverse()
+				.sortBy('timestamp');
+			activityLogs = allLogs;
+
+			const allTx = await db.transactions.toArray();
+			const statsMap: typeof branchStats = {};
+
+			for (const b of branches) {
+				const bTx = allTx.filter(t => t.branch_id === b.id && t.status === 'completed');
+				const totalRev = bTx.reduce((sum, t) => sum + t.total, 0);
+				const lastTx = bTx.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+
+				statsMap[b.id] = {
+					txCount: bTx.length,
+					totalRevenue: totalRev,
+					lastActivity: lastTx ? lastTx.created_at : '-'
+				};
+			}
+			branchStats = statsMap;
+		}
 
 		if (showLoading) isRefreshing = false;
 	}
