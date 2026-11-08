@@ -8,6 +8,7 @@
 		ShoppingCart,
 		Package,
 		Receipt,
+		ReceiptText,
 		BarChart3,
 		Wifi,
 		WifiOff,
@@ -88,6 +89,13 @@
 					<span>Riwayat Transaksi</span>
 				</button>
 				<button
+					onclick={() => onTabChange('expenses')}
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'expenses' ? 'bg-white text-rose-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+				>
+					<ReceiptText class="h-4 w-4" />
+					<span>Pengeluaran</span>
+				</button>
+				<button
 					onclick={() => onTabChange('reports')}
 					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'reports' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
 				>
@@ -107,7 +115,14 @@
 					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'monitoring' ? 'bg-white text-indigo-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
 				>
 					<Activity class="h-4 w-4" />
-					<span>Monitoring Aktivitas Kasir</span>
+					<span>Monitoring Aktivitas</span>
+				</button>
+				<button
+					onclick={() => onTabChange('expenses')}
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'expenses' ? 'bg-white text-rose-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+				>
+					<ReceiptText class="h-4 w-4" />
+					<span>Pengeluaran</span>
 				</button>
 				<button
 					onclick={() => onTabChange('reports')}
@@ -193,6 +208,13 @@
 				<span>Riwayat</span>
 			</button>
 			<button
+				onclick={() => onTabChange('expenses')}
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'expenses' ? 'bg-white text-rose-600 font-bold shadow-xs' : 'text-gray-600'}"
+			>
+				<ReceiptText class="h-3.5 w-3.5" />
+				<span>Biaya</span>
+			</button>
+			<button
 				onclick={() => onTabChange('reports')}
 				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'reports' ? 'bg-white text-emerald-600 font-bold shadow-xs' : 'text-gray-600'}"
 			>
@@ -213,6 +235,13 @@
 			>
 				<Activity class="h-3.5 w-3.5" />
 				<span>Aktivitas</span>
+			</button>
+			<button
+				onclick={() => onTabChange('expenses')}
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'expenses' ? 'bg-white text-rose-600 font-bold shadow-xs' : 'text-gray-600'}"
+			>
+				<ReceiptText class="h-3.5 w-3.5" />
+				<span>Biaya</span>
 			</button>
 			<button
 				onclick={() => onTabChange('reports')}

@@ -78,6 +78,48 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 		`;
 		const dailyResult = await d1.prepare(dailyQuery).bind(...params).all<any>();
 
+		// 4. Pengeluaran Operasional (Expenses)
+		let expWhereClauses: string[] = [];
+		const expParams: any[] = [];
+
+		if (branchId && branchId !== 'all') {
+			expWhereClauses.push('branch_id = ?');
+			expParams.push(branchId);
+		}
+
+		if (startDate) {
+			expWhereClauses.push('date >= ?');
+			expParams.push(startDate);
+		}
+
+		if (endDate) {
+			expWhereClauses.push('date <= ?');
+			expParams.push(endDate);
+		}
+
+		const expWhereSql = expWhereClauses.length > 0 ? `WHERE ${expWhereClauses.join(' AND ')}` : '';
+
+		const expenseSummaryQuery = `
+			SELECT
+				COUNT(*) as total_count,
+				COALESCE(SUM(amount), 0) as total_amount
+			FROM expenses
+			${expWhereSql}
+		`;
+		const expenseSummary = await d1.prepare(expenseSummaryQuery).bind(...expParams).first<any>();
+
+		const expenseCategoryQuery = `
+			SELECT
+				category,
+				COUNT(*) as count,
+				COALESCE(SUM(amount), 0) as total_amount
+			FROM expenses
+			${expWhereSql}
+			GROUP BY category
+			ORDER BY total_amount DESC
+		`;
+		const expenseCategoryResult = await d1.prepare(expenseCategoryQuery).bind(...expParams).all<any>();
+
 		return json({
 			success: true,
 			data: {
@@ -88,7 +130,11 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 					total_tax: 0
 				},
 				payment_breakdown: paymentResult.results || [],
-				daily_breakdown: dailyResult.results || []
+				daily_breakdown: dailyResult.results || [],
+				expenses: {
+					summary: expenseSummary || { total_count: 0, total_amount: 0 },
+					by_category: expenseCategoryResult.results || []
+				}
 			}
 		});
 	} catch (err: any) {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { authState } from '../lib/stores/auth.svelte.js';
-	import Navbar from '../lib/components/Navbar.svelte';
+	import Sidebar from '../lib/components/Sidebar.svelte';
 	import LoginScreen from '../lib/components/LoginScreen.svelte';
 	import CashierPOS from '../lib/components/CashierPOS.svelte';
 	import CashierProducts from '../lib/components/CashierProducts.svelte';
@@ -8,6 +8,7 @@
 	import AdminUsers from '../lib/components/AdminUsers.svelte';
 	import AdminMonitoring from '../lib/components/AdminMonitoring.svelte';
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
+	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
 
 	let activeTab = $state<string>('pos');
 
@@ -36,10 +37,13 @@
 {:else if !authState.user}
 	<LoginScreen />
 {:else}
-	<div class="min-h-screen flex flex-col">
-		<Navbar {activeTab} onTabChange={handleTabChange} />
+	<!-- Layout Dua Kolom: Sidebar Navigasi di Kiri & Konten Utama di Kanan -->
+	<div class="min-h-screen flex flex-col lg:flex-row bg-zinc-100/70">
+		<!-- Sidebar Navigasi Responsif -->
+		<Sidebar {activeTab} onTabChange={handleTabChange} />
 
-		<main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+		<!-- Area Konten Utama -->
+		<main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
 			{#if authState.user.role === 'cashier'}
 				{#if activeTab === 'pos'}
 					<CashierPOS />
@@ -47,6 +51,8 @@
 					<CashierProducts />
 				{:else if activeTab === 'history'}
 					<CashierHistory />
+				{:else if activeTab === 'expenses'}
+					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
 				{/if}
@@ -55,6 +61,8 @@
 					<AdminUsers />
 				{:else if activeTab === 'monitoring'}
 					<AdminMonitoring />
+				{:else if activeTab === 'expenses'}
+					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
 				{/if}

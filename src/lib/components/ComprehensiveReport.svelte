@@ -2,10 +2,11 @@
 	import { onMount } from 'svelte';
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
-	import type { Transaction, Branch, Product } from '../types/index.js';
+	import type { Transaction, Branch, Product, Expense } from '../types/index.js';
 	import {
 		Calendar,
 		TrendingUp,
+		TrendingDown,
 		DollarSign,
 		ShoppingBag,
 		CreditCard,
@@ -20,7 +21,10 @@
 		Wallet,
 		QrCode,
 		ArrowUpRight,
-		Filter
+		Filter,
+		ReceiptText,
+		PieChart,
+		Coins
 	} from 'lucide-svelte';
 
 	// State Filter
@@ -35,6 +39,7 @@
 	let branches = $state<Branch[]>([]);
 	let transactions = $state<Transaction[]>([]);
 	let products = $state<Product[]>([]);
+	let expenses = $state<Expense[]>([]);
 
 	function getTodayDateString(): string {
 		const d = new Date();
@@ -101,9 +106,45 @@
 		try {
 			branches = await db.branches.toArray();
 			products = await db.products.toArray();
-			await loadTransactions();
+			await Promise.all([loadTransactions(), loadExpensesData()]);
 		} finally {
 			isLoading = false;
+		}
+	}
+
+	async function loadExpensesData() {
+		try {
+			let allExp = await db.expenses.toArray();
+			if (navigator.onLine) {
+				try {
+					const branchParam = (authState.user?.role === 'cashier' && authState.branch?.id)
+						? authState.branch.id
+						: selectedBranchId;
+					const res = await fetch(`/api/expenses?branch_id=${branchParam}&limit=300`);
+					if (res.ok) {
+						const result = await res.json() as any;
+						if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+							for (const serverExp of result.data) {
+								const exists = allExp.find(e => e.id === serverExp.id);
+								if (!exists) {
+									await db.expenses.put({ ...serverExp, synced: true });
+									allExp.push({ ...serverExp, synced: true });
+								}
+							}
+						}
+					}
+				} catch (serverErr) {
+					console.warn('Gagal memuat pengeluaran dari server di laporan:', serverErr);
+				}
+			}
+
+			if (authState.user?.role === 'cashier' && authState.branch?.id) {
+				allExp = allExp.filter(e => e.branch_id === authState.branch?.id);
+			}
+
+			expenses = allExp;
+		} catch (e) {
+			console.warn('Error loading expenses in report:', e);
 		}
 	}
 
@@ -173,6 +214,21 @@
 		})
 	);
 
+	// Filter Pengeluaran Operasional Berdasarkan Kriteria
+	let filteredExpenses = $derived(
+		expenses.filter(exp => {
+			if (selectedBranchId !== 'all' && exp.branch_id !== selectedBranchId) {
+				return false;
+			}
+
+			const expDate = exp.date;
+			if (startDate && expDate < startDate) return false;
+			if (endDate && expDate > endDate) return false;
+
+			return true;
+		})
+	);
+
 	// Metrik Utama (KPIs)
 	let totalRevenue = $derived(
 		filteredTransactions.reduce((sum, tx) => sum + (tx.total || 0), 0)
@@ -187,6 +243,20 @@
 
 	let grossProfit = $derived(
 		Math.max(0, totalRevenue - totalGrossCost)
+	);
+
+	// Total Pengeluaran Operasional Minimarket
+	let totalOperationalExpenses = $derived(
+		filteredExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)
+	);
+
+	// Laba Bersih Operasional (Net Profit = Laba Kotor - Beban Operasional)
+	let netProfit = $derived(
+		grossProfit - totalOperationalExpenses
+	);
+
+	let netProfitMarginPercentage = $derived(
+		totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0'
 	);
 
 	let profitMarginPercentage = $derived(
@@ -291,6 +361,35 @@
 		}
 
 		return Object.values(map).sort((a, b) => b.revenue - a.revenue);
+	});
+
+	// Analisis Pengeluaran Berdasarkan Kategori Operasional
+	let expenseCategoryBreakdown = $derived.by(() => {
+		const map: { [cat: string]: { name: string; count: number; amount: number } } = {};
+
+		const labelMap: { [key: string]: string } = {
+			listrik_air_internet: 'Listrik, Air & Internet',
+			gaji_karyawan: 'Gaji & Upah Karyawan',
+			sewa_tempat: 'Sewa Tempat & Bangunan',
+			perlengkapan_kebersihan: 'Kebersihan & Sanitasi',
+			kantong_plastik_kemasan: 'Plastik & Kertas Struk',
+			perawatan_perbaikan: 'Perawatan & Servis Alat',
+			transportasi_logistik: 'Transportasi & Logistik',
+			konsumsi_karyawan: 'Konsumsi & Operasional',
+			lain_lain: 'Biaya Lainnya'
+		};
+
+		for (const exp of filteredExpenses) {
+			const catKey = exp.category || 'lain_lain';
+			const catName = labelMap[catKey] || exp.category_label || catKey;
+			if (!map[catKey]) {
+				map[catKey] = { name: catName, count: 0, amount: 0 };
+			}
+			map[catKey].count += 1;
+			map[catKey].amount += Number(exp.amount) || 0;
+		}
+
+		return Object.values(map).sort((a, b) => b.amount - a.amount);
 	});
 
 	// Penjualan Harian untuk Grafik Tren (Daily Trend)
@@ -414,7 +513,7 @@
 			</button>
 
 			<button
-				onclick={loadTransactions}
+				onclick={() => { loadTransactions(); loadExpensesData(); }}
 				class="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-500 transition cursor-pointer"
 				title="Muat Ulang Data"
 			>
@@ -542,6 +641,46 @@
 		</div>
 	</div>
 
+	<!-- 3B. RINCIAN PENGELUARAN OPERASIONAL MENURUT KATEGORI -->
+	<div class="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-5">
+		<div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+			<div class="flex items-center gap-2">
+				<div class="h-7 w-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+					<ReceiptText class="h-4 w-4" />
+				</div>
+				<h3 class="text-sm font-bold text-gray-900">Rincian Alokasi Biaya Operasional Minimarket</h3>
+			</div>
+			<span class="text-xs font-semibold px-2.5 py-1 bg-rose-50 text-rose-700 rounded-lg">
+				Total Beban: {formatRupiah(totalOperationalExpenses)}
+			</span>
+		</div>
+
+		{#if expenseCategoryBreakdown.length === 0}
+			<p class="text-xs text-gray-400 text-center py-6">Tidak ada catatan biaya operasional dalam periode yang dipilih.</p>
+		{:else}
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				{#each expenseCategoryBreakdown as cat}
+					{@const pct = totalOperationalExpenses > 0 ? Math.round((cat.amount / totalOperationalExpenses) * 100) : 0}
+					<div class="p-3.5 rounded-xl border border-gray-100 bg-gray-50/60 flex flex-col justify-between">
+						<div>
+							<div class="flex items-center justify-between text-xs mb-1">
+								<span class="font-bold text-gray-800">{cat.name}</span>
+								<span class="font-bold text-rose-600">{formatRupiah(cat.amount)}</span>
+							</div>
+							<div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden mt-2">
+								<div class="h-full bg-rose-500 rounded-full" style="width: {pct}%"></div>
+							</div>
+						</div>
+						<div class="flex justify-between items-center text-[10px] text-gray-500 mt-2 pt-1 border-t border-gray-200/50">
+							<span>{cat.count} transaksi biaya</span>
+							<span class="font-semibold text-rose-600">{pct}% dari total biaya</span>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
 	<!-- Info Periode Cetak (Hanya tampil saat print) -->
 	<div class="hidden print:block border-b border-gray-300 pb-3 mb-4 text-xs text-gray-600">
 		<p><strong>Periode Laporan:</strong> {startDate} s/d {endDate}</p>
@@ -570,27 +709,29 @@
 				</span>
 			</div>
 			<p class="text-2xl font-black text-gray-900 mt-2 print:text-xl">{formatRupiah(grossProfit)}</p>
-			<p class="text-[11px] text-gray-400 mt-1">Berdasarkan HPP / Harga Modal</p>
+			<p class="text-[11px] text-gray-400 mt-1">Omset dikurangi HPP Produk</p>
 		</div>
 
-		<!-- Average Order Value (AOV) -->
+		<!-- Total Pengeluaran Operasional -->
 		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Rata-rata Nota (AOV)</p>
-				<ShoppingBag class="h-4 w-4 text-gray-400 print:hidden" />
+				<p class="text-xs font-semibold text-gray-500">Biaya Operasional Toko</p>
+				<TrendingDown class="h-4 w-4 text-rose-500 print:hidden" />
 			</div>
-			<p class="text-2xl font-bold text-gray-900 mt-2 print:text-xl">{formatRupiah(averageOrderValue)}</p>
-			<p class="text-[11px] text-gray-400 mt-1">Per transaksi keranjang</p>
+			<p class="text-2xl font-bold text-rose-600 mt-2 print:text-xl">{formatRupiah(totalOperationalExpenses)}</p>
+			<p class="text-[11px] text-gray-400 mt-1">Total {filteredExpenses.length} catatan pengeluaran</p>
 		</div>
 
-		<!-- Total Item & Diskon -->
-		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<!-- Laba Bersih Operasional (Net Profit) -->
+		<div class="rounded-2xl p-5 border shadow-xs flex flex-col justify-between {netProfit >= 0 ? 'bg-emerald-50/70 border-emerald-200' : 'bg-rose-50/70 border-rose-200'}">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Total Kuantitas Terjual</p>
-				<Layers class="h-4 w-4 text-gray-400 print:hidden" />
+				<p class="text-xs font-bold {netProfit >= 0 ? 'text-emerald-800' : 'text-rose-800'}">Laba Bersih Toko</p>
+				<span class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold {netProfit >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'}">
+					{netProfitMarginPercentage}% Net
+				</span>
 			</div>
-			<p class="text-2xl font-bold text-gray-900 mt-2 print:text-xl">{totalItemsSold} Unit</p>
-			<p class="text-[11px] text-gray-400 mt-1">Diskon: {formatRupiah(totalDiscount)} • PB1: {formatRupiah(totalTax)}</p>
+			<p class="text-2xl font-black mt-2 print:text-xl {netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}">{formatRupiah(netProfit)}</p>
+			<p class="text-[11px] {netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'} mt-1">Laba kotor - Biaya operasional</p>
 		</div>
 	</div>
 

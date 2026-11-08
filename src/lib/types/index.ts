@@ -89,9 +89,38 @@ export interface Transaction {
 	synced: boolean;
 }
 
+export type ExpenseCategory =
+	| 'listrik_air_internet'
+	| 'gaji_karyawan'
+	| 'sewa_tempat'
+	| 'perlengkapan_kebersihan'
+	| 'kantong_plastik_kemasan'
+	| 'perawatan_perbaikan'
+	| 'transportasi_logistik'
+	| 'konsumsi_karyawan'
+	| 'lain_lain';
+
+export interface Expense {
+	id: string;
+	branch_id: string;
+	branch_name?: string;
+	user_id: string;
+	user_name: string;
+	category: ExpenseCategory;
+	category_label?: string;
+	amount: number;
+	description: string;
+	recipient?: string;
+	receipt_number?: string;
+	date: string; // YYYY-MM-DD
+	created_at: string;
+	updated_at: string;
+	synced: boolean;
+}
+
 export interface SyncQueueItem {
 	id: string;
-	entity: 'transaction' | 'product' | 'user' | 'activity';
+	entity: 'transaction' | 'product' | 'user' | 'activity' | 'expense';
 	action: 'insert' | 'update' | 'delete';
 	data: unknown;
 	timestamp: number;

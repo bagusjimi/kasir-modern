@@ -90,10 +90,29 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     timestamp TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS expenses (
+    id TEXT PRIMARY KEY,
+    branch_id TEXT NOT NULL,
+    branch_name TEXT,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    amount REAL NOT NULL,
+    description TEXT NOT NULL,
+    recipient TEXT,
+    receipt_number TEXT,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 -- Indeks untuk performa query real-time monitoring dan sinkronisasi
 CREATE INDEX IF NOT EXISTS idx_transactions_branch ON transactions(branch_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_branch ON activity_logs(branch_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_time ON activity_logs(timestamp);
 CREATE INDEX IF NOT EXISTS idx_products_updated ON products(updated_at);
+CREATE INDEX IF NOT EXISTS idx_expenses_branch ON expenses(branch_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
 
