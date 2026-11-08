@@ -7,12 +7,13 @@
 	import CashierHistory from '../lib/components/CashierHistory.svelte';
 	import AdminUsers from '../lib/components/AdminUsers.svelte';
 	import AdminMonitoring from '../lib/components/AdminMonitoring.svelte';
+	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
 
 	let activeTab = $state<string>('pos');
 
 	$effect(() => {
 		if (authState.user) {
-			if (authState.user.role === 'admin' && activeTab === 'pos') {
+			if (authState.user.role === 'admin' && (activeTab === 'pos' || activeTab === 'products' || activeTab === 'history')) {
 				activeTab = 'users';
 			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'monitoring')) {
 				activeTab = 'pos';
@@ -46,12 +47,16 @@
 					<CashierProducts />
 				{:else if activeTab === 'history'}
 					<CashierHistory />
+				{:else if activeTab === 'reports'}
+					<ComprehensiveReport />
 				{/if}
 			{:else if authState.user.role === 'admin'}
 				{#if activeTab === 'users'}
 					<AdminUsers />
 				{:else if activeTab === 'monitoring'}
 					<AdminMonitoring />
+				{:else if activeTab === 'reports'}
+					<ComprehensiveReport />
 				{/if}
 			{/if}
 		</main>
