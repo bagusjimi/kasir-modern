@@ -10,6 +10,7 @@ Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan 
 - **Peran Admin**:
   - Mengelola data master pengguna (tambah kasir, ubah status, penugasan cabang, reset PIN, hapus user).
   - Memantau log aktivitas kasir dan performa cabang secara real-time.
+  - Mengakses laporan penjualan komprehensif lintas semua cabang dengan analitik eksekutif.
   - **Aturan Proteksi**: Admin **tidak dapat** mengakses entri transaksi kasir.
 - **Peran Kasir**:
   - Antarmuka POS cepat & responsif untuk input transaksi kasir.
@@ -18,7 +19,27 @@ Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan 
   - Cetak struk nota belanja siap cetak (*Thermal Receipt* ukuran 58mm / 80mm).
   - Manajemen produk & penyesuaian stok cabang.
   - Riwayat transaksi harian dan filter omset per cabang.
+  - Mengakses laporan penjualan komprehensif untuk cabang penugasannya.
   - **Aturan Proteksi**: Kasir **tidak memiliki** akses ke panel administrasi sistem.
+
+### 2. Halaman Laporan Komprehensif (Analitik Bisnis)
+- **Ringkasan Metrik Finansial (Executive KPIs)**:
+  - Total omset pendapatan (gross revenue), estimasi laba kotor (*gross profit*), dan persentase profit margin.
+  - Total transaksi yang diselesaikan & rata-rata nilai transaksi (*Average Order Value* / AOV).
+  - Total kuantitas item terjual, akumulasi diskon yang diberikan, dan pajak restoran (PB1).
+- **Filter Fleksibel & Kustomisasi Periode**:
+  - Presets tanggal instan: Hari Ini, Kemarin, 7 Hari Terakhir, 30 Hari Terakhir, Bulan Ini, serta Rentang Tanggal Kustom.
+  - Filter cabang toko (otomatis terkunci untuk kasir sesuai cabang penugasan; bebas dipilih atau semua cabang untuk admin).
+  - Filter metode pembayaran (Semua, Tunai, QRIS Dinamis, Transfer Bank).
+- **Distribusi & Visualisasi Tren**:
+  - Analisis distribusi metode pembayaran (*payment breakdown*) lengkap dengan nominal, persentase kontribusi, dan progress bar.
+  - Grafik batang tren omset harian (*daily revenue trend*) interaktif dengan tooltip detail transaksi.
+  - Analisis penjualan per kategori produk.
+  - Peringkat produk terlaris (*Top 8 Selling Products*) beserta kuantitas, kontribusi omset, dan laba kotor.
+- **Ekspor & Cetak Laporan**:
+  - Unduh rekapitulasi data penjualan ke file CSV/Excel (*Export to CSV*).
+  - Cetak laporan resmi siap cetak (*Print Document*) dengan layout khusus printer bebas gangguan menu navigasi.
+  - Bekerja secara penuh baik dalam mode offline (*IndexedDB*) maupun online (*Cloudflare D1 Backend*).
 
 ### 2. Arsitektur Offline-First & Mekanisme Sinkronisasi
 - **Penyimpanan Lokal (IndexedDB via Dexie.js)**:
@@ -57,6 +78,7 @@ kasir-modern/
 │   │       ├── CashierPOS.svelte       # Antarmuka kasir utama & katalog
 │   │       ├── CashierProducts.svelte  # Kelola produk & stok cabang
 │   │       ├── CashierHistory.svelte   # Riwayat nota & rekap harian
+│       │   ├── ComprehensiveReport.svelte # Halaman laporan komprehensif & analitik POS
 │   │       ├── ReceiptModal.svelte     # Modal struk belanja thermal
 │   │       ├── AdminUsers.svelte       # Manajemen user & kasir
 │   │       └── AdminMonitoring.svelte  # Dashboard monitoring kasir real-time
@@ -64,6 +86,7 @@ kasir-modern/
 │       ├── +layout.svelte     # Layout root, seeding DB & inisialisasi state
 │       ├── +page.svelte       # Router dinamis berdasarkan peran akun
 │       └── api/
+│           ├── reports/       # Endpoint agregasi laporan komprehensif D1
 │           └── sync/          # Endpoint Cloudflare Pages Functions (+server.ts)
 ```
 

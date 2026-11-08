@@ -8,6 +8,7 @@
 		ShoppingCart,
 		Package,
 		Receipt,
+		BarChart3,
 		Wifi,
 		WifiOff,
 		RefreshCw,
@@ -86,6 +87,13 @@
 					<Receipt class="h-4 w-4" />
 					<span>Riwayat Transaksi</span>
 				</button>
+				<button
+					onclick={() => onTabChange('reports')}
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'reports' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+				>
+					<BarChart3 class="h-4 w-4" />
+					<span>Laporan</span>
+				</button>
 			{:else if authState.user?.role === 'admin'}
 				<button
 					onclick={() => onTabChange('users')}
@@ -100,6 +108,13 @@
 				>
 					<Activity class="h-4 w-4" />
 					<span>Monitoring Aktivitas Kasir</span>
+				</button>
+				<button
+					onclick={() => onTabChange('reports')}
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'reports' ? 'bg-white text-indigo-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+				>
+					<BarChart3 class="h-4 w-4" />
+					<span>Laporan</span>
 				</button>
 			{/if}
 		</nav>
@@ -177,6 +192,13 @@
 				<Receipt class="h-3.5 w-3.5" />
 				<span>Riwayat</span>
 			</button>
+			<button
+				onclick={() => onTabChange('reports')}
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'reports' ? 'bg-white text-emerald-600 font-bold shadow-xs' : 'text-gray-600'}"
+			>
+				<BarChart3 class="h-3.5 w-3.5" />
+				<span>Laporan</span>
+			</button>
 		{:else if authState.user?.role === 'admin'}
 			<button
 				onclick={() => onTabChange('users')}
@@ -191,6 +213,13 @@
 			>
 				<Activity class="h-3.5 w-3.5" />
 				<span>Aktivitas</span>
+			</button>
+			<button
+				onclick={() => onTabChange('reports')}
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'reports' ? 'bg-white text-indigo-600 font-bold shadow-xs' : 'text-gray-600'}"
+			>
+				<BarChart3 class="h-3.5 w-3.5" />
+				<span>Laporan</span>
 			</button>
 		{/if}
 	</div>
