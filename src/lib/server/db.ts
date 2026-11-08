@@ -103,21 +103,9 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			('usr-kasir-sby', 'kasir_sby', 'Dewi Lestari', 'cashier', 'cb-03', '1234', 1, ?, ?)
 		`).bind(now, now, now, now, now, now, now, now),
 
-		// Products
-		d1.prepare(`INSERT OR IGNORE INTO products (id, branch_id, sku, barcode, name, category, price, cost_price, stock, unit, is_active, version, created_at, updated_at) VALUES
-			('prod-01', 'all', 'KOP-001', '899123456001', 'Kopi Susu Gula Aren', 'Minuman', 22000, 11000, 120, 'cup', 1, 1, ?, ?),
-			('prod-02', 'all', 'KOP-002', '899123456002', 'Americano Double Shot', 'Minuman', 18000, 8000, 150, 'cup', 1, 1, ?, ?),
-			('prod-03', 'all', 'TEA-001', '899123456003', 'Matcha Latte Ice', 'Minuman', 25000, 13000, 80, 'cup', 1, 1, ?, ?),
-			('prod-04', 'all', 'MAK-001', '899123456004', 'Nasi Goreng Spesial', 'Makanan', 32000, 18000, 50, 'porsi', 1, 1, ?, ?),
-			('prod-05', 'all', 'MAK-002', '899123456005', 'Mie Goreng Jawa', 'Makanan', 28000, 15000, 45, 'porsi', 1, 1, ?, ?),
-			('prod-06', 'all', 'BAK-001', '899123456006', 'Croissant Butter Perancis', 'Camilan & Roti', 24000, 12000, 35, 'pcs', 1, 1, ?, ?),
-			('prod-07', 'all', 'BAK-002', '899123456007', 'Roti Bakar Coklat Keju', 'Camilan & Roti', 20000, 9000, 60, 'porsi', 1, 1, ?, ?),
-			('prod-08', 'all', 'MIN-001', '899123456008', 'Air Mineral Prima 600ml', 'Minuman', 6000, 3000, 200, 'btl', 1, 1, ?, ?)
-		`).bind(now, now, now, now, now, now, now, now, now, now, now, now, now, now, now, now),
-
 		// Log inisialisasi
 		d1.prepare(`INSERT OR IGNORE INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp) VALUES
-			('act-init-server', 'all', 'Pusat', 'usr-admin-1', 'Admin Pusat', 'admin', 'system_initialized', 'Database Cloudflare D1 berhasil diinisialisasi otomatis dengan data awal.', ?)
+			('act-init-server', 'all', 'Pusat', 'usr-admin-1', 'Admin Pusat', 'admin', 'system_initialized', 'Database Cloudflare D1 berhasil diinisialisasi otomatis dengan data awal cabang dan pengguna.', ?)
 		`).bind(now)
 	];
 

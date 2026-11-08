@@ -141,142 +141,9 @@ export async function seedInitialData(): Promise<void> {
 		}
 	];
 
-	// 4. Produk Awal
-	const initialProducts: Product[] = [
-		{
-			id: 'prod-01',
-			branch_id: 'all',
-			sku: 'KOP-001',
-			barcode: '899123456001',
-			name: 'Kopi Susu Gula Aren',
-			category: 'Minuman',
-			price: 22000,
-			cost_price: 11000,
-			stock: 120,
-			unit: 'cup',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		},
-		{
-			id: 'prod-02',
-			branch_id: 'all',
-			sku: 'KOP-002',
-			barcode: '899123456002',
-			name: 'Americano Double Shot',
-			category: 'Minuman',
-			price: 18000,
-			cost_price: 8000,
-			stock: 150,
-			unit: 'cup',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		},
-		{
-			id: 'prod-03',
-			branch_id: 'all',
-			sku: 'TEA-001',
-			barcode: '899123456003',
-			name: 'Matcha Latte Ice',
-			category: 'Minuman',
-			price: 25000,
-			cost_price: 13000,
-			stock: 80,
-			unit: 'cup',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		},
-		{
-			id: 'prod-04',
-			branch_id: 'all',
-			sku: 'MAK-001',
-			barcode: '899123456004',
-			name: 'Nasi Goreng Spesial',
-			category: 'Makanan',
-			price: 32000,
-			cost_price: 18000,
-			stock: 50,
-			unit: 'porsi',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		},
-		{
-			id: 'prod-05',
-			branch_id: 'all',
-			sku: 'MAK-002',
-			barcode: '899123456005',
-			name: 'Mie Goreng Jawa',
-			category: 'Makanan',
-			price: 28000,
-			cost_price: 15000,
-			stock: 45,
-			unit: 'porsi',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		},
-		{
-			id: 'prod-06',
-			branch_id: 'all',
-			sku: 'BAK-001',
-			barcode: '899123456006',
-			name: 'Croissant Butter Perancis',
-			category: 'Camilan & Roti',
-			price: 24000,
-			cost_price: 12000,
-			stock: 35,
-			unit: 'pcs',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		},
-		{
-			id: 'prod-07',
-			branch_id: 'all',
-			sku: 'BAK-002',
-			barcode: '899123456007',
-			name: 'Roti Bakar Coklat Keju',
-			category: 'Camilan & Roti',
-			price: 20000,
-			cost_price: 9000,
-			stock: 60,
-			unit: 'porsi',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		},
-		{
-			id: 'prod-08',
-			branch_id: 'all',
-			sku: 'MIN-001',
-			barcode: '899123456008',
-			name: 'Air Mineral Prima 600ml',
-			category: 'Minuman',
-			price: 6000,
-			cost_price: 3000,
-			stock: 200,
-			unit: 'btl',
-			is_active: true,
-			created_at: now,
-			updated_at: now,
-			version: 1
-		}
-	];
-
 	await db.branches.bulkAdd(initialBranches);
 	await db.categories.bulkAdd(initialCategories);
 	await db.users.bulkAdd(initialUsers);
-	await db.products.bulkAdd(initialProducts);
 
 	// Log aktivitas inisialisasi
 	await db.activity_logs.add({
@@ -287,7 +154,7 @@ export async function seedInitialData(): Promise<void> {
 		user_name: 'Admin Pusat',
 		role: 'admin',
 		action: 'system_initialized',
-		details: 'Database lokal berhasil diinisialisasi dengan data awal cabang, pengguna, dan produk.',
+		details: 'Database lokal berhasil diinisialisasi dengan data awal cabang dan pengguna.',
 		timestamp: now,
 		synced: true
 	});
