@@ -15,7 +15,7 @@
 		{
 			"binding": "DB",
 			"database_name": "kasir_modern_db",
-			"database_id": "kasir_modern_db_local_or_remote_id"
+			"database_id": "fcfa1d33-a9b3-4b51-93c0-3af44a9bf7b2"
 		}
 	],
 	"observability": {
