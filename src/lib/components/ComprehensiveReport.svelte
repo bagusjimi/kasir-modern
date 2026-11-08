@@ -24,9 +24,9 @@
 	} from 'lucide-svelte';
 
 	// State Filter
-	let presetRange = $state<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom'>('today');
-	let startDate = $state<string>(getTodayDateString());
-	let endDate = $state<string>(getTodayDateString());
+	let presetRange = $state<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom'>('all');
+	let startDate = $state<string>('');
+	let endDate = $state<string>('');
 	let selectedBranchId = $state<string>('all');
 	let selectedPaymentMethod = $state<string>('all');
 	let isLoading = $state<boolean>(false);
@@ -63,7 +63,10 @@
 	function applyPreset(preset: typeof presetRange) {
 		presetRange = preset;
 		const today = getTodayDateString();
-		if (preset === 'today') {
+		if (preset === 'all') {
+			startDate = '';
+			endDate = '';
+		} else if (preset === 'today') {
 			startDate = today;
 			endDate = today;
 		} else if (preset === 'yesterday') {
@@ -105,15 +108,45 @@
 	}
 
 	async function loadTransactions() {
-		// Mengambil seluruh transaksi dari IndexedDB
-		let allTx = await db.transactions.toArray();
+		isLoading = true;
+		try {
+			// 1. Ambil seluruh transaksi dari IndexedDB lokal terlebih dahulu
+			let allTx = await db.transactions.toArray();
 
-		// Kasir hanya bisa melihat transaksi cabangnya
-		if (authState.user?.role === 'cashier' && authState.branch?.id) {
-			allTx = allTx.filter(t => t.branch_id === authState.branch?.id);
+			// 2. Jika online, coba ambil data dari endpoint backend D1 untuk menyinkronkan transaksi terbaru
+			if (navigator.onLine) {
+				try {
+					const branchParam = (authState.user?.role === 'cashier' && authState.branch?.id)
+						? authState.branch.id
+						: selectedBranchId;
+					const res = await fetch(`/api/transactions?branch_id=${branchParam}&limit=200`);
+					if (res.ok) {
+						const result = await res.json() as any;
+						if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+							// Simpan transaksi server ke IndexedDB lokal agar cache terupdate
+							for (const serverTx of result.data) {
+								const exists = allTx.find(t => t.id === serverTx.id);
+								if (!exists) {
+									await db.transactions.put({ ...serverTx, synced: true });
+									allTx.push({ ...serverTx, synced: true });
+								}
+							}
+						}
+					}
+				} catch (serverErr) {
+					console.warn('Gagal memuat transaksi dari server, menggunakan cache lokal:', serverErr);
+				}
+			}
+
+			// Kasir hanya bisa melihat transaksi cabangnya
+			if (authState.user?.role === 'cashier' && authState.branch?.id) {
+				allTx = allTx.filter(t => t.branch_id === authState.branch?.id);
+			}
+
+			transactions = allTx;
+		} finally {
+			isLoading = false;
 		}
-
-		transactions = allTx;
 	}
 
 	// Filter Transaksi Berdasarkan Kriteria
@@ -399,6 +432,12 @@
 
 		<!-- Tombol Cepat Periode (Presets) -->
 		<div class="flex flex-wrap items-center gap-1.5">
+			<button
+				onclick={() => applyPreset('all')}
+				class="px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer {presetRange === 'all' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+			>
+				Semua Waktu
+			</button>
 			<button
 				onclick={() => applyPreset('today')}
 				class="px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer {presetRange === 'today' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"

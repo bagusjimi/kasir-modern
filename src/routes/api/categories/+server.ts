@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getD1, ensureD1Seeded } from '$lib/server/db.js';
+import { getD1, ensureD1Seeded } from '#lib/server/db.js';
 
 export const GET: RequestHandler = async ({ platform }) => {
 	const d1 = getD1(platform);
