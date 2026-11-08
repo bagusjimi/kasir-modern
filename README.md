@@ -1,6 +1,6 @@
 # Kasir Modern (Multi-Cabang PWA & Offline-First)
 
-Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan **Tailwind CSS** dengan arsitektur fullstack di **Cloudflare Pages & Workers / Functions**. Dirancang khusus dengan pendekatan **Offline-First**, sehingga transaksi operasional kasir tetap berjalan lancar tanpa koneksi internet dan otomatis tersinkronisasi saat perangkat kembali online.
+Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan **Tailwind CSS** dengan arsitektur fullstack di **Cloudflare Pages & Functions**. Dirancang khusus dengan pendekatan **Offline-First**, sehingga transaksi operasional kasir tetap berjalan lancar tanpa koneksi internet dan otomatis tersinkronisasi saat perangkat kembali online.
 
 ---
 
@@ -39,12 +39,13 @@ Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan 
 ```
 kasir-modern/
 ├── schema.sql                 # Skema D1 SQLite Cloudflare (Tabel & Indeks)
-├── wrangler.jsonc             # Konfigurasi Cloudflare Pages / Workers & D1
+├── wrangler.jsonc             # Konfigurasi Cloudflare Pages & D1 Database
 ├── vite.config.ts             # Konfigurasi Vite, Tailwind CSS v4 & Cloudflare Adapter
 ├── src/
 │   ├── app.html               # Shell HTML & Web Manifest link
 │   ├── app.css                # Styling Tailwind CSS & Struk Thermal Printer
 │   ├── service-worker.ts      # Service Worker PWA untuk offline caching
+│   ├── worker-configuration.d.ts # TypeScript types untuk Cloudflare Bindings (D1)
 │   ├── lib/
 │   │   ├── types/             # Definisi tipe TypeScript domain POS
 │   │   ├── db/                # Inisialisasi Dexie IndexedDB & Seeding Data Awal
@@ -63,7 +64,7 @@ kasir-modern/
 │       ├── +layout.svelte     # Layout root, seeding DB & inisialisasi state
 │       ├── +page.svelte       # Router dinamis berdasarkan peran akun
 │       └── api/
-│           └── sync/          # Endpoint Cloudflare Functions untuk batch sync
+│           └── sync/          # Endpoint Cloudflare Pages Functions (+server.ts)
 ```
 
 ---
@@ -75,21 +76,32 @@ kasir-modern/
    cd kasir-modern
    ```
 
-2. **Jalankan Development Server**:
+2. **Install Dependensi**:
+   ```bash
+   npm install
+   ```
+
+3. **Jalankan Development Server**:
    ```bash
    npm run dev
    ```
    Buka peramban pada alamat `http://localhost:5173`.
 
-3. **Cek Tipe & Kompilasi**:
+4. **Cek Tipe & Kompilasi**:
    ```bash
    npm run check
    ```
 
-4. **Build untuk Produksi**:
+5. **Build untuk Produksi**:
    ```bash
    npm run build
    ```
+
+6. **Preview Runtime Cloudflare Pages Functions Secara Lokal**:
+   ```bash
+   npm run preview
+   ```
+   Akan menjalankan `wrangler pages dev .svelte-kit/cloudflare` dengan emulasi runtime Pages Functions dan database lokal.
 
 ---
 
@@ -106,7 +118,11 @@ Saat pertama kali dijalankan, sistem otomatis melakukan *seeding* data awal:
 
 ---
 
-## ☁️ Deployment ke Cloudflare Pages
+## ☁️ Deployment ke Cloudflare Pages Functions
+
+Proyek ini telah dikonfigurasi menggunakan `@sveltejs/adapter-cloudflare` yang secara otomatis mengompilasi rute dan server endpoints ke **Cloudflare Pages Functions** (`_worker.js` dan `_routes.json`).
+
+### Opsi A: Deploy Langsung via CLI (Wrangler)
 
 1. **Inisialisasi Database D1 di Cloudflare**:
    ```bash
@@ -125,11 +141,23 @@ Saat pertama kali dijalankan, sistem otomatis melakukan *seeding* data awal:
 
 2. **Terapkan Skema Database**:
    ```bash
-   npx wrangler d1 execute kasir_modern_db --file=./schema.sql
+   npx wrangler d1 execute kasir_modern_db --remote --file=./schema.sql
    ```
 
-3. **Deploy Langsung**:
+3. **Build & Deploy ke Cloudflare Pages**:
    ```bash
    npm run deploy
    ```
-   Aplikasi akan ter-deploy di jaringan edge Cloudflare secara global dengan latensi rendah.
+   Perintah ini akan menjalankan `vite build` dan `wrangler pages deploy .svelte-kit/cloudflare`.
+
+### Opsi B: Deploy Otomatis via Cloudflare Dashboard (Git Integration)
+
+1. Sambungkan repositori Git Anda ke **Cloudflare Dashboard > Workers & Pages > Create application > Pages > Connect to Git**.
+2. Konfigurasi build setting:
+   - **Framework preset**: `SvelteKit`
+   - **Build command**: `npm run build`
+   - **Build output directory**: `.svelte-kit/cloudflare`
+   - **Root directory**: `/` (atau lokasi root proyek)
+3. Di tab **Settings > Functions > D1 database bindings**:
+   - Tambahkan binding dengan nama variabel **`DB`**, pilih database D1 `kasir_modern_db`.
+4. Jalankan deployment. Cloudflare Pages akan otomatis mendeteksi Pages Functions dan mendeploy aplikasi kasir PWA Anda secara global.
