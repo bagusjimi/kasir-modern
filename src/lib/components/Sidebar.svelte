@@ -120,7 +120,7 @@
 <!-- Warna Netral (Zinc/Slate) dengan aksen halus untuk sentuhan modern elegan  -->
 <!-- ========================================================================= -->
 <aside
-	class="fixed inset-y-0 left-0 z-50 flex w-72 flex-col justify-between border-r border-zinc-200/90 bg-zinc-50/95 backdrop-blur-md transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 {isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}"
+	class="fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col justify-between border-r border-zinc-200/90 bg-zinc-50/95 backdrop-blur-md transition-transform duration-200 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:self-start lg:translate-x-0 {isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}"
 >
 	<!-- Bagian Atas: Identitas Brand & Informasi Cabang -->
 	<div class="flex flex-col p-5 pb-3">

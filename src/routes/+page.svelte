@@ -43,7 +43,7 @@
 		<Sidebar {activeTab} onTabChange={handleTabChange} />
 
 		<!-- Area Konten Utama -->
-		<main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+		<main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
 			{#if authState.user.role === 'cashier'}
 				{#if activeTab === 'pos'}
 					<CashierPOS />
