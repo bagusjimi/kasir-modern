@@ -62,6 +62,11 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			d1.prepare(`CREATE TABLE IF NOT EXISTS activity_logs (
 				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, branch_name TEXT, user_id TEXT NOT NULL,
 				user_name TEXT NOT NULL, role TEXT NOT NULL, action TEXT NOT NULL, details TEXT NOT NULL, timestamp TEXT NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS expenses (
+				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, branch_name TEXT, user_id TEXT NOT NULL,
+				user_name TEXT NOT NULL, category TEXT NOT NULL, amount REAL NOT NULL, description TEXT NOT NULL,
+				recipient TEXT, receipt_number TEXT, date TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 			)`)
 		]);
 	} catch (tableErr) {

@@ -1,5 +1,5 @@
 import { db } from '../db/index.js';
-import type { SyncStatus, Transaction, ActivityLog } from '../types/index.js';
+import type { SyncStatus, Transaction, ActivityLog, Expense } from '../types/index.js';
 
 interface SyncApiResponse {
 	success: boolean;
@@ -9,6 +9,8 @@ interface SyncApiResponse {
 		products?: any[];
 		users?: any[];
 		branches?: any[];
+		categories?: any[];
+		expenses?: any[];
 	};
 }
 
@@ -50,9 +52,10 @@ export class SyncEngine {
 	async updatePendingCount(): Promise<number> {
 		try {
 			const unsyncedTx = await db.transactions.filter(t => !t.synced).count();
+			const unsyncedExp = await db.expenses.filter(e => !e.synced).count();
 			const unsyncedLogs = await db.activity_logs.filter(l => !l.synced).count();
 			const queueCount = await db.sync_queue.where('status').equals('pending').count();
-			this.pendingCount = unsyncedTx + unsyncedLogs + queueCount;
+			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + queueCount;
 			return this.pendingCount;
 		} catch (e) {
 			console.warn('Gagal menghitung antrean sync:', e);
@@ -80,13 +83,18 @@ export class SyncEngine {
 				.filter(t => !t.synced)
 				.toArray();
 
-			// 2. Ambil log aktivitas yang belum tersinkron
+			// 2. Ambil pengeluaran operasional yang belum tersinkron
+			const pendingExpenses = await db.expenses
+				.filter(e => !e.synced)
+				.toArray();
+
+			// 3. Ambil log aktivitas yang belum tersinkron
 			const pendingLogs = await db.activity_logs
 				.filter(l => !l.synced)
 				.limit(50)
 				.toArray();
 
-			// 3. Ambil antrean perubahan umum (produk, user, dll.)
+			// 4. Ambil antrean perubahan umum (produk, user, expense delete, dll.)
 			const queueItems = await db.sync_queue
 				.where('status')
 				.equals('pending')
@@ -96,6 +104,7 @@ export class SyncEngine {
 			// Payload yang akan dikirim ke server
 			const payload = {
 				transactions: pendingTransactions,
+				expenses: pendingExpenses,
 				activity_logs: pendingLogs,
 				queue: queueItems,
 				lastSyncedAt: this.lastSyncedAt
@@ -118,6 +127,13 @@ export class SyncEngine {
 				if (pendingTransactions.length > 0) {
 					for (const tx of pendingTransactions) {
 						await db.transactions.update(tx.id, { synced: true });
+					}
+				}
+
+				// Tandai pengeluaran sebagai tersinkron
+				if (pendingExpenses.length > 0) {
+					for (const exp of pendingExpenses) {
+						await db.expenses.update(exp.id, { synced: true });
 					}
 				}
 
@@ -144,6 +160,13 @@ export class SyncEngine {
 					}
 					if (result.serverUpdates.branches && result.serverUpdates.branches.length > 0) {
 						await db.branches.bulkPut(result.serverUpdates.branches);
+					}
+					if (result.serverUpdates.expenses && result.serverUpdates.expenses.length > 0) {
+						const formattedExpenses = result.serverUpdates.expenses.map(e => ({
+							...e,
+							synced: true
+						}));
+						await db.expenses.bulkPut(formattedExpenses);
 					}
 				}
 

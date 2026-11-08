@@ -7,7 +7,8 @@ import type {
 	Transaction,
 	TransactionItem,
 	SyncQueueItem,
-	ActivityLog
+	ActivityLog,
+	Expense
 } from '../types/index.js';
 
 export interface SettingItem {
@@ -24,6 +25,7 @@ export class KasirDatabase extends Dexie {
 	transaction_items!: Table<TransactionItem, string>;
 	sync_queue!: Table<SyncQueueItem, string>;
 	activity_logs!: Table<ActivityLog, string>;
+	expenses!: Table<Expense, string>;
 	app_settings!: Table<SettingItem, string>;
 
 	constructor() {
@@ -39,6 +41,10 @@ export class KasirDatabase extends Dexie {
 			sync_queue: 'id, entity, action, timestamp, status',
 			activity_logs: 'id, branch_id, user_id, timestamp',
 			app_settings: 'key'
+		});
+
+		this.version(2).stores({
+			expenses: 'id, branch_id, category, date, created_at'
 		});
 	}
 }

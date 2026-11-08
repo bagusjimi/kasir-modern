@@ -8,6 +8,7 @@
 	import AdminUsers from '../lib/components/AdminUsers.svelte';
 	import AdminMonitoring from '../lib/components/AdminMonitoring.svelte';
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
+	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
 
 	let activeTab = $state<string>('pos');
 
@@ -47,6 +48,8 @@
 					<CashierProducts />
 				{:else if activeTab === 'history'}
 					<CashierHistory />
+				{:else if activeTab === 'expenses'}
+					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
 				{/if}
@@ -55,6 +58,8 @@
 					<AdminUsers />
 				{:else if activeTab === 'monitoring'}
 					<AdminMonitoring />
+				{:else if activeTab === 'expenses'}
+					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
 				{/if}

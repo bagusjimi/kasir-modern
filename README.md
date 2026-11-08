@@ -10,7 +10,8 @@ Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan 
 - **Peran Admin**:
   - Mengelola data master pengguna (tambah kasir, ubah status, penugasan cabang, reset PIN, hapus user).
   - Memantau log aktivitas kasir dan performa cabang secara real-time.
-  - Mengakses laporan penjualan komprehensif lintas semua cabang dengan analitik eksekutif.
+  - Mengelola dan memantau pengeluaran operasional lintas semua cabang toko.
+  - Mengakses laporan penjualan komprehensif lintas semua cabang dengan analitik eksekutif dan laba bersih.
   - **Aturan Proteksi**: Admin **tidak dapat** mengakses entri transaksi kasir.
 - **Peran Kasir**:
   - Antarmuka POS cepat & responsif untuk input transaksi kasir.
@@ -19,10 +20,39 @@ Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan 
   - Cetak struk nota belanja siap cetak (*Thermal Receipt* ukuran 58mm / 80mm).
   - Manajemen produk & penyesuaian stok cabang.
   - Riwayat transaksi harian dan filter omset per cabang.
-  - Mengakses laporan penjualan komprehensif untuk cabang penugasannya.
+  - Pencatatan dan pengelolaan pengeluaran/beban operasional minimarket pada cabang penugasannya.
+  - Mengakses laporan komprehensif untuk cabang penugasannya.
   - **Aturan Proteksi**: Kasir **tidak memiliki** akses ke panel administrasi sistem.
 
-### 2. Halaman Laporan Komprehensif (Analitik Bisnis)
+### 2. Pengelolaan Pengeluaran Operasional (Expense Management)
+- **Kategori Beban Minimarket Lengkap**:
+  - Tagihan Listrik, Air & Internet (PLN, PDAM, WiFi).
+  - Gaji & Upah Karyawan (kasir, staf gudang, lembur).
+  - Sewa Tempat & Bangunan (ruko, kios, retribusi tempat).
+  - Kebersihan & Sanitasi (sapu, pel, sabun cuci, pewangi ruangan, trash bag).
+  - Kantong Plastik & Kertas Struk Thermal Kasir.
+  - Perawatan & Servis Perlengkapan (AC minimarket, showcase chiller, freezer, rak).
+  - Transportasi & Logistik (bensin kirim stok, kurir, parkir).
+  - Konsumsi & Operasional Harian (air galon toko, konsumsi piket).
+  - Biaya Operasional Lainnya.
+- **Fitur Pengeluaran**:
+  - Catat beban baru lengkap dengan tanggal, cabang, kategori, nominal, deskripsi, penerima/vendor, dan nomor bukti struk.
+  - Edit dan hapus pengeluaran dengan konfirmasi.
+  - Pencarian dan filter instan berdasarkan kata kunci, kategori, cabang, dan rentang tanggal.
+  - Ekspor rekap biaya operasional ke format file CSV/Excel.
+  - Dukungan Offline-First: pencatatan tetap dapat dilakukan saat internet terputus dan otomatis tersinkronisasi saat kembali terhubung.
+
+### 3. Halaman Laporan Komprehensif (Analitik Bisnis & Laba Bersih)
+- **Ringkasan Finansial Eksekutif**:
+  - Total omset pendapatan (gross revenue), estimasi laba kotor (*gross profit*), dan persentase gross margin.
+  - Total pengeluaran operasional minimarket dalam periode terpilih.
+  - Perhitungan Laba Bersih Toko (*Net Profit* = Laba Kotor - Beban Operasional) dan persentase *Net Margin*.
+- **Rincian Alokasi Beban**:
+  - Visualisasi distribusi pengeluaran per kategori operasional lengkap dengan nominal, progress bar, dan persentase beban.
+- **Filter Fleksibel & Kustomisasi Periode**:
+  - Presets tanggal instan: Hari Ini, Kemarin, 7 Hari Terakhir, 30 Hari Terakhir, Bulan Ini, serta Rentang Tanggal Kustom.
+  - Filter cabang toko (otomatis terkunci untuk kasir sesuai cabang penugasan; bebas dipilih atau semua cabang untuk admin).
+  - Filter metode pembayaran (Semua, Tunai, QRIS Dinamis, Transfer Bank).
 - **Ringkasan Metrik Finansial (Executive KPIs)**:
   - Total omset pendapatan (gross revenue), estimasi laba kotor (*gross profit*), dan persentase profit margin.
   - Total transaksi yang diselesaikan & rata-rata nilai transaksi (*Average Order Value* / AOV).

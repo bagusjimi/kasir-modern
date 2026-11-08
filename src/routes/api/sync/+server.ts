@@ -12,10 +12,35 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	try {
 		const payload = (await request.json()) as any;
-		const { transactions = [], activity_logs = [], queue = [], lastSyncedAt = null } = payload || {};
+		const { transactions = [], activity_logs = [], expenses = [], queue = [], lastSyncedAt = null } = payload || {};
 
 		const statements: any[] = [];
 		const now = new Date().toISOString();
+
+		// 0. Sinkronisasi Pengeluaran (Expenses)
+		for (const exp of expenses) {
+			statements.push(
+				d1.prepare(`
+					INSERT INTO expenses (id, branch_id, branch_name, user_id, user_name, category, amount, description, recipient, receipt_number, date, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(id) DO UPDATE SET
+						branch_id = excluded.branch_id,
+						branch_name = excluded.branch_name,
+						category = excluded.category,
+						amount = excluded.amount,
+						description = excluded.description,
+						recipient = excluded.recipient,
+						receipt_number = excluded.receipt_number,
+						date = excluded.date,
+						updated_at = excluded.updated_at
+				`).bind(
+					exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
+					exp.user_name, exp.category, Number(exp.amount), exp.description,
+					exp.recipient || '', exp.receipt_number || '', exp.date,
+					exp.created_at || now, exp.updated_at || now
+				)
+			);
+		}
 
 		// 1. Sinkronisasi Transaksi
 		for (const tx of transactions) {
@@ -121,6 +146,35 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 						d1.prepare('DELETE FROM users WHERE id = ?').bind(u.id)
 					);
 				}
+			} else if (q.entity === 'expense') {
+				const exp = q.data;
+				if (q.action === 'insert' || q.action === 'update') {
+					statements.push(
+						d1.prepare(`
+							INSERT INTO expenses (id, branch_id, branch_name, user_id, user_name, category, amount, description, recipient, receipt_number, date, created_at, updated_at)
+							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+							ON CONFLICT(id) DO UPDATE SET
+								branch_id = excluded.branch_id,
+								branch_name = excluded.branch_name,
+								category = excluded.category,
+								amount = excluded.amount,
+								description = excluded.description,
+								recipient = excluded.recipient,
+								receipt_number = excluded.receipt_number,
+								date = excluded.date,
+								updated_at = excluded.updated_at
+						`).bind(
+							exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
+							exp.user_name, exp.category, Number(exp.amount), exp.description,
+							exp.recipient || '', exp.receipt_number || '', exp.date,
+							exp.created_at || now, exp.updated_at || now
+						)
+					);
+				} else if (q.action === 'delete') {
+					statements.push(
+						d1.prepare('DELETE FROM expenses WHERE id = ?').bind(exp.id)
+					);
+				}
 			}
 		}
 
@@ -145,6 +199,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		// 4. Tarik Pembaruan dari D1 Server (Pull delta changes)
 		let updatedProducts: any[] = [];
 		let updatedUsers: any[] = [];
+		let updatedExpenses: any[] = [];
 		let branches: any[] = [];
 		let categories: any[] = [];
 
@@ -157,13 +212,17 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				...u,
 				active: Boolean(u.active)
 			}));
+
+			const expRes = await d1.prepare('SELECT * FROM expenses WHERE updated_at > ?').bind(lastSyncedAt).all();
+			updatedExpenses = expRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
-			const [prodRes, userRes, branchRes, catRes] = await d1.batch([
+			const [prodRes, userRes, branchRes, catRes, expRes] = await d1.batch([
 				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
 				d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1'),
 				d1.prepare('SELECT * FROM branches'),
-				d1.prepare('SELECT * FROM categories')
+				d1.prepare('SELECT * FROM categories'),
+				d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200')
 			]);
 
 			updatedProducts = prodRes.results || [];
@@ -173,17 +232,19 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			}));
 			branches = branchRes.results || [];
 			categories = catRes.results || [];
+			updatedExpenses = expRes.results || [];
 		}
 
 		return json({
 			success: true,
-			message: `Sinkronisasi D1 berhasil: ${transactions.length} transaksi, ${activity_logs.length} log, ${queue.length} antrean.`,
+			message: `Sinkronisasi D1 berhasil: ${transactions.length} transaksi, ${expenses.length} pengeluaran, ${activity_logs.length} log, ${queue.length} antrean.`,
 			syncedAt: now,
 			serverUpdates: {
 				products: updatedProducts,
 				users: updatedUsers,
 				branches,
-				categories
+				categories,
+				expenses: updatedExpenses
 			}
 		});
 	} catch (error: any) {
