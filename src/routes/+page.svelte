@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { authState } from '../lib/stores/auth.svelte.js';
-	import Navbar from '../lib/components/Navbar.svelte';
+	import Sidebar from '../lib/components/Sidebar.svelte';
 	import LoginScreen from '../lib/components/LoginScreen.svelte';
 	import CashierPOS from '../lib/components/CashierPOS.svelte';
 	import CashierProducts from '../lib/components/CashierProducts.svelte';
@@ -37,10 +37,13 @@
 {:else if !authState.user}
 	<LoginScreen />
 {:else}
-	<div class="min-h-screen flex flex-col">
-		<Navbar {activeTab} onTabChange={handleTabChange} />
+	<!-- Layout Dua Kolom: Sidebar Navigasi di Kiri & Konten Utama di Kanan -->
+	<div class="min-h-screen flex flex-col lg:flex-row bg-zinc-100/70">
+		<!-- Sidebar Navigasi Responsif -->
+		<Sidebar {activeTab} onTabChange={handleTabChange} />
 
-		<main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+		<!-- Area Konten Utama -->
+		<main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
 			{#if authState.user.role === 'cashier'}
 				{#if activeTab === 'pos'}
 					<CashierPOS />
