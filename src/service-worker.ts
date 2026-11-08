@@ -3,16 +3,42 @@
 
 import { assets, immutable } from '$app/manifest';
 import { version } from '$app/env';
+import { resolve } from '$app/paths';
 
 declare const self: ServiceWorkerGlobalScope;
 
 const CACHE_NAME = `kasir-modern-cache-${version}`;
-const ASSETS_TO_CACHE = [...assets, ...immutable];
+
+// Ekstrak URL string dari manifest assets dan immutable (yang bertipe { path: string })
+// Abaikan file dot/hidden seperti .assetsignore yang tidak disajikan web server
+const formatPath = (item: any): string => {
+	const rawPath = typeof item === 'string' ? item : item?.path || '';
+	if (!rawPath) return '';
+	return resolve(rawPath as any);
+};
+
+const RAW_ASSETS = [...assets, ...immutable];
+const ASSETS_TO_CACHE = [
+	resolve('/'),
+	...RAW_ASSETS
+		.map(formatPath)
+		.filter((p) => p && !p.includes('/.') && !p.endsWith('.assetsignore'))
+];
+
+// Hilangkan duplikasi
+const UNIQUE_ASSETS = Array.from(new Set(ASSETS_TO_CACHE));
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(
-		caches.open(CACHE_NAME).then((cache) => {
-			return cache.addAll(ASSETS_TO_CACHE);
+		caches.open(CACHE_NAME).then(async (cache) => {
+			// Gunakan cache.add satu per satu dengan catch agar jika satu file hilang/404, tidak menggagalkan seluruh caching
+			await Promise.all(
+				UNIQUE_ASSETS.map((url) =>
+					cache.add(url).catch((err) => {
+						console.warn(`[SW] Gagal menyimpan aset ke cache: ${url}`, err);
+					})
+				)
+			);
 		}).then(() => {
 			return self.skipWaiting();
 		})
@@ -56,7 +82,7 @@ self.addEventListener('fetch', (event) => {
 			}).catch(() => {
 				// Fallback jika offline dan request halaman navigasi
 				if (event.request.mode === 'navigate') {
-					return caches.match('/') as Promise<Response>;
+					return caches.match(resolve('/')) as Promise<Response>;
 				}
 				throw new Error('Jaringan offline dan aset tidak tersedia di cache.');
 			});
