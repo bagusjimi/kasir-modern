@@ -181,7 +181,23 @@ export const DELETE: RequestHandler = async ({ url, platform }) => {
 			return json({ success: false, message: 'Parameter id diperlukan' }, { status: 400 });
 		}
 
+		// Ambil data produk sebelum dihapus untuk log
+		const existing = await d1.prepare('SELECT name, branch_id FROM products WHERE id = ?').bind(id).first() as any;
+
 		await d1.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
+
+		if (existing) {
+			const now = new Date().toISOString();
+			await d1.prepare(`
+				INSERT INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`).bind(
+				`act-${Date.now()}`, existing.branch_id || 'all', existing.branch_id === 'all' ? 'Semua Cabang' : existing.branch_id,
+				'system', 'Kasir', 'cashier', 'delete_product',
+				`Menghapus produk: ${existing.name}`, now
+			).run();
+		}
+
 		return json({ success: true, message: 'Produk berhasil dihapus' });
 	} catch (err: any) {
 		return json({ success: false, message: err.message }, { status: 500 });
