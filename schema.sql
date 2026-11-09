@@ -112,6 +112,31 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS stock_transfers (
+    id TEXT PRIMARY KEY,
+    transfer_number TEXT NOT NULL UNIQUE,
+    source_branch_id TEXT NOT NULL,
+    destination_branch_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending', 'in_transit', 'completed', 'cancelled')) DEFAULT 'in_transit',
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (source_branch_id) REFERENCES branches(id),
+    FOREIGN KEY (destination_branch_id) REFERENCES branches(id)
+);
+
+CREATE TABLE IF NOT EXISTS stock_transfer_items (
+    id TEXT PRIMARY KEY,
+    transfer_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    quantity_sent INTEGER NOT NULL,
+    quantity_received INTEGER,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (transfer_id) REFERENCES stock_transfers(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
 -- Indeks untuk performa query real-time monitoring dan sinkronisasi
 CREATE INDEX IF NOT EXISTS idx_transactions_branch ON transactions(branch_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
@@ -121,4 +146,8 @@ CREATE INDEX IF NOT EXISTS idx_products_updated ON products(updated_at);
 CREATE INDEX IF NOT EXISTS idx_expenses_branch ON expenses(branch_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_source ON stock_transfers(source_branch_id);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_dest ON stock_transfers(destination_branch_id);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_status ON stock_transfers(status);
+CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id);
 

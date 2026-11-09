@@ -156,3 +156,33 @@ export interface TaxSettings {
 	name: string; // Contoh: 'PPN', 'PB1 (Pajak Resto)'
 	updated_at?: string;
 }
+
+export type StockTransferStatus = 'pending' | 'in_transit' | 'completed' | 'cancelled';
+
+export interface StockTransferItem {
+	id: string;
+	transfer_id: string;
+	product_id: string;
+	product_name?: string;
+	sku?: string;
+	unit?: string;
+	quantity_sent: number;
+	quantity_received?: number | null;
+	created_at?: string;
+}
+
+export interface StockTransfer {
+	id: string;
+	transfer_number: string;
+	source_branch_id: string;
+	source_branch_name?: string;
+	destination_branch_id: string;
+	destination_branch_name?: string;
+	status: StockTransferStatus;
+	created_by: string;
+	created_by_name?: string;
+	notes?: string | null;
+	items?: StockTransferItem[];
+	created_at: string;
+	updated_at: string;
+}

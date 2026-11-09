@@ -10,6 +10,7 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "node --experimental-strip-types --test tests/stock_transfer.test.ts",
     "deploy": "npm run build && wrangler pages deploy .svelte-kit/cloudflare",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },
@@ -20,6 +21,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^26.6.6",
+    "playwright": "^1.65.0",
     "svelte": "^5.57.1",
     "svelte-check": "^4.6.0",
     "tailwindcss": "^4.3.5",

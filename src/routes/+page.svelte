@@ -10,14 +10,15 @@
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
 	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
 	import AdminTaxSettings from '../lib/components/AdminTaxSettings.svelte';
+	import AdminStockTransfers from '../lib/components/AdminStockTransfers.svelte';
 
 	let activeTab = $state<string>('pos');
 
 	$effect(() => {
 		if (authState.user) {
 			if (authState.user.role === 'admin' && (activeTab === 'pos' || activeTab === 'products' || activeTab === 'history')) {
-				activeTab = 'users';
-			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'monitoring')) {
+				activeTab = 'transfers';
+			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'monitoring' || activeTab === 'transfers')) {
 				activeTab = 'pos';
 			}
 		}
@@ -64,6 +65,8 @@
 					<AdminUsers />
 				{:else if activeTab === 'monitoring'}
 					<AdminMonitoring />
+				{:else if activeTab === 'transfers'}
+					<AdminStockTransfers />
 				{:else if activeTab === 'expenses'}
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}

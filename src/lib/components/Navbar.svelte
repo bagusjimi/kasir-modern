@@ -16,7 +16,8 @@
 		LogOut,
 		Building2,
 		ShieldCheck,
-		AlertTriangle
+		AlertTriangle,
+		ArrowLeftRight
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -130,6 +131,13 @@
 				>
 					<BarChart3 class="h-4 w-4" />
 					<span>Laporan</span>
+				</button>
+				<button
+					onclick={() => onTabChange('transfers')}
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'transfers' ? 'bg-white text-indigo-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+				>
+					<ArrowLeftRight class="h-4 w-4" />
+					<span>Transfer Stok</span>
 				</button>
 			{/if}
 		</nav>
@@ -249,6 +257,13 @@
 			>
 				<BarChart3 class="h-3.5 w-3.5" />
 				<span>Laporan</span>
+			</button>
+			<button
+				onclick={() => onTabChange('transfers')}
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'transfers' ? 'bg-white text-indigo-600 font-bold shadow-xs' : 'text-gray-600'}"
+			>
+				<ArrowLeftRight class="h-3.5 w-3.5" />
+				<span>Transfer</span>
 			</button>
 		{/if}
 	</div>

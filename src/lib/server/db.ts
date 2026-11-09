@@ -70,6 +70,15 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			)`),
 			d1.prepare(`CREATE TABLE IF NOT EXISTS app_settings (
 				key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_transfers (
+				id TEXT PRIMARY KEY, transfer_number TEXT NOT NULL UNIQUE, source_branch_id TEXT NOT NULL,
+				destination_branch_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending', 'in_transit', 'completed', 'cancelled')) DEFAULT 'in_transit',
+				created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, notes TEXT
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_transfer_items (
+				id TEXT PRIMARY KEY, transfer_id TEXT NOT NULL, product_id TEXT NOT NULL,
+				quantity_sent INTEGER NOT NULL, quantity_received INTEGER, created_at TEXT NOT NULL
 			)`)
 		]);
 	} catch (tableErr) {
