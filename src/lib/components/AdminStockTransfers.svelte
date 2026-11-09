@@ -69,9 +69,16 @@
 						const resData = (await res.json()) as any;
 						if (resData.success && Array.isArray(resData.data)) {
 							transfers = resData.data;
-							// Cache ke IndexedDB
-							await db.stock_transfers.clear();
-							await db.stock_transfers.bulkPut(transfers);
+							// Cache ke IndexedDB: pastikan data disimpan sebagai plain object yang serializable
+							try {
+								const cleanData = JSON.parse(JSON.stringify(resData.data)) as StockTransfer[];
+								await db.stock_transfers.clear();
+								if (cleanData.length > 0) {
+									await db.stock_transfers.bulkPut(cleanData);
+								}
+							} catch (dexieErr) {
+								console.warn('Gagal caching data transfer ke Dexie:', dexieErr);
+							}
 							isLoading = false;
 							return;
 						}
