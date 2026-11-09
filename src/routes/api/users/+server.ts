@@ -1,6 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import {
+	extractPaginationParams,
+	validateSortColumn,
+	validateSortOrder
+} from '#lib/server/pagination.js';
+import { buildPaginationMeta } from '#lib/types/pagination.js';
 
 export const GET: RequestHandler = async ({ url, platform }) => {
 	const d1 = getD1(platform);
@@ -12,25 +18,79 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 
 	try {
 		const branchId = url.searchParams.get('branch_id');
-		let sql = 'SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE 1=1';
+		const role = url.searchParams.get('role');
+		const active = url.searchParams.get('active');
+		const search = url.searchParams.get('search');
+
+		const sortBy = validateSortColumn(
+			url.searchParams.get('sort_by'),
+			['name', 'username', 'role', 'branch_id', 'created_at', 'active'],
+			'name'
+		);
+		const sortOrder = validateSortOrder(url.searchParams.get('sort_order'), 'ASC');
+
+		const whereClauses: string[] = ['1=1'];
 		const params: any[] = [];
 
 		if (branchId && branchId !== 'all') {
-			sql += ' AND (branch_id = ? OR branch_id = "all")';
+			whereClauses.push('(branch_id = ? OR branch_id = "all")');
 			params.push(branchId);
 		}
 
-		sql += ' ORDER BY role ASC, name ASC';
+		if (role && role !== 'all') {
+			whereClauses.push('role = ?');
+			params.push(role);
+		}
 
-		const res = await d1.prepare(sql).bind(...params).all();
+		if (active === 'true' || active === '1') {
+			whereClauses.push('active = 1');
+		} else if (active === 'false' || active === '0') {
+			whereClauses.push('active = 0');
+		}
+
+		if (search && search.trim() !== '') {
+			whereClauses.push('(name LIKE ? OR username LIKE ?)');
+			const q = `%${search.trim()}%`;
+			params.push(q, q);
+		}
+
+		const whereSql = whereClauses.join(' AND ');
+
+		const pagination = extractPaginationParams(url, 50, 100);
+
+		// Count total matching users
+		const countQuery = `SELECT COUNT(*) as total FROM users WHERE ${whereSql}`;
+		const countResult = await d1.prepare(countQuery).bind(...params).first<{ total: number }>();
+		const total = countResult?.total || 0;
+
+		let dataSql = `SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE ${whereSql} ORDER BY ${sortBy} ${sortOrder}`;
+		const dataParams = [...params];
+
+		if (pagination.paginate) {
+			dataSql += ' LIMIT ? OFFSET ?';
+			dataParams.push(pagination.limit, pagination.offset);
+		}
+
+		const res = await d1.prepare(dataSql).bind(...dataParams).all();
 		const mappedUsers = (res.results || []).map((u: any) => ({
 			...u,
 			active: Boolean(u.active)
 		}));
 
+		const meta = buildPaginationMeta(total, pagination.page, pagination.limit);
+
 		return json({
 			success: true,
-			data: mappedUsers
+			data: mappedUsers,
+			pagination: meta,
+			filters: {
+				branch_id: branchId || 'all',
+				role: role || 'all',
+				active: active ?? null,
+				search: search || '',
+				sort_by: sortBy,
+				sort_order: sortOrder
+			}
 		});
 	} catch (err: any) {
 		return json({ success: false, message: err.message }, { status: 500 });

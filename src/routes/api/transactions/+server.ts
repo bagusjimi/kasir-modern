@@ -1,6 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import {
+	extractPaginationParams,
+	validateSortColumn,
+	validateSortOrder
+} from '#lib/server/pagination.js';
+import { buildPaginationMeta } from '#lib/types/pagination.js';
 
 export const GET: RequestHandler = async ({ url, platform }) => {
 	const d1 = getD1(platform);
@@ -13,32 +19,103 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 	try {
 		const branchId = url.searchParams.get('branch_id');
 		const cashierId = url.searchParams.get('cashier_id');
-		const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
+		const search = url.searchParams.get('search');
+		const paymentMethod = url.searchParams.get('payment_method');
+		const status = url.searchParams.get('status');
+		const startDate = url.searchParams.get('start_date');
+		const endDate = url.searchParams.get('end_date');
+		const minTotal = url.searchParams.get('min_total');
+		const maxTotal = url.searchParams.get('max_total');
 
-		let sql = 'SELECT * FROM transactions WHERE 1=1';
+		const sortBy = validateSortColumn(
+			url.searchParams.get('sort_by'),
+			['created_at', 'total', 'invoice_no', 'branch_name', 'cashier_name', 'payment_method'],
+			'created_at'
+		);
+		const sortOrder = validateSortOrder(url.searchParams.get('sort_order'), 'DESC');
+
+		const whereClauses: string[] = ['1=1'];
 		const params: any[] = [];
 
 		if (branchId && branchId !== 'all') {
-			sql += ' AND branch_id = ?';
+			whereClauses.push('branch_id = ?');
 			params.push(branchId);
 		}
 
 		if (cashierId) {
-			sql += ' AND cashier_id = ?';
+			whereClauses.push('cashier_id = ?');
 			params.push(cashierId);
 		}
 
-		sql += ' ORDER BY created_at DESC LIMIT ?';
-		params.push(limit);
+		if (paymentMethod && paymentMethod !== 'all') {
+			whereClauses.push('payment_method = ?');
+			params.push(paymentMethod);
+		}
 
-		const txResult = await d1.prepare(sql).bind(...params).all();
+		if (status && status !== 'all') {
+			whereClauses.push('status = ?');
+			params.push(status);
+		}
+
+		if (startDate) {
+			whereClauses.push('created_at >= ?');
+			params.push(startDate.includes('T') ? startDate : `${startDate}T00:00:00`);
+		}
+
+		if (endDate) {
+			whereClauses.push('created_at <= ?');
+			params.push(endDate.includes('T') ? endDate : `${endDate}T23:59:59`);
+		}
+
+		if (minTotal !== null && minTotal !== '' && !isNaN(Number(minTotal))) {
+			whereClauses.push('total >= ?');
+			params.push(Number(minTotal));
+		}
+
+		if (maxTotal !== null && maxTotal !== '' && !isNaN(Number(maxTotal))) {
+			whereClauses.push('total <= ?');
+			params.push(Number(maxTotal));
+		}
+
+		if (search && search.trim() !== '') {
+			whereClauses.push('(invoice_no LIKE ? OR customer_name LIKE ? OR cashier_name LIKE ?)');
+			const q = `%${search.trim()}%`;
+			params.push(q, q, q);
+		}
+
+		const whereSql = whereClauses.join(' AND ');
+
+		// Smart pagination calculation (default 50 for backward compatibility with existing tests/views, max 200)
+		const pagination = extractPaginationParams(url, 50, 200);
+
+		// Get total count
+		const countQuery = `SELECT COUNT(*) as total FROM transactions WHERE ${whereSql}`;
+		const countResult = await d1.prepare(countQuery).bind(...params).first<{ total: number }>();
+		const total = countResult?.total || 0;
+
+		let dataSql = `SELECT * FROM transactions WHERE ${whereSql} ORDER BY ${sortBy} ${sortOrder}`;
+		const dataParams = [...params];
+
+		if (pagination.paginate) {
+			dataSql += ' LIMIT ? OFFSET ?';
+			dataParams.push(pagination.limit, pagination.offset);
+		} else {
+			// If not strictly paginating with page param, respect default limit
+			dataSql += ' LIMIT ?';
+			dataParams.push(pagination.limit);
+		}
+
+		const txResult = await d1.prepare(dataSql).bind(...dataParams).all();
 		const transactions = txResult.results || [];
 
-		// Ambil items untuk transaksi
+		// Fetch items for transactions in this page
 		if (transactions.length > 0) {
 			const placeholders = transactions.map(() => '?').join(',');
 			const txIds = transactions.map((t: any) => t.id);
-			const itemsResult = await d1.prepare(`SELECT * FROM transaction_items WHERE transaction_id IN (${placeholders})`).bind(...txIds).all();
+			const itemsResult = await d1
+				.prepare(`SELECT * FROM transaction_items WHERE transaction_id IN (${placeholders})`)
+				.bind(...txIds)
+				.all();
 			const items = itemsResult.results || [];
 
 			for (const tx of transactions as any[]) {
@@ -47,9 +124,25 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			}
 		}
 
+		const meta = buildPaginationMeta(total, pagination.page, pagination.limit);
+
 		return json({
 			success: true,
-			data: transactions
+			data: transactions,
+			pagination: meta,
+			filters: {
+				branch_id: branchId || 'all',
+				cashier_id: cashierId || null,
+				payment_method: paymentMethod || 'all',
+				status: status || 'all',
+				start_date: startDate || null,
+				end_date: endDate || null,
+				min_total: minTotal ? Number(minTotal) : null,
+				max_total: maxTotal ? Number(maxTotal) : null,
+				search: search || '',
+				sort_by: sortBy,
+				sort_order: sortOrder
+			}
 		});
 	} catch (err: any) {
 		return json({ success: false, message: err.message }, { status: 500 });

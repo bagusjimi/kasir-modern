@@ -1,6 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import {
+	extractPaginationParams,
+	validateSortColumn,
+	validateSortOrder
+} from '#lib/server/pagination.js';
+import { buildPaginationMeta } from '#lib/types/pagination.js';
 
 export const GET: RequestHandler = async ({ url, platform }) => {
 	const d1 = getD1(platform);
@@ -14,34 +20,101 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 		const branchId = url.searchParams.get('branch_id');
 		const category = url.searchParams.get('category');
 		const search = url.searchParams.get('search');
+		const minPrice = url.searchParams.get('min_price');
+		const maxPrice = url.searchParams.get('max_price');
+		const inStock = url.searchParams.get('in_stock');
+		const isActive = url.searchParams.get('is_active');
 
-		let sql = 'SELECT * FROM products WHERE 1=1';
+		const sortBy = validateSortColumn(
+			url.searchParams.get('sort_by'),
+			['name', 'price', 'cost_price', 'stock', 'created_at', 'updated_at', 'sku'],
+			'name'
+		);
+		const sortOrder = validateSortOrder(
+			url.searchParams.get('sort_order'),
+			sortBy === 'created_at' || sortBy === 'updated_at' ? 'DESC' : 'ASC'
+		);
+
+		const whereClauses: string[] = ['1=1'];
 		const params: any[] = [];
 
 		if (branchId && branchId !== 'all') {
-			sql += ' AND (branch_id = ? OR branch_id = "all")';
+			whereClauses.push('(branch_id = ? OR branch_id = "all")');
 			params.push(branchId);
 		}
 
-		if (category) {
-			sql += ' AND category = ?';
+		if (category && category !== 'all') {
+			whereClauses.push('category = ?');
 			params.push(category);
 		}
 
-		if (search) {
-			sql += ' AND (name LIKE ? OR sku LIKE ? OR barcode LIKE ?)';
-			const q = `%${search}%`;
+		if (search && search.trim() !== '') {
+			whereClauses.push('(name LIKE ? OR sku LIKE ? OR barcode LIKE ?)');
+			const q = `%${search.trim()}%`;
 			params.push(q, q, q);
 		}
 
-		sql += ' ORDER BY name ASC';
+		if (minPrice !== null && minPrice !== '' && !isNaN(Number(minPrice))) {
+			whereClauses.push('price >= ?');
+			params.push(Number(minPrice));
+		}
 
-		const stmt = d1.prepare(sql).bind(...params);
+		if (maxPrice !== null && maxPrice !== '' && !isNaN(Number(maxPrice))) {
+			whereClauses.push('price <= ?');
+			params.push(Number(maxPrice));
+		}
+
+		if (inStock === 'true' || inStock === '1') {
+			whereClauses.push('stock > 0');
+		} else if (inStock === 'false' || inStock === '0') {
+			whereClauses.push('stock <= 0');
+		}
+
+		if (isActive === 'true' || isActive === '1') {
+			whereClauses.push('is_active = 1');
+		} else if (isActive === 'false' || isActive === '0') {
+			whereClauses.push('is_active = 0');
+		}
+
+		const whereSql = whereClauses.join(' AND ');
+
+		// Smart pagination calculation
+		const pagination = extractPaginationParams(url, 20, 200);
+
+		// Get total count for pagination meta
+		const countQuery = `SELECT COUNT(*) as total FROM products WHERE ${whereSql}`;
+		const countResult = await d1.prepare(countQuery).bind(...params).first<{ total: number }>();
+		const total = countResult?.total || 0;
+
+		// Data query with ordering and pagination
+		let dataSql = `SELECT * FROM products WHERE ${whereSql} ORDER BY ${sortBy} ${sortOrder}`;
+		const dataParams = [...params];
+
+		if (pagination.paginate) {
+			dataSql += ' LIMIT ? OFFSET ?';
+			dataParams.push(pagination.limit, pagination.offset);
+		}
+
+		const stmt = d1.prepare(dataSql).bind(...dataParams);
 		const result = await stmt.all();
+
+		const meta = buildPaginationMeta(total, pagination.page, pagination.limit);
 
 		return json({
 			success: true,
-			data: result.results || []
+			data: result.results || [],
+			pagination: meta,
+			filters: {
+				branch_id: branchId || 'all',
+				category: category || 'all',
+				search: search || '',
+				min_price: minPrice ? Number(minPrice) : null,
+				max_price: maxPrice ? Number(maxPrice) : null,
+				in_stock: inStock ?? null,
+				is_active: isActive ?? null,
+				sort_by: sortBy,
+				sort_order: sortOrder
+			}
 		});
 	} catch (err: any) {
 		return json({ success: false, message: err.message }, { status: 500 });

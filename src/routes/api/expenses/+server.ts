@@ -1,6 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import {
+	extractPaginationParams,
+	validateSortColumn,
+	validateSortOrder
+} from '#lib/server/pagination.js';
+import { buildPaginationMeta } from '#lib/types/pagination.js';
 
 export const GET: RequestHandler = async ({ url, platform }) => {
 	const d1 = getD1(platform);
@@ -15,9 +21,18 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 		const startDate = url.searchParams.get('start_date');
 		const endDate = url.searchParams.get('end_date');
 		const category = url.searchParams.get('category');
-		const limit = parseInt(url.searchParams.get('limit') || '200', 10);
+		const search = url.searchParams.get('search');
+		const minAmount = url.searchParams.get('min_amount');
+		const maxAmount = url.searchParams.get('max_amount');
 
-		const whereClauses: string[] = [];
+		const sortBy = validateSortColumn(
+			url.searchParams.get('sort_by'),
+			['date', 'amount', 'created_at', 'category', 'branch_name', 'recipient'],
+			'date'
+		);
+		const sortOrder = validateSortOrder(url.searchParams.get('sort_order'), 'DESC');
+
+		const whereClauses: string[] = ['1=1'];
 		const params: any[] = [];
 
 		if (branchId && branchId !== 'all') {
@@ -40,20 +55,66 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			params.push(endDate);
 		}
 
-		const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-		const query = `
-			SELECT * FROM expenses
-			${whereSql}
-			ORDER BY date DESC, created_at DESC
-			LIMIT ?
-		`;
-		params.push(limit);
+		if (minAmount !== null && minAmount !== '' && !isNaN(Number(minAmount))) {
+			whereClauses.push('amount >= ?');
+			params.push(Number(minAmount));
+		}
 
-		const result = await d1.prepare(query).bind(...params).all<any>();
+		if (maxAmount !== null && maxAmount !== '' && !isNaN(Number(maxAmount))) {
+			whereClauses.push('amount <= ?');
+			params.push(Number(maxAmount));
+		}
+
+		if (search && search.trim() !== '') {
+			whereClauses.push('(description LIKE ? OR recipient LIKE ? OR receipt_number LIKE ? OR user_name LIKE ?)');
+			const q = `%${search.trim()}%`;
+			params.push(q, q, q, q);
+		}
+
+		const whereSql = whereClauses.join(' AND ');
+
+		// Smart pagination calculation (default 200 for backward compatibility, max 300)
+		const pagination = extractPaginationParams(url, 200, 300);
+
+		// Get total count
+		const countQuery = `SELECT COUNT(*) as total, COALESCE(SUM(amount), 0) as total_amount FROM expenses WHERE ${whereSql}`;
+		const countResult = await d1.prepare(countQuery).bind(...params).first<{ total: number; total_amount: number }>();
+		const total = countResult?.total || 0;
+		const totalAmount = countResult?.total_amount || 0;
+
+		let dataSql = `SELECT * FROM expenses WHERE ${whereSql} ORDER BY ${sortBy} ${sortOrder}, created_at DESC`;
+		const dataParams = [...params];
+
+		if (pagination.paginate) {
+			dataSql += ' LIMIT ? OFFSET ?';
+			dataParams.push(pagination.limit, pagination.offset);
+		} else {
+			dataSql += ' LIMIT ?';
+			dataParams.push(pagination.limit);
+		}
+
+		const result = await d1.prepare(dataSql).bind(...dataParams).all<any>();
+		const meta = buildPaginationMeta(total, pagination.page, pagination.limit);
 
 		return json({
 			success: true,
-			data: result.results || []
+			data: result.results || [],
+			pagination: meta,
+			summary: {
+				total_records: total,
+				total_amount: totalAmount
+			},
+			filters: {
+				branch_id: branchId || 'all',
+				category: category || 'all',
+				start_date: startDate || null,
+				end_date: endDate || null,
+				search: search || '',
+				min_amount: minAmount ? Number(minAmount) : null,
+				max_amount: maxAmount ? Number(maxAmount) : null,
+				sort_by: sortBy,
+				sort_order: sortOrder
+			}
 		});
 	} catch (err: any) {
 		return json({ success: false, message: err.message }, { status: 500 });
