@@ -5,6 +5,7 @@ interface SyncApiResponse {
 	success: boolean;
 	message?: string;
 	syncedAt?: string;
+	failed_items?: string[];
 	serverUpdates?: {
 		products?: any[];
 		users?: any[];
@@ -32,6 +33,12 @@ export class SyncEngine {
 		if (typeof window !== 'undefined') {
 			this.isOnline = navigator.onLine;
 			this.lastSyncedAt = localStorage.getItem('kasir_last_synced_at');
+
+			// Minta penyimpanan persisten agar data offline yang belum tersinkron
+			// tidak dihapus otomatis browser saat ruang penyimpanan menipis.
+			if (navigator.storage?.persist) {
+				navigator.storage.persist().catch(() => {});
+			}
 
 			// Migrasi: pull users lama tidak membawa kolom pin sehingga hash PIN lokal
 			// tertimpa hilang. Paksa satu kali full sync agar hash PIN dipulihkan.
@@ -72,7 +79,8 @@ export class SyncEngine {
 			const unsyncedPo = await db.purchases.filter(p => !p.synced).count();
 			const unsyncedSc = await db.stock_counts.filter(s => !s.synced).count();
 			const queueCount = await db.sync_queue.where('status').equals('pending').count();
-			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + unsyncedMv + unsyncedShifts + unsyncedPo + unsyncedSc + queueCount;
+			const failedCount = await db.sync_queue.where('status').equals('failed').count();
+			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + unsyncedMv + unsyncedShifts + unsyncedPo + unsyncedSc + queueCount + failedCount;
 			return this.pendingCount;
 		} catch (e) {
 			console.warn('Gagal menghitung antrean sync:', e);
@@ -218,6 +226,17 @@ export class SyncEngine {
 				if (queueItems.length > 0) {
 					const queueIds = queueItems.map(q => q.id);
 					await db.sync_queue.bulkDelete(queueIds);
+				}
+
+				// Item antrean yang gagal di server ditandai 'failed' agar tidak
+				// menggagalkan sinkronisasi berikutnya secara terus-menerus.
+				if (result.failed_items && result.failed_items.length > 0) {
+					for (const key of result.failed_items) {
+						if (key.startsWith('queue:')) {
+							await db.sync_queue.update(key.slice(6), { status: 'failed' });
+						}
+					}
+					this.lastError = `${result.failed_items.length} perubahan gagal tersimpan di server.`;
 				}
 
 				// Terapkan data yang ditarik dari server (Pull Updates)

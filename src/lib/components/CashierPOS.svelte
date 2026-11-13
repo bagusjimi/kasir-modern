@@ -180,8 +180,8 @@
 		const now = new Date();
 		const dateCode = now.toISOString().slice(0, 10).replace(/-/g, '');
 		const branchCode = authState.branch?.code || '-';
-		const randomNum = Math.floor(1000 + Math.random() * 9000);
-		const invoiceNo = `INV/${dateCode}/${branchCode}/${randomNum}`;
+		const timeCode = now.toISOString().slice(11, 23).replace(/[:.]/g, '');
+		const invoiceNo = `INV/${dateCode}/${branchCode}/${timeCode}`;
 
 		const txId = 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
 

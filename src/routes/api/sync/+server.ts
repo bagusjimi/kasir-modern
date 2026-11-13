@@ -19,7 +19,16 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		const payload = (await request.json()) as any;
 		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], shifts = [], purchases = [], stock_counts = [], queue = [], lastSyncedAt = null } = payload || {};
 
-		const statements: any[] = [];
+		// Eksekusi dikelompokkan per item sumber: kegagalan satu item
+		// tidak menggagalkan item lain (d1.batch bersifat atomik per grup).
+		const groups: { key: string; statements: any[] }[] = [];
+		let statements: any[] = [];
+		const flush = (key: string) => {
+			if (statements.length > 0) {
+				groups.push({ key, statements });
+			}
+			statements = [];
+		};
 		const now = new Date().toISOString();
 
 		// 0. Sinkronisasi Pengeluaran (Expenses)
@@ -45,6 +54,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					exp.created_at || now, now
 				)
 			);
+			flush('expense:' + exp.id);
 		}
 
 		// 1. Sinkronisasi Transaksi (stok hanya dikurangi untuk transaksi yang benar-benar baru)
@@ -115,6 +125,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					}
 				}
 			}
+			flush('tx:' + tx.id);
 		}
 
 		// 2. Sinkronisasi Antrean Umum (Produk & User perubahan offline)
@@ -347,6 +358,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					);
 				}
 			}
+			flush('queue:' + q.id);
 		}
 
 		// 3. Sinkronisasi Ledger Stok (Stock Movements)
@@ -362,6 +374,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					mv.created_at || now
 				)
 			);
+			flush('mv:' + mv.id);
 		}
 
 		// 4. Sinkronisasi Shift Kasir (buka/tutup shift)
@@ -393,6 +406,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					sh.status || 'open', sh.note || '', now
 				)
 			);
+			flush('shift:' + sh.id);
 		}
 
 		// 5. Sinkronisasi Pembelian Stok dari Supplier
@@ -420,6 +434,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					)
 				);
 			}
+			flush('po:' + po.id);
 		}
 
 		// 6. Sinkronisasi Stok Opname
@@ -447,6 +462,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					)
 				);
 			}
+			flush('sc:' + sc.id);
 		}
 
 		// 7. Sinkronisasi Activity Logs
@@ -461,10 +477,19 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					log.user_name, log.role, log.action, log.details, log.timestamp
 				)
 			);
+			flush('log:' + log.id);
 		}
 
-		if (statements.length > 0) {
-			await d1.batch(statements);
+		flush('sisa');
+
+		const failedItems: string[] = [];
+		for (const group of groups) {
+			try {
+				await d1.batch(group.statements);
+			} catch (groupErr: any) {
+				console.error(`Gagal sinkron item ${group.key}:`, groupErr);
+				failedItems.push(group.key);
+			}
 		}
 
 		// 8. Tarik Pembaruan dari D1 Server (Pull delta changes)
@@ -583,6 +608,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			success: true,
 			message: `Sinkronisasi D1 berhasil: ${transactions.length} transaksi, ${expenses.length} pengeluaran, ${activity_logs.length} log, ${queue.length} antrean.`,
 			syncedAt: now,
+			failed_items: failedItems,
 			serverUpdates: {
 				products: updatedProducts,
 				users: updatedUsers,
