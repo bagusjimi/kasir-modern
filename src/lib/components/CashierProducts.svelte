@@ -64,6 +64,14 @@
 		await loadData();
 	});
 
+	// Muat ulang daftar setiap kali sinkronisasi selesai, agar kategori dan
+	// produk dari perangkat lain langsung tampil tanpa perlu refresh halaman.
+	$effect(() => {
+		if (syncEngine.lastSyncedAt) {
+			loadData();
+		}
+	});
+
 	async function loadData() {
 		categories = await db.categories.toArray();
 		const allProducts = await db.products.toArray();
