@@ -38,7 +38,7 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				role TEXT NOT NULL CHECK(role IN ('admin', 'cashier')), branch_id TEXT NOT NULL,
 				pin TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 			)`),
-			d1.prepare(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at TEXT)`),
 			d1.prepare(`CREATE TABLE IF NOT EXISTS products (
 				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL DEFAULT 'all', sku TEXT NOT NULL, barcode TEXT,
 				name TEXT NOT NULL, category TEXT NOT NULL, price REAL NOT NULL, cost_price REAL NOT NULL,
@@ -131,6 +131,13 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		]);
 	} catch (tableErr) {
 		console.warn('Gagal memastikan tabel D1:', tableErr);
+	}
+
+	// Migrasi: kolom updated_at untuk delta pull kategori pada database lama
+	try {
+		await d1.prepare('ALTER TABLE categories ADD COLUMN updated_at TEXT').run();
+	} catch {
+		// Kolom sudah ada
 	}
 
 	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat

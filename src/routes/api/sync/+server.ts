@@ -177,6 +177,27 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						d1.prepare('DELETE FROM branches WHERE id = ?').bind(br.id)
 					);
 				}
+			} else if (q.entity === 'category') {
+				const cat = q.data;
+				if (q.action === 'insert' || q.action === 'update') {
+					// Cegah duplikasi nama kategori antar ID sebelum upsert
+					statements.push(
+						d1.prepare('DELETE FROM categories WHERE name = ? AND id != ?').bind(cat.name, cat.id)
+					);
+					statements.push(
+						d1.prepare(`
+							INSERT INTO categories (id, name, updated_at)
+							VALUES (?, ?, ?)
+							ON CONFLICT(id) DO UPDATE SET
+								name = excluded.name,
+								updated_at = excluded.updated_at
+						`).bind(cat.id, cat.name, now)
+					);
+				} else if (q.action === 'delete') {
+					statements.push(
+						d1.prepare('DELETE FROM categories WHERE id = ?').bind(cat.id)
+					);
+				}
 			} else if (q.entity === 'user') {
 				const u = q.data;
 				if (q.action === 'insert' || q.action === 'update') {
@@ -484,6 +505,9 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 			const branchDeltaRes = await d1.prepare('SELECT * FROM branches WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			branches = branchDeltaRes.results || [];
+
+			const catDeltaRes = await d1.prepare('SELECT * FROM categories WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			categories = catDeltaRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
 			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([

@@ -241,6 +241,9 @@ export class SyncEngine {
 					if (result.serverUpdates.tax_settings) {
 						await db.app_settings.put({ key: 'tax_settings', value: result.serverUpdates.tax_settings });
 					}
+					if (result.serverUpdates.categories && result.serverUpdates.categories.length > 0) {
+						await db.categories.bulkPut(result.serverUpdates.categories);
+					}
 					if (result.serverUpdates.expenses && result.serverUpdates.expenses.length > 0) {
 						const formattedExpenses = result.serverUpdates.expenses.map(e => ({
 							...e,

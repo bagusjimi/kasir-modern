@@ -256,6 +256,30 @@
 		}
 	}
 
+	async function registerCategory(categoryName: string) {
+		const catName = categoryName.trim();
+		if (!catName) return;
+		const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+		const catId = 'cat-' + (slug || Date.now().toString(36));
+		const existing = await db.categories.get(catId);
+		if (existing) {
+			if (existing.name !== catName) {
+				await db.categories.update(catId, { name: catName });
+			}
+			return;
+		}
+		await db.categories.put({ id: catId, name: catName });
+		await db.sync_queue.add({
+			id: 'sq-' + Date.now() + '-cat',
+			entity: 'category',
+			action: 'insert',
+			data: { id: catId, name: catName },
+			timestamp: Date.now(),
+			retry_count: 0,
+			status: 'pending'
+		});
+	}
+
 	async function saveProduct() {
 		formError = null;
 		if (!formName.trim()) {
@@ -273,6 +297,8 @@
 
 		const now = new Date().toISOString();
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
+
+		await registerCategory(formCategory);
 
 		if (isEditing) {
 			const existing = await db.products.get(formId);
