@@ -46,7 +46,8 @@
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const allProducts = await db.products.toArray();
 		products = allProducts.filter(p => p.is_active && (p.branch_id === 'all' || p.branch_id === branchId));
-		purchases = await db.purchases.orderBy('created_at').reverse().limit(10).toArray();
+		const allPurchases = await db.purchases.orderBy('created_at').reverse().limit(10).toArray();
+		purchases = allPurchases.filter(po => branchId === 'all' || po.branch_id === branchId);
 		isLoading = false;
 	}
 

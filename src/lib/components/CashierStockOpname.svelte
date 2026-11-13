@@ -53,7 +53,8 @@
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const allProducts = await db.products.toArray();
 		products = allProducts.filter(p => p.is_active && (p.branch_id === 'all' || p.branch_id === branchId));
-		counts = await db.stock_counts.orderBy('created_at').reverse().limit(5).toArray();
+		const allCounts = await db.stock_counts.orderBy('created_at').reverse().limit(5).toArray();
+		counts = allCounts.filter(sc => branchId === 'all' || sc.branch_id === branchId);
 		counted = {};
 		opnameNote = '';
 		isLoading = false;

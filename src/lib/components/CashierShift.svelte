@@ -43,8 +43,9 @@
 		isLoading = true;
 		const cashierId = authState.user?.id || '';
 		openShift = (await getOpenShift(cashierId)) || null;
-		shiftHistory = (await db.shifts.orderBy('opened_at').reverse().limit(10).toArray())
-			.filter(s => s.status === 'closed');
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
+		const allShifts = await db.shifts.orderBy('opened_at').reverse().limit(10).toArray();
+		shiftHistory = allShifts.filter(s => s.status === 'closed' && (branchId === 'all' || s.branch_id === branchId));
 		isLoading = false;
 	}
 
