@@ -74,6 +74,24 @@
 
 	async function loadData() {
 		categories = await db.categories.toArray();
+
+		// Saat online, tarik kategori langsung dari server agar pilihan kategori
+		// selalu lengkap tanpa menunggu siklus sinkronisasi berikutnya.
+		if (syncEngine.isOnline) {
+			try {
+				const res = await fetch('/api/categories');
+				if (res.ok) {
+					const json: any = await res.json();
+					if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+						await db.categories.bulkPut(json.data);
+						categories = await db.categories.toArray();
+					}
+				}
+			} catch (e) {
+				console.warn('Gagal menarik kategori dari server:', e);
+			}
+		}
+
 		const allProducts = await db.products.toArray();
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		products = allProducts.filter(
