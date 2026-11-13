@@ -490,15 +490,22 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			for (const it of trf.items || []) {
 				statements.push(
 					d1.prepare(`
-						INSERT INTO stock_transfer_items (id, transfer_id, product_id, product_name, sku, quantity, quantity_received, created_at)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+						INSERT INTO stock_transfer_items (id, transfer_id, product_id, product_name, sku, quantity, quantity_received, created_at, price, cost_price, category, unit, min_stock)
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 						ON CONFLICT(id) DO UPDATE SET
 							quantity = excluded.quantity,
-							quantity_received = excluded.quantity_received
+							quantity_received = excluded.quantity_received,
+							price = excluded.price,
+							cost_price = excluded.cost_price,
+							category = excluded.category,
+							unit = excluded.unit,
+							min_stock = excluded.min_stock
 						`).bind(
 						it.id, trf.id, it.product_id, it.product_name,
 						it.sku || '', Number(it.quantity) || 0,
-						Number(it.quantity_received) || 0, it.created_at || trf.created_at || now
+						Number(it.quantity_received) || 0, it.created_at || trf.created_at || now,
+						Number(it.price) || 0, Number(it.cost_price) || 0,
+						it.category || '', it.unit || '', Number(it.min_stock) || 0
 					)
 				);
 			}

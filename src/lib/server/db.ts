@@ -126,7 +126,9 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_transfer_items (
 				id TEXT PRIMARY KEY, transfer_id TEXT NOT NULL, product_id TEXT NOT NULL,
 				product_name TEXT NOT NULL, sku TEXT, quantity INTEGER NOT NULL,
-				quantity_received INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+				quantity_received INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
+				price REAL NOT NULL DEFAULT 0, cost_price REAL NOT NULL DEFAULT 0,
+				category TEXT, unit TEXT, min_stock INTEGER NOT NULL DEFAULT 0
 			)`),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_branch ON shifts(branch_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status)'),
@@ -174,6 +176,21 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		await d1.prepare('ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0').run();
 	} catch {
 		// Kolom sudah ada
+	}
+
+	// Migrasi: snapshot harga & kategori pada item transfer stok
+	for (const ddl of [
+		'ALTER TABLE stock_transfer_items ADD COLUMN price REAL NOT NULL DEFAULT 0',
+		'ALTER TABLE stock_transfer_items ADD COLUMN cost_price REAL NOT NULL DEFAULT 0',
+		'ALTER TABLE stock_transfer_items ADD COLUMN category TEXT',
+		'ALTER TABLE stock_transfer_items ADD COLUMN unit TEXT',
+		'ALTER TABLE stock_transfer_items ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0'
+	]) {
+		try {
+			await d1.prepare(ddl).run();
+		} catch {
+			// Kolom sudah ada
+		}
 	}
 
 	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat

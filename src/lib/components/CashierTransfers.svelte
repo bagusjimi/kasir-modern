@@ -213,7 +213,12 @@
 				sku: prod.sku,
 				quantity: row.quantity,
 				quantity_received: 0,
-				created_at: now
+				created_at: now,
+				price: prod.price,
+				cost_price: prod.cost_price,
+				category: prod.category,
+				unit: prod.unit,
+				min_stock: prod.min_stock || 0
 			});
 
 			// Stok cabang asal langsung dikurangi saat barang dikirim
@@ -341,17 +346,18 @@
 					status: 'pending'
 				});
 			} else {
+				const categoryName = it.category || 'Lainnya';
 				const newProduct: Product = {
 					id: newId('prod'),
 					branch_id: currentBranchId,
 					sku: it.sku,
 					name: it.product_name,
-					category: 'Lainnya',
-					price: 0,
-					cost_price: 0,
+					category: categoryName,
+					price: it.price || 0,
+					cost_price: it.cost_price || 0,
 					stock: it.quantity_received,
-					min_stock: 0,
-					unit: 'pcs',
+					min_stock: it.min_stock || 0,
+					unit: it.unit || 'pcs',
 					is_active: true,
 					created_at: now,
 					updated_at: now,
@@ -367,6 +373,24 @@
 					retry_count: 0,
 					status: 'pending'
 				});
+
+				// Pastikan kategori terdaftar agar konsisten di semua cabang
+				const slug = categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+				const catId = 'cat-' + (slug || Date.now().toString(36));
+				const existingCat = await db.categories.get(catId);
+				if (!existingCat) {
+					const catNow = new Date().toISOString();
+					await db.categories.put({ id: catId, name: categoryName, updated_at: catNow });
+					await db.sync_queue.add({
+						id: newId('sq'),
+						entity: 'category',
+						action: 'insert',
+						data: { id: catId, name: categoryName, updated_at: catNow },
+						timestamp: Date.now(),
+						retry_count: 0,
+						status: 'pending'
+					});
+				}
 			}
 
 			// Ledger stok: barang masuk ke cabang tujuan

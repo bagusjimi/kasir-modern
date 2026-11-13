@@ -193,6 +193,11 @@ export interface StockTransferItem {
 	quantity: number;
 	quantity_received: number;
 	created_at: string;
+	price?: number;
+	cost_price?: number;
+	category?: string;
+	unit?: string;
+	min_stock?: number;
 }
 
 export interface StockTransfer {
