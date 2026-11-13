@@ -12,6 +12,10 @@ interface SyncApiResponse {
 		categories?: any[];
 		expenses?: any[];
 		stock_movements?: any[];
+		shifts?: any[];
+		purchases?: any[];
+		stock_counts?: any[];
+		tax_settings?: any;
 	};
 }
 
@@ -28,6 +32,13 @@ export class SyncEngine {
 		if (typeof window !== 'undefined') {
 			this.isOnline = navigator.onLine;
 			this.lastSyncedAt = localStorage.getItem('kasir_last_synced_at');
+
+			// Migrasi: pull users lama tidak membawa kolom pin sehingga hash PIN lokal
+			// tertimpa hilang. Paksa satu kali full sync agar hash PIN dipulihkan.
+			if (!localStorage.getItem('kasir_users_pin_resync_v1')) {
+				this.lastSyncedAt = null;
+				localStorage.setItem('kasir_users_pin_resync_v1', '1');
+			}
 
 			window.addEventListener('online', () => {
 				this.isOnline = true;
@@ -57,8 +68,11 @@ export class SyncEngine {
 			const unsyncedExp = await db.expenses.filter(e => !e.synced).count();
 			const unsyncedLogs = await db.activity_logs.filter(l => !l.synced).count();
 			const unsyncedMv = await db.stock_movements.filter(m => !m.synced).count();
+			const unsyncedShifts = await db.shifts.filter(s => !s.synced).count();
+			const unsyncedPo = await db.purchases.filter(p => !p.synced).count();
+			const unsyncedSc = await db.stock_counts.filter(s => !s.synced).count();
 			const queueCount = await db.sync_queue.where('status').equals('pending').count();
-			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + unsyncedMv + queueCount;
+			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + unsyncedMv + unsyncedShifts + unsyncedPo + unsyncedSc + queueCount;
 			return this.pendingCount;
 		} catch (e) {
 			console.warn('Gagal menghitung antrean sync:', e);
@@ -103,7 +117,22 @@ export class SyncEngine {
 				.limit(100)
 				.toArray();
 
-			// 5. Ambil antrean perubahan umum (produk, user, expense, void/retur, dll.)
+			// 5. Ambil shift kasir yang belum tersinkron
+			const pendingShifts = await db.shifts
+				.filter(s => !s.synced)
+				.toArray();
+
+			// 6. Ambil pembelian stok yang belum tersinkron
+			const pendingPurchases = await db.purchases
+				.filter(p => !p.synced)
+				.toArray();
+
+			// 7. Ambil stok opname yang belum tersinkron
+			const pendingStockCounts = await db.stock_counts
+				.filter(s => !s.synced)
+				.toArray();
+
+			// 8. Ambil antrean perubahan umum (produk, user, expense, void/retur, dll.)
 			const queueItems = await db.sync_queue
 				.where('status')
 				.equals('pending')
@@ -116,6 +145,9 @@ export class SyncEngine {
 				expenses: pendingExpenses,
 				activity_logs: pendingLogs,
 				stock_movements: pendingMovements,
+				shifts: pendingShifts,
+				purchases: pendingPurchases,
+				stock_counts: pendingStockCounts,
 				queue: queueItems,
 				lastSyncedAt: this.lastSyncedAt
 			};
@@ -165,6 +197,23 @@ export class SyncEngine {
 					}
 				}
 
+				// Tandai shift, pembelian, dan opname sebagai tersinkron
+				if (pendingShifts.length > 0) {
+					for (const sh of pendingShifts) {
+						await db.shifts.update(sh.id, { synced: true });
+					}
+				}
+				if (pendingPurchases.length > 0) {
+					for (const po of pendingPurchases) {
+						await db.purchases.update(po.id, { synced: true });
+					}
+				}
+				if (pendingStockCounts.length > 0) {
+					for (const sc of pendingStockCounts) {
+						await db.stock_counts.update(sc.id, { synced: true });
+					}
+				}
+
 				// Bersihkan queue
 				if (queueItems.length > 0) {
 					const queueIds = queueItems.map(q => q.id);
@@ -177,10 +226,23 @@ export class SyncEngine {
 						await db.products.bulkPut(result.serverUpdates.products);
 					}
 					if (result.serverUpdates.users && result.serverUpdates.users.length > 0) {
-						await db.users.bulkPut(result.serverUpdates.users);
+						const serverUsers = result.serverUpdates.users;
+						const existingUsers = await db.users.bulkGet(serverUsers.map(u => u.id));
+						const mergedUsers = serverUsers.map((u, i) => ({
+							...u,
+							active: Boolean(u.active),
+							pin: u.pin || existingUsers[i]?.pin || ''
+						}));
+						await db.users.bulkPut(mergedUsers);
 					}
 					if (result.serverUpdates.branches && result.serverUpdates.branches.length > 0) {
 						await db.branches.bulkPut(result.serverUpdates.branches);
+					}
+					if (result.serverUpdates.tax_settings) {
+						await db.app_settings.put({ key: 'tax_settings', value: result.serverUpdates.tax_settings });
+					}
+					if (result.serverUpdates.categories && result.serverUpdates.categories.length > 0) {
+						await db.categories.bulkPut(result.serverUpdates.categories);
 					}
 					if (result.serverUpdates.expenses && result.serverUpdates.expenses.length > 0) {
 						const formattedExpenses = result.serverUpdates.expenses.map(e => ({
@@ -195,6 +257,27 @@ export class SyncEngine {
 							synced: true
 						}));
 						await db.stock_movements.bulkPut(formattedMovements);
+					}
+					if (result.serverUpdates.shifts && result.serverUpdates.shifts.length > 0) {
+						const formattedShifts = result.serverUpdates.shifts.map(s => ({
+							...s,
+							synced: true
+						}));
+						await db.shifts.bulkPut(formattedShifts);
+					}
+					if (result.serverUpdates.purchases && result.serverUpdates.purchases.length > 0) {
+						const formattedPurchases = result.serverUpdates.purchases.map(p => ({
+							...p,
+							synced: true
+						}));
+						await db.purchases.bulkPut(formattedPurchases);
+					}
+					if (result.serverUpdates.stock_counts && result.serverUpdates.stock_counts.length > 0) {
+						const formattedCounts = result.serverUpdates.stock_counts.map(s => ({
+							...s,
+							synced: true
+						}));
+						await db.stock_counts.bulkPut(formattedCounts);
 					}
 				}
 

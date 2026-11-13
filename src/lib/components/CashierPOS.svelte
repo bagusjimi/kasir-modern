@@ -3,7 +3,8 @@
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
-	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings } from '../types/index.js';
+	import { getOpenShift } from '../shift/index.js';
+	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings, Shift } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
 		Search,
@@ -16,7 +17,8 @@
 		CheckCircle,
 		AlertCircle,
 		ShoppingBag,
-		ArrowRight
+		ArrowRight,
+		Clock
 	} from 'lucide-svelte';
 
 	let products = $state<Product[]>([]);
@@ -50,10 +52,26 @@
 	// Modal Struk Setelah Transaksi Sukses
 	let completedTransaction = $state<Transaction | null>(null);
 
+	// Shift kasir aktif (transaksi hanya bisa diproses saat shift terbuka)
+	let openShift = $state<Shift | null>(null);
+
 	onMount(async () => {
 		await loadProductsAndCategories();
 		await loadTaxSettings();
+		await loadOpenShift();
 	});
+
+	// Muat ulang pengaturan pajak setiap kali sinkronisasi selesai,
+	// agar perubahan dari sisi admin ikut diterapkan di perangkat kasir.
+	$effect(() => {
+		if (syncEngine.lastSyncedAt) {
+			loadTaxSettings();
+		}
+	});
+
+	async function loadOpenShift() {
+		openShift = (await getOpenShift(authState.user?.id || '')) || null;
+	}
 
 	async function loadTaxSettings() {
 		try {
@@ -70,7 +88,7 @@
 		categories = await db.categories.toArray();
 		const allProducts = await db.products.toArray();
 		// Kasir hanya melihat produk aktif yang berlaku untuk semua cabang atau cabang aktifnya
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		products = allProducts.filter(
 			p => p.is_active && (p.branch_id === 'all' || p.branch_id === branchId)
 		);
@@ -142,6 +160,10 @@
 
 	function openPayment() {
 		if (cart.length === 0) return;
+		if (!openShift) {
+			paymentError = 'Belum ada shift aktif. Buka shift terlebih dahulu di menu Shift Kasir.';
+			return;
+		}
 		amountPaid = totalAmount; // Default uang pas
 		paymentError = null;
 		isPaymentModalOpen = true;
@@ -157,7 +179,7 @@
 
 		const now = new Date();
 		const dateCode = now.toISOString().slice(0, 10).replace(/-/g, '');
-		const branchCode = authState.branch?.code || 'CB01';
+		const branchCode = authState.branch?.code || '-';
 		const randomNum = Math.floor(1000 + Math.random() * 9000);
 		const invoiceNo = `INV/${dateCode}/${branchCode}/${randomNum}`;
 
@@ -178,9 +200,9 @@
 		const transaction: Transaction = {
 			id: txId,
 			invoice_no: invoiceNo,
-			branch_id: authState.branch?.id || 'cb-01',
-			branch_name: authState.branch?.name || 'Cabang Utama',
-			cashier_id: authState.user?.id || 'usr-kasir',
+			branch_id: authState.branch?.id || authState.user?.branch_id || 'all',
+			branch_name: authState.branch?.name || '-',
+			cashier_id: authState.user?.id || '-',
 			cashier_name: authState.user?.name || 'Kasir',
 			customer_name: customerName.trim() || undefined,
 			subtotal,
@@ -269,6 +291,16 @@
 		}).format(num);
 	}
 </script>
+
+{#if !openShift}
+	<div class="mb-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+		<Clock class="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+		<div>
+			<p class="text-sm font-bold text-amber-800">Belum ada shift aktif</p>
+			<p class="text-xs text-amber-700 mt-0.5">Buka shift di menu <strong>Shift Kasir</strong> dengan setoran awal sebelum memproses transaksi.</p>
+		</div>
+	</div>
+{/if}
 
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-5rem)]">
 	<!-- Kolom Kiri: Katalog Produk (7 Kolom pada Desktop) -->

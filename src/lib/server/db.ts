@@ -1,6 +1,5 @@
 import { env } from 'cloudflare:workers';
-import type { Branch, User, Category, Product, Transaction, TransactionItem, ActivityLog } from '../types/index.js';
-import { hashPin } from '../auth/pin.js';
+import type { Branch, Category, Product, Transaction, TransactionItem, ActivityLog } from '../types/index.js';
 
 /**
  * Helper untuk mengambil binding Cloudflare D1 dari cloudflare:workers env
@@ -24,8 +23,7 @@ export function getD1(platform?: App.Platform | undefined): D1Database | null {
 }
 
 /**
- * Melakukan auto-seeding data awal ke database D1 jika tabel branches/users masih kosong.
- * Hal ini memastikan D1 Cloudflare langsung memiliki data siap pakai saat pertama kali dijalankan.
+ * Memastikan skema tabel D1 sudah ada (DDL saja, tanpa data).
  */
 export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 	// Pastikan semua tabel dibuat jika belum ada
@@ -40,7 +38,7 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				role TEXT NOT NULL CHECK(role IN ('admin', 'cashier')), branch_id TEXT NOT NULL,
 				pin TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 			)`),
-			d1.prepare(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at TEXT)`),
 			d1.prepare(`CREATE TABLE IF NOT EXISTS products (
 				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL DEFAULT 'all', sku TEXT NOT NULL, barcode TEXT,
 				name TEXT NOT NULL, category TEXT NOT NULL, price REAL NOT NULL, cost_price REAL NOT NULL,
@@ -86,6 +84,44 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				reason TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL,
 				branch_id TEXT NOT NULL, created_at TEXT NOT NULL
 			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS shifts (
+				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, branch_name TEXT,
+				cashier_id TEXT NOT NULL, cashier_name TEXT NOT NULL,
+				opening_cash REAL NOT NULL DEFAULT 0, opened_at TEXT NOT NULL,
+				closed_at TEXT, closing_cash REAL, expected_cash REAL, cash_difference REAL,
+				total_sales REAL, cash_sales REAL, non_cash_sales REAL,
+				total_transactions INTEGER, voided_count INTEGER, refunded_count INTEGER,
+				status TEXT NOT NULL DEFAULT 'open', note TEXT, updated_at TEXT NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS purchases (
+				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, branch_name TEXT,
+				supplier_name TEXT NOT NULL, supplier_phone TEXT, total REAL NOT NULL DEFAULT 0,
+				note TEXT, user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+				created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS purchase_items (
+				id TEXT PRIMARY KEY, purchase_id TEXT NOT NULL, product_id TEXT NOT NULL,
+				product_name TEXT NOT NULL, quantity INTEGER NOT NULL, cost_price REAL NOT NULL,
+				subtotal REAL NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_counts (
+				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, branch_name TEXT,
+				note TEXT, user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+				total_difference_qty INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_count_items (
+				id TEXT PRIMARY KEY, stock_count_id TEXT NOT NULL, product_id TEXT NOT NULL,
+				product_name TEXT NOT NULL, system_qty INTEGER NOT NULL,
+				counted_qty INTEGER NOT NULL, difference INTEGER NOT NULL
+			)`),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_branch ON shifts(branch_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_updated ON shifts(updated_at)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_purchases_branch ON purchases(branch_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_purchases_created ON purchases(created_at)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items(purchase_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_counts_branch ON stock_counts(branch_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_count_items_count ON stock_count_items(stock_count_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)'),
@@ -97,58 +133,24 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		console.warn('Gagal memastikan tabel D1:', tableErr);
 	}
 
+	// Migrasi: kolom updated_at untuk delta pull kategori pada database lama
 	try {
-		const check = await d1.prepare('SELECT count(*) as count FROM branches').first<{ count: number }>();
-		if (check && check.count > 0) {
-			return; // Database sudah memiliki data
-		}
-	} catch (e) {
-		// Abaikan jika query check gagal
+		await d1.prepare('ALTER TABLE categories ADD COLUMN updated_at TEXT').run();
+	} catch {
+		// Kolom sudah ada
 	}
 
-	const now = new Date().toISOString();
-
-	const adminPinHash = await hashPin('123456');
-	const kasirPinHash = await hashPin('1234');
-
-	const seedQueries = [
-		// Branches
-		d1.prepare(`INSERT OR IGNORE INTO branches (id, code, name, address, phone, created_at, updated_at) VALUES
-			('cb-01', 'CB01', 'Cabang Jakarta Pusat (Menteng)', 'Jl. Teuku Umar No. 12, Menteng, Jakarta Pusat', '021-3901234', ?, ?),
-			('cb-02', 'CB02', 'Cabang Bandung (Riau)', 'Jl. LLRE Martadinata No. 88, Riau, Bandung', '022-4205678', ?, ?),
-			('cb-03', 'CB03', 'Cabang Surabaya (Gubeng)', 'Jl. Pemuda No. 45, Gubeng, Surabaya', '031-5319988', ?, ?)
-		`).bind(now, now, now, now, now, now),
-
-		// Categories
-		d1.prepare(`INSERT OR IGNORE INTO categories (id, name) VALUES
-			('cat-makanan', 'Makanan'),
-			('cat-minuman', 'Minuman'),
-			('cat-snack', 'Camilan & Roti'),
-			('cat-lainnya', 'Lainnya')
-		`),
-
-		// Users (PIN disimpan sebagai hash PBKDF2)
-		d1.prepare(`INSERT OR IGNORE INTO users (id, username, name, role, branch_id, pin, active, created_at, updated_at) VALUES
-			('usr-admin-1', 'admin', 'Admin Pusat (Owner)', 'admin', 'all', ?, 1, ?, ?),
-			('usr-kasir-jkt', 'kasir_jkt', 'Siti Rahma', 'cashier', 'cb-01', ?, 1, ?, ?),
-			('usr-kasir-bdg', 'kasir_bdg', 'Budi Santoso', 'cashier', 'cb-02', ?, 1, ?, ?),
-			('usr-kasir-sby', 'kasir_sby', 'Dewi Lestari', 'cashier', 'cb-03', ?, 1, ?, ?)
-		`).bind(
-			adminPinHash, now, now,
-			kasirPinHash, now, now,
-			kasirPinHash, now, now,
-			kasirPinHash, now, now
-		),
-
-		// Log inisialisasi
-		d1.prepare(`INSERT OR IGNORE INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp) VALUES
-			('act-init-server', 'all', 'Pusat', 'usr-admin-1', 'Admin Pusat', 'admin', 'system_initialized', 'Database Cloudflare D1 berhasil diinisialisasi otomatis dengan data awal cabang dan pengguna.', ?)
-		`).bind(now)
-	];
-
+	// Backfill kategori lama yang dibuat sebelum kolom updated_at ada,
+	// agar ikut terkirim ke perangkat lewat delta pull.
 	try {
-		await d1.batch(seedQueries);
-	} catch (err) {
-		console.error('Gagal melakukan auto-seeding D1:', err);
+		await d1
+			.prepare("UPDATE categories SET updated_at = ? WHERE updated_at IS NULL")
+			.bind(new Date().toISOString())
+			.run();
+	} catch (backfillErr) {
+		console.warn('Gagal backfill updated_at kategori:', backfillErr);
 	}
+
+	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat
+	// oleh pengguna lewat alur Pengaturan Awal dan menu admin (data asli, bukan fiktif).
 }

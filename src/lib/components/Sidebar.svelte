@@ -19,7 +19,10 @@
 		AlertTriangle,
 		Menu,
 		X,
-		ChevronRight
+		ChevronRight,
+		Clock,
+		Truck,
+		ClipboardList
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -162,7 +165,7 @@
 			<div class="flex items-center gap-2 text-xs font-semibold text-zinc-800">
 				<Building2 class="h-3.5 w-3.5 text-zinc-500 shrink-0" />
 				<span class="truncate">
-					{authState.branch?.name || (authState.user?.role === 'admin' ? 'Semua Cabang Toko' : 'Cabang Utama')}
+					{authState.branch?.name || (authState.user?.role === 'admin' ? 'Semua Cabang Toko' : '-')}
 				</span>
 			</div>
 			{#if authState.branch?.code}
@@ -226,6 +229,48 @@
 						{/if}
 					</button>
 
+					<!-- Shift Kasir -->
+					<button
+						onclick={() => selectTab('shift')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'shift' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Clock class="h-4 w-4 {activeTab === 'shift' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Shift Kasir</span>
+						</div>
+						{#if activeTab === 'shift'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
+					<!-- Pembelian Stok dari Supplier -->
+					<button
+						onclick={() => selectTab('purchases')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'purchases' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Truck class="h-4 w-4 {activeTab === 'purchases' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Pembelian Stok</span>
+						</div>
+						{#if activeTab === 'purchases'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
+					<!-- Stok Opname -->
+					<button
+						onclick={() => selectTab('opname')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'opname' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<ClipboardList class="h-4 w-4 {activeTab === 'opname' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Stok Opname</span>
+						</div>
+						{#if activeTab === 'opname'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
 					<!-- Pengeluaran Operasional Minimarket -->
 					<button
 						onclick={() => selectTab('expenses')}
@@ -264,6 +309,20 @@
 							<span>Kelola Pengguna</span>
 						</div>
 						{#if activeTab === 'users'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
+					<!-- Kelola Cabang -->
+					<button
+						onclick={() => selectTab('branches')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'branches' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Building2 class="h-4 w-4 {activeTab === 'branches' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<span>Kelola Cabang</span>
+						</div>
+						{#if activeTab === 'branches'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>

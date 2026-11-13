@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const payload = (await request.json()) as any;
-		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], queue = [], lastSyncedAt = null } = payload || {};
+		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], shifts = [], purchases = [], stock_counts = [], queue = [], lastSyncedAt = null } = payload || {};
 
 		const statements: any[] = [];
 		const now = new Date().toISOString();
@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
 					exp.user_name, exp.category, Number(exp.amount), exp.description,
 					exp.recipient || '', exp.receipt_number || '', exp.date,
-					exp.created_at || now, exp.updated_at || now
+					exp.created_at || now, now
 				)
 			);
 		}
@@ -150,9 +150,62 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						d1.prepare('DELETE FROM products WHERE id = ?').bind(p.id)
 					);
 				}
+			} else if (q.entity === 'branch') {
+				const br = q.data;
+				if (q.action === 'insert' || q.action === 'update') {
+					// Cegah konflik UNIQUE(code) antar ID sebelum upsert
+					statements.push(
+						d1.prepare('DELETE FROM branches WHERE code = ? AND id != ?').bind(br.code, br.id)
+					);
+					statements.push(
+						d1.prepare(`
+							INSERT INTO branches (id, code, name, address, phone, created_at, updated_at)
+							VALUES (?, ?, ?, ?, ?, ?, ?)
+							ON CONFLICT(id) DO UPDATE SET
+								code = excluded.code,
+								name = excluded.name,
+								address = excluded.address,
+								phone = excluded.phone,
+								updated_at = excluded.updated_at
+						`).bind(
+							br.id, br.code, br.name, br.address || '', br.phone || '',
+							br.created_at || now, now
+						)
+					);
+				} else if (q.action === 'delete') {
+					statements.push(
+						d1.prepare('DELETE FROM branches WHERE id = ?').bind(br.id)
+					);
+				}
+			} else if (q.entity === 'category') {
+				const cat = q.data;
+				if (q.action === 'insert' || q.action === 'update') {
+					// Cegah duplikasi nama kategori antar ID sebelum upsert
+					statements.push(
+						d1.prepare('DELETE FROM categories WHERE name = ? AND id != ?').bind(cat.name, cat.id)
+					);
+					statements.push(
+						d1.prepare(`
+							INSERT INTO categories (id, name, updated_at)
+							VALUES (?, ?, ?)
+							ON CONFLICT(id) DO UPDATE SET
+								name = excluded.name,
+								updated_at = excluded.updated_at
+						`).bind(cat.id, cat.name, now)
+					);
+				} else if (q.action === 'delete') {
+					statements.push(
+						d1.prepare('DELETE FROM categories WHERE id = ?').bind(cat.id)
+					);
+				}
 			} else if (q.entity === 'user') {
 				const u = q.data;
 				if (q.action === 'insert' || q.action === 'update') {
+					// Cegah konflik UNIQUE(username) antar ID: hapus record lama dengan username sama
+					// tetapi id berbeda sebelum upsert
+					statements.push(
+						d1.prepare('DELETE FROM users WHERE username = ? AND id != ?').bind(u.username, u.id)
+					);
 					const pinHash = u.pin && !isHashedPin(u.pin) ? await hashPin(u.pin) : (u.pin || '');
 					statements.push(
 						d1.prepare(`
@@ -168,7 +221,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						`).bind(
 							u.id, u.username, u.name, u.role, u.branch_id, pinHash,
 							u.active !== undefined ? (u.active ? 1 : 0) : 1,
-							u.created_at || now, u.updated_at || now
+							u.created_at || now, now
 						)
 					);
 				} else if (q.action === 'delete') {
@@ -285,7 +338,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 							exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
 							exp.user_name, exp.category, Number(exp.amount), exp.description,
 							exp.recipient || '', exp.receipt_number || '', exp.date,
-							exp.created_at || now, exp.updated_at || now
+							exp.created_at || now, now
 						)
 					);
 				} else if (q.action === 'delete') {
@@ -311,7 +364,92 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			);
 		}
 
-		// 4. Sinkronisasi Activity Logs
+		// 4. Sinkronisasi Shift Kasir (buka/tutup shift)
+		for (const sh of shifts) {
+			statements.push(
+				d1.prepare(`
+					INSERT INTO shifts (id, branch_id, branch_name, cashier_id, cashier_name, opening_cash, opened_at, closed_at, closing_cash, expected_cash, cash_difference, total_sales, cash_sales, non_cash_sales, total_transactions, voided_count, refunded_count, status, note, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(id) DO UPDATE SET
+						closed_at = excluded.closed_at,
+						closing_cash = excluded.closing_cash,
+						expected_cash = excluded.expected_cash,
+						cash_difference = excluded.cash_difference,
+						total_sales = excluded.total_sales,
+						cash_sales = excluded.cash_sales,
+						non_cash_sales = excluded.non_cash_sales,
+						total_transactions = excluded.total_transactions,
+						voided_count = excluded.voided_count,
+						refunded_count = excluded.refunded_count,
+						status = excluded.status,
+						note = excluded.note,
+						updated_at = excluded.updated_at
+				`).bind(
+					sh.id, sh.branch_id, sh.branch_name || '', sh.cashier_id, sh.cashier_name,
+					Number(sh.opening_cash) || 0, sh.opened_at, sh.closed_at || null,
+					sh.closing_cash ?? null, sh.expected_cash ?? null, sh.cash_difference ?? null,
+					sh.total_sales ?? null, sh.cash_sales ?? null, sh.non_cash_sales ?? null,
+					sh.total_transactions ?? null, sh.voided_count ?? null, sh.refunded_count ?? null,
+					sh.status || 'open', sh.note || '', now
+				)
+			);
+		}
+
+		// 5. Sinkronisasi Pembelian Stok dari Supplier
+		for (const po of purchases) {
+			statements.push(
+				d1.prepare(`
+					INSERT INTO purchases (id, branch_id, branch_name, supplier_name, supplier_phone, total, note, user_id, user_name, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(id) DO NOTHING
+				`).bind(
+					po.id, po.branch_id, po.branch_name || '', po.supplier_name,
+					po.supplier_phone || '', Number(po.total) || 0, po.note || '',
+					po.user_id, po.user_name, po.created_at || now, now
+				)
+			);
+			for (const it of po.items || []) {
+				statements.push(
+					d1.prepare(`
+						INSERT INTO purchase_items (id, purchase_id, product_id, product_name, quantity, cost_price, subtotal)
+						VALUES (?, ?, ?, ?, ?, ?, ?)
+						ON CONFLICT(id) DO NOTHING
+					`).bind(
+						it.id, po.id, it.product_id, it.product_name,
+						it.quantity, it.cost_price, it.subtotal
+					)
+				);
+			}
+		}
+
+		// 6. Sinkronisasi Stok Opname
+		for (const sc of stock_counts) {
+			statements.push(
+				d1.prepare(`
+					INSERT INTO stock_counts (id, branch_id, branch_name, note, user_id, user_name, total_difference_qty, created_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(id) DO NOTHING
+				`).bind(
+					sc.id, sc.branch_id, sc.branch_name || '', sc.note || '',
+					sc.user_id, sc.user_name, Number(sc.total_difference_qty) || 0,
+					sc.created_at || now
+				)
+			);
+			for (const it of sc.items || []) {
+				statements.push(
+					d1.prepare(`
+						INSERT INTO stock_count_items (id, stock_count_id, product_id, product_name, system_qty, counted_qty, difference)
+						VALUES (?, ?, ?, ?, ?, ?, ?)
+						ON CONFLICT(id) DO NOTHING
+					`).bind(
+						it.id, sc.id, it.product_id, it.product_name,
+						it.system_qty, it.counted_qty, it.difference
+					)
+				);
+			}
+		}
+
+		// 7. Sinkronisasi Activity Logs
 		for (const log of activity_logs) {
 			statements.push(
 				d1.prepare(`
@@ -329,11 +467,14 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			await d1.batch(statements);
 		}
 
-		// 4. Tarik Pembaruan dari D1 Server (Pull delta changes)
+		// 8. Tarik Pembaruan dari D1 Server (Pull delta changes)
 		let updatedProducts: any[] = [];
 		let updatedUsers: any[] = [];
 		let updatedExpenses: any[] = [];
 		let updatedMovements: any[] = [];
+		let updatedShifts: any[] = [];
+		let updatedPurchases: any[] = [];
+		let updatedStockCounts: any[] = [];
 		let branches: any[] = [];
 		let categories: any[] = [];
 
@@ -341,7 +482,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			const prodRes = await d1.prepare('SELECT * FROM products WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedProducts = prodRes.results || [];
 
-			const userRes = await d1.prepare('SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			const userRes = await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedUsers = (userRes.results || []).map((u: any) => ({
 				...u,
 				active: Boolean(u.active)
@@ -352,15 +493,33 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 			const mvRes = await d1.prepare('SELECT * FROM stock_movements WHERE created_at >= ? ORDER BY created_at ASC LIMIT 200').bind(lastSyncedAt).all();
 			updatedMovements = mvRes.results || [];
+
+			const shiftRes = await d1.prepare('SELECT * FROM shifts WHERE updated_at >= ? ORDER BY opened_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			updatedShifts = shiftRes.results || [];
+
+			const poRes = await d1.prepare('SELECT * FROM purchases WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			updatedPurchases = poRes.results || [];
+
+			const scRes = await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			updatedStockCounts = scRes.results || [];
+
+			const branchDeltaRes = await d1.prepare('SELECT * FROM branches WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			branches = branchDeltaRes.results || [];
+
+			const catDeltaRes = await d1.prepare('SELECT * FROM categories WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			categories = catDeltaRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
-			const [prodRes, userRes, branchRes, catRes, expRes, mvRes] = await d1.batch([
+			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([
 				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
-				d1.prepare('SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE active = 1'),
+				d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1'),
 				d1.prepare('SELECT * FROM branches'),
 				d1.prepare('SELECT * FROM categories'),
 				d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200'),
-				d1.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 200')
+				d1.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 200'),
+				d1.prepare('SELECT * FROM shifts ORDER BY opened_at DESC LIMIT 100'),
+				d1.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT 100'),
+				d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100')
 			]);
 
 			updatedProducts = prodRes.results || [];
@@ -372,6 +531,52 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			categories = catRes.results || [];
 			updatedExpenses = expRes.results || [];
 			updatedMovements = mvRes.results || [];
+			updatedShifts = shiftRes.results || [];
+			updatedPurchases = poRes.results || [];
+			updatedStockCounts = scRes.results || [];
+		}
+
+		// Pengaturan pajak: first-sync selalu dikirim, delta hanya jika berubah
+		let taxSettings: any = null;
+		const taxRes = await d1
+			.prepare('SELECT value, updated_at FROM app_settings WHERE key = ?')
+			.bind('tax_settings')
+			.first<{ value: string; updated_at: string }>();
+		if (taxRes && taxRes.value) {
+			if (!lastSyncedAt || (taxRes.updated_at && taxRes.updated_at >= lastSyncedAt)) {
+				try {
+					taxSettings = JSON.parse(taxRes.value);
+				} catch {
+					taxSettings = null;
+				}
+			}
+		}
+
+		// Lampirkan item untuk pembelian dan opname yang ditarik dari server
+		if (updatedPurchases.length > 0) {
+			const poIds = updatedPurchases.map((p: any) => p.id);
+			const poItemsRes = await d1
+				.prepare(`SELECT * FROM purchase_items WHERE purchase_id IN (${poIds.map(() => '?').join(',')})`)
+				.bind(...poIds)
+				.all();
+			const itemsByPo: Record<string, any[]> = {};
+			for (const it of poItemsRes.results || []) {
+				(itemsByPo[(it as any).purchase_id] ||= []).push(it);
+			}
+			updatedPurchases = updatedPurchases.map((p: any) => ({ ...p, items: itemsByPo[p.id] || [] }));
+		}
+
+		if (updatedStockCounts.length > 0) {
+			const scIds = updatedStockCounts.map((s: any) => s.id);
+			const scItemsRes = await d1
+				.prepare(`SELECT * FROM stock_count_items WHERE stock_count_id IN (${scIds.map(() => '?').join(',')})`)
+				.bind(...scIds)
+				.all();
+			const itemsBySc: Record<string, any[]> = {};
+			for (const it of scItemsRes.results || []) {
+				(itemsBySc[(it as any).stock_count_id] ||= []).push(it);
+			}
+			updatedStockCounts = updatedStockCounts.map((s: any) => ({ ...s, items: itemsBySc[s.id] || [] }));
 		}
 
 		return json({
@@ -384,7 +589,11 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				branches,
 				categories,
 				expenses: updatedExpenses,
-				stock_movements: updatedMovements
+				stock_movements: updatedMovements,
+				shifts: updatedShifts,
+				purchases: updatedPurchases,
+				stock_counts: updatedStockCounts,
+				...(taxSettings ? { tax_settings: taxSettings } : {})
 			}
 		});
 	} catch (error: any) {

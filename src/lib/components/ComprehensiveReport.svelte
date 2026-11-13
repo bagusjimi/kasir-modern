@@ -487,7 +487,7 @@
 			<p class="text-xs text-gray-500 mt-1">
 				Analisis performa omset, laba kotor, metode pembayaran, dan produk terlaris
 				{#if authState.user?.role === 'cashier'}
-					• Cabang: <span class="font-semibold text-emerald-700">{authState.branch?.name || 'Cabang Lokal'}</span>
+					• Cabang: <span class="font-semibold text-emerald-700">{authState.branch?.name || '-'}</span>
 				{/if}
 			</p>
 		</div>

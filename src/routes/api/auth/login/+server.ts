@@ -23,10 +23,18 @@ export const POST: RequestHandler = async ({ request, platform, cookies, url }) 
 		const user = await d1.prepare(`
 			SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at
 			FROM users
-			WHERE username = ?
-		`).bind(username.toLowerCase().trim()).first<any>();
+			WHERE lower(username) = lower(?)
+		`).bind(username.trim()).first<any>();
 
 		if (!user || !user.active) {
+			const userCount = await d1.prepare('SELECT COUNT(*) AS c FROM users').first<{ c: number }>();
+			if (userCount && userCount.c === 0) {
+				return json({
+					success: false,
+					code: 'NO_USERS',
+					message: 'Belum ada pengguna terdaftar di server'
+				}, { status: 401 });
+			}
 			return json({ success: false, message: 'Username atau PIN salah' }, { status: 401 });
 		}
 

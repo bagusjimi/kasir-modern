@@ -29,8 +29,8 @@
 	let formUsername = $state<string>('');
 	let formName = $state<string>('');
 	let formRole = $state<Role>('cashier');
-	let formBranchId = $state<string>('cb-01');
-	let formPin = $state<string>('1234');
+	let formBranchId = $state<string>('');
+	let formPin = $state<string>('');
 	let formActive = $state<boolean>(true);
 	let formError = $state<string | null>(null);
 
@@ -57,8 +57,8 @@
 		formUsername = '';
 		formName = '';
 		formRole = 'cashier';
-		formBranchId = branches[0]?.id || 'cb-01';
-		formPin = '1234';
+		formBranchId = branches[0]?.id || '';
+		formPin = '';
 		formActive = true;
 		formError = null;
 		isModalOpen = true;
@@ -86,6 +86,10 @@
 		}
 		if (!formName.trim()) {
 			formError = 'Nama lengkap wajib diisi';
+			return;
+		}
+		if (formRole === 'cashier' && !formBranchId) {
+			formError = 'Cabang wajib dipilih. Buat cabang terlebih dahulu di menu Kelola Cabang.';
 			return;
 		}
 		if (!isEditing && (!formPin.trim() || formPin.trim().length < 4)) {

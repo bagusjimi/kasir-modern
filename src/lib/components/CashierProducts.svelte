@@ -26,7 +26,8 @@
 	let isEditing = $state<boolean>(false);
 	let formId = $state<string>('');
 	let formName = $state<string>('');
-	let formCategory = $state<string>('Makanan');
+	let formCategory = $state<string>('');
+	let newCategoryName = $state<string>('');
 	let formSku = $state<string>('');
 	let formPrice = $state<number>(0);
 	let formCostPrice = $state<number>(0);
@@ -55,6 +56,8 @@
 		restock: 'Restock',
 		void: 'Pembatalan',
 		return: 'Retur',
+		purchase: 'Pembelian',
+		opname: 'Opname',
 		adjustment: 'Penyesuaian'
 	};
 
@@ -62,10 +65,36 @@
 		await loadData();
 	});
 
+	// Muat ulang daftar setiap kali sinkronisasi selesai, agar kategori dan
+	// produk dari perangkat lain langsung tampil tanpa perlu refresh halaman.
+	$effect(() => {
+		if (syncEngine.lastSyncedAt) {
+			loadData();
+		}
+	});
+
 	async function loadData() {
-		categories = await db.categories.toArray();
+		categories = (await db.categories.toArray()).sort((a, b) => a.name.localeCompare(b.name));
+
+		// Saat online, tarik kategori langsung dari server agar pilihan kategori
+		// selalu lengkap tanpa menunggu siklus sinkronisasi berikutnya.
+		if (syncEngine.isOnline) {
+			try {
+				const res = await fetch('/api/categories');
+				if (res.ok) {
+					const json: any = await res.json();
+					if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+						await db.categories.bulkPut(json.data);
+						categories = (await db.categories.toArray()).sort((a, b) => a.name.localeCompare(b.name));
+					}
+				}
+			} catch (e) {
+				console.warn('Gagal menarik kategori dari server:', e);
+			}
+		}
+
 		const allProducts = await db.products.toArray();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		products = allProducts.filter(
 			p => p.branch_id === 'all' || p.branch_id === branchId
 		);
@@ -83,7 +112,8 @@
 		isEditing = false;
 		formId = '';
 		formName = '';
-		formCategory = categories[0]?.name || 'Makanan';
+		formCategory = categories[0]?.name || '';
+		newCategoryName = '';
 		formSku = 'PRD-' + Math.floor(100 + Math.random() * 900);
 		formPrice = 0;
 		formCostPrice = 0;
@@ -98,6 +128,7 @@
 		formId = prod.id;
 		formName = prod.name;
 		formCategory = prod.category;
+		newCategoryName = '';
 		formSku = prod.sku;
 		formPrice = prod.price;
 		formCostPrice = prod.cost_price;
@@ -134,7 +165,7 @@
 
 		const prod = productToDelete;
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 
 		// 1. Hapus dari IndexedDB lokal
 		await db.products.delete(prod.id);
@@ -155,7 +186,7 @@
 			id: 'act-' + Date.now(),
 			branch_id: branchId,
 			branch_name: authState.branch?.name,
-			user_id: authState.user?.id || 'usr-kasir',
+			user_id: authState.user?.id || '-',
 			user_name: authState.user?.name || 'Kasir',
 			role: 'cashier',
 			action: 'delete_product',
@@ -191,7 +222,7 @@
 		}
 
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const oldStock = prod.stock;
 		const newStock = oldStock + qty;
 
@@ -212,7 +243,7 @@
 			quantity: qty,
 			type: 'restock',
 			reason: restockNotes.trim() || undefined,
-			user_id: authState.user?.id || 'usr-kasir',
+			user_id: authState.user?.id || '-',
 			user_name: authState.user?.name || 'Kasir',
 			created_at: now,
 			synced: false
@@ -235,7 +266,7 @@
 			id: 'act-' + Date.now(),
 			branch_id: branchId,
 			branch_name: authState.branch?.name,
-			user_id: authState.user?.id || 'usr-kasir',
+			user_id: authState.user?.id || '-',
 			user_name: authState.user?.name || 'Kasir',
 			role: 'cashier',
 			action: 'restock_product',
@@ -254,10 +285,45 @@
 		}
 	}
 
+	async function registerCategory(categoryName: string) {
+		const catName = categoryName.trim();
+		if (!catName) return;
+		const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+		const catId = 'cat-' + (slug || Date.now().toString(36));
+		const existing = await db.categories.get(catId);
+		if (existing) {
+			if (existing.name !== catName) {
+				await db.categories.update(catId, { name: catName });
+			}
+			return;
+		}
+		await db.categories.put({ id: catId, name: catName });
+		await db.sync_queue.add({
+			id: 'sq-' + Date.now() + '-cat',
+			entity: 'category',
+			action: 'insert',
+			data: { id: catId, name: catName },
+			timestamp: Date.now(),
+			retry_count: 0,
+			status: 'pending'
+		});
+	}
+
 	async function saveProduct() {
 		formError = null;
+		if (formCategory === '__new__') {
+			if (!newCategoryName.trim()) {
+				formError = 'Nama kategori baru wajib diisi';
+				return;
+			}
+			formCategory = newCategoryName.trim();
+		}
 		if (!formName.trim()) {
 			formError = 'Nama produk wajib diisi';
+			return;
+		}
+		if (!formCategory.trim()) {
+			formError = 'Kategori wajib diisi';
 			return;
 		}
 		if (formPrice <= 0) {
@@ -266,7 +332,9 @@
 		}
 
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
+
+		await registerCategory(formCategory);
 
 		if (isEditing) {
 			const existing = await db.products.get(formId);
@@ -302,7 +370,7 @@
 				id: 'act-' + Date.now(),
 				branch_id: branchId,
 				branch_name: authState.branch?.name,
-				user_id: authState.user?.id || 'usr-kasir',
+				user_id: authState.user?.id || '-',
 				user_name: authState.user?.name || 'Kasir',
 				role: 'cashier',
 				action: 'update_product',
@@ -344,7 +412,7 @@
 				id: 'act-' + Date.now(),
 				branch_id: branchId,
 				branch_name: authState.branch?.name,
-				user_id: authState.user?.id || 'usr-kasir',
+				user_id: authState.user?.id || '-',
 				user_name: authState.user?.name || 'Kasir',
 				role: 'cashier',
 				action: 'create_product',
@@ -386,7 +454,7 @@
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs">
 		<div>
 			<h2 class="text-lg font-bold text-gray-900">Manajemen Produk & Stok</h2>
-			<p class="text-xs text-gray-500 mt-0.5">Kelola ketersediaan inventaris cabang {authState.branch?.name || 'Lokal'}</p>
+			<p class="text-xs text-gray-500 mt-0.5">Kelola ketersediaan inventaris cabang {authState.branch?.name || '-'}</p>
 		</div>
 
 		<div class="flex items-center gap-3">
@@ -534,12 +602,25 @@
 						<select
 							id="formCategory"
 							bind:value={formCategory}
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-hidden focus:border-emerald-500"
 						>
+							<option value="" disabled>Pilih kategori</option>
 							{#each categories as cat}
 								<option value={cat.name}>{cat.name}</option>
 							{/each}
+							{#if formCategory && formCategory !== '__new__' && !categories.some(c => c.name === formCategory)}
+								<option value={formCategory}>{formCategory}</option>
+							{/if}
+							<option value="__new__">+ Kategori baru...</option>
 						</select>
+						{#if formCategory === '__new__'}
+							<input
+								type="text"
+								bind:value={newCategoryName}
+								placeholder="Nama kategori baru"
+								class="w-full px-3 py-2 mt-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
+							/>
+						{/if}
 					</div>
 					<div>
 						<label for="formSku" class="block font-semibold text-gray-700 mb-1">SKU / Kode</label>

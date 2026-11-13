@@ -210,7 +210,7 @@
 	function openCreateModal() {
 		isEditing = false;
 		formId = 'exp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-		formBranchId = (authState.user?.role === 'cashier' && authState.branch?.id) ? authState.branch.id : (branches[0]?.id || 'cb-01');
+		formBranchId = (authState.user?.role === 'cashier' && authState.branch?.id) ? authState.branch.id : (branches[0]?.id || '');
 		formCategory = 'listrik_air_internet';
 		formAmount = '';
 		formDescription = '';

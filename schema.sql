@@ -147,6 +147,77 @@ CREATE TABLE IF NOT EXISTS transaction_adjustments (
     created_at TEXT NOT NULL
 );
 
+-- Shift kasir: buka/tutup shift dengan setoran awal dan Z-report (selisih kas)
+CREATE TABLE IF NOT EXISTS shifts (
+    id TEXT PRIMARY KEY,
+    branch_id TEXT NOT NULL,
+    branch_name TEXT,
+    cashier_id TEXT NOT NULL,
+    cashier_name TEXT NOT NULL,
+    opening_cash REAL NOT NULL DEFAULT 0,
+    opened_at TEXT NOT NULL,
+    closed_at TEXT,
+    closing_cash REAL,
+    expected_cash REAL,
+    cash_difference REAL,
+    total_sales REAL,
+    cash_sales REAL,
+    non_cash_sales REAL,
+    total_transactions INTEGER,
+    voided_count INTEGER,
+    refunded_count INTEGER,
+    status TEXT NOT NULL DEFAULT 'open',
+    note TEXT,
+    updated_at TEXT NOT NULL
+);
+
+-- Pembelian stok dari supplier (purchase order sederhana)
+CREATE TABLE IF NOT EXISTS purchases (
+    id TEXT PRIMARY KEY,
+    branch_id TEXT NOT NULL,
+    branch_name TEXT,
+    supplier_name TEXT NOT NULL,
+    supplier_phone TEXT,
+    total REAL NOT NULL DEFAULT 0,
+    note TEXT,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS purchase_items (
+    id TEXT PRIMARY KEY,
+    purchase_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    cost_price REAL NOT NULL,
+    subtotal REAL NOT NULL
+);
+
+-- Stok opname (penghitungan fisik vs sistem)
+CREATE TABLE IF NOT EXISTS stock_counts (
+    id TEXT PRIMARY KEY,
+    branch_id TEXT NOT NULL,
+    branch_name TEXT,
+    note TEXT,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    total_difference_qty INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS stock_count_items (
+    id TEXT PRIMARY KEY,
+    stock_count_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    system_qty INTEGER NOT NULL,
+    counted_qty INTEGER NOT NULL,
+    difference INTEGER NOT NULL
+);
+
 -- Indeks untuk performa query real-time monitoring dan sinkronisasi
 CREATE INDEX IF NOT EXISTS idx_transactions_branch ON transactions(branch_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
@@ -162,4 +233,12 @@ CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(produc
 CREATE INDEX IF NOT EXISTS idx_stock_movements_branch ON stock_movements(branch_id);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_created ON stock_movements(created_at);
 CREATE INDEX IF NOT EXISTS idx_tx_adjustments_tx ON transaction_adjustments(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_branch ON shifts(branch_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status);
+CREATE INDEX IF NOT EXISTS idx_shifts_updated ON shifts(updated_at);
+CREATE INDEX IF NOT EXISTS idx_purchases_branch ON purchases(branch_id);
+CREATE INDEX IF NOT EXISTS idx_purchases_created ON purchases(created_at);
+CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items(purchase_id);
+CREATE INDEX IF NOT EXISTS idx_stock_counts_branch ON stock_counts(branch_id);
+CREATE INDEX IF NOT EXISTS idx_stock_count_items_count ON stock_count_items(stock_count_id);
 
