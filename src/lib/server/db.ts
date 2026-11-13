@@ -140,6 +140,17 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		// Kolom sudah ada
 	}
 
+	// Backfill kategori lama yang dibuat sebelum kolom updated_at ada,
+	// agar ikut terkirim ke perangkat lewat delta pull.
+	try {
+		await d1
+			.prepare("UPDATE categories SET updated_at = ? WHERE updated_at IS NULL")
+			.bind(new Date().toISOString())
+			.run();
+	} catch (backfillErr) {
+		console.warn('Gagal backfill updated_at kategori:', backfillErr);
+	}
+
 	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat
 	// oleh pengguna lewat alur Pengaturan Awal dan menu admin (data asli, bukan fiktif).
 }

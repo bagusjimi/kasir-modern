@@ -43,7 +43,10 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		}
 
 		const catId = id || `cat-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`;
-		await d1.prepare('INSERT OR IGNORE INTO categories (id, name) VALUES (?, ?)').bind(catId, name).run();
+		await d1
+			.prepare('INSERT OR IGNORE INTO categories (id, name, updated_at) VALUES (?, ?, ?)')
+			.bind(catId, name, new Date().toISOString())
+			.run();
 
 		return json({
 			success: true,
