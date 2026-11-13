@@ -3,10 +3,11 @@
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.svelte.js';
-	import type { TaxSettings } from '../types/index.js';
+	import type { TaxSettings, StoreSettings } from '../types/index.js';
 	import {
 		Receipt,
 		Percent,
+		Store,
 		CheckCircle2,
 		AlertCircle,
 		Save,
@@ -19,6 +20,9 @@
 	let enabled = $state<boolean>(true);
 	let rate = $state<number>(11);
 	let name = $state<string>('PPN');
+	let storeName = $state<string>('');
+	let storeAddress = $state<string>('');
+	let storePhone = $state<string>('');
 	let isLoading = $state<boolean>(true);
 	let isSaving = $state<boolean>(false);
 	let notification = $state<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -54,7 +58,7 @@
 				try {
 					const res = await fetch('/api/settings');
 					if (res.ok) {
-						const result = (await res.json()) as { success: boolean; data?: TaxSettings };
+						const result = (await res.json()) as { success: boolean; data?: TaxSettings; store?: StoreSettings };
 						if (result.success && result.data) {
 							enabled = result.data.enabled ?? true;
 							rate = result.data.rate ?? 11;
@@ -64,6 +68,16 @@
 							await db.app_settings.put({
 								key: 'tax_settings',
 								value: result.data
+							});
+						}
+						if (result.success && result.store) {
+							storeName = result.store.name ?? '';
+							storeAddress = result.store.address ?? '';
+							storePhone = result.store.phone ?? '';
+
+							await db.app_settings.put({
+								key: 'store_settings',
+								value: result.store
 							});
 						}
 					}
@@ -107,6 +121,17 @@
 
 		try {
 			// 1. Simpan ke database lokal Dexie
+			const storeSettings: StoreSettings = {
+				name: storeName.trim(),
+				address: storeAddress.trim(),
+				phone: storePhone.trim(),
+				updated_at: new Date().toISOString()
+			};
+			await db.app_settings.put({
+				key: 'store_settings',
+				value: storeSettings
+			});
+
 			await db.app_settings.put({
 				key: 'tax_settings',
 				value: updated
@@ -134,7 +159,7 @@
 					const res = await fetch('/api/settings', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(updated)
+						body: JSON.stringify({ ...updated, store: storeSettings })
 					});
 					if (!res.ok) {
 						console.warn('Gagal menyimpan ke D1 Cloudflare');
@@ -146,7 +171,7 @@
 
 			notification = {
 				type: 'success',
-				message: 'Konfigurasi pajak berhasil diperbarui dan diterapkan ke seluruh sistem!'
+				message: 'Pengaturan toko & pajak berhasil diperbarui dan diterapkan ke seluruh sistem!'
 			};
 
 			// Hilangkan notifikasi sukses setelah 4 detik
@@ -186,8 +211,8 @@
 					<Receipt class="h-6 w-6" />
 				</div>
 				<div>
-					<h1 class="text-2xl font-black text-gray-900 tracking-tight">Konfigurasi Pajak (PPN / PB1)</h1>
-					<p class="text-xs text-gray-500">Atur apakah pajak diberlakukan pada kasir, sesuaikan persentase tarif, dan beri nama label pajak.</p>
+					<h1 class="text-2xl font-black text-gray-900 tracking-tight">Pengaturan Toko &amp; Pajak</h1>
+					<p class="text-xs text-gray-500">Atur identitas toko yang tampil di struk nota, serta apakah pajak diberlakukan pada kasir, persentase tarif, dan label pajak.</p>
 				</div>
 			</div>
 		</div>
@@ -232,6 +257,60 @@
 		<!-- Main Form Settings -->
 		<div class="lg:col-span-2 space-y-6">
 			<div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-6">
+				<!-- Identitas Toko -->
+				<div class="space-y-4">
+					<div class="flex items-center gap-2">
+						<Store class="h-4 w-4 text-emerald-600" />
+						<span class="font-bold text-gray-900 text-base">Identitas Toko</span>
+						<span class="text-[11px] text-gray-400">Tampil di header struk nota kasir</span>
+					</div>
+
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label for="store-name-input" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+								Nama Toko
+							</label>
+							<input
+								id="store-name-input"
+								type="text"
+								bind:value={storeName}
+								placeholder="Contoh: Toko Sembako Berkah"
+								class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
+							/>
+						</div>
+						<div>
+							<label for="store-phone-input" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+								Telepon
+							</label>
+							<input
+								id="store-phone-input"
+								type="text"
+								bind:value={storePhone}
+								placeholder="Contoh: 0812-3456-7890"
+								class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
+							/>
+						</div>
+					</div>
+
+					<div>
+						<label for="store-address-input" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+							Alamat (Kantor Pusat / Alamat Utama)
+						</label>
+						<input
+							id="store-address-input"
+							type="text"
+							bind:value={storeAddress}
+							placeholder="Contoh: Jl. Merdeka No. 10, Jakarta"
+							class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
+						/>
+						<p class="text-[11px] text-gray-400 mt-1.5">
+							Jika nama toko dikosongkan, struk akan menampilkan nama cabang tempat transaksi.
+						</p>
+					</div>
+				</div>
+
+				<div class="pt-2 border-t border-gray-100"></div>
+
 				<!-- Toggle Pajak Aktif / Nonaktif -->
 				<div class="flex items-center justify-between p-4 rounded-2xl border {enabled ? 'bg-emerald-50/60 border-emerald-200' : 'bg-gray-50 border-gray-200'} transition">
 					<div class="space-y-1">

@@ -124,8 +124,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				if (q.action === 'insert' || q.action === 'update') {
 					statements.push(
 						d1.prepare(`
-							INSERT INTO products (id, branch_id, sku, barcode, name, category, price, cost_price, stock, unit, image_url, is_active, version, created_at, updated_at)
-							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+							INSERT INTO products (id, branch_id, sku, barcode, name, category, price, cost_price, stock, min_stock, unit, image_url, is_active, version, created_at, updated_at)
+							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 							ON CONFLICT(id) DO UPDATE SET
 								name = excluded.name,
 								category = excluded.category,
@@ -133,6 +133,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 								price = excluded.price,
 								cost_price = excluded.cost_price,
 								stock = excluded.stock,
+								min_stock = excluded.min_stock,
 								unit = excluded.unit,
 								is_active = excluded.is_active,
 								version = excluded.version,
@@ -140,7 +141,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 							WHERE excluded.version >= products.version
 						`).bind(
 							p.id, p.branch_id || 'all', p.sku, p.barcode || '', p.name,
-							p.category, p.price, p.cost_price || 0, p.stock || 0, p.unit || 'pcs',
+							p.category, p.price, p.cost_price || 0, p.stock || 0, p.min_stock || 0, p.unit || 'pcs',
 							p.image_url || '', p.is_active !== undefined ? (p.is_active ? 1 : 0) : 1,
 							p.version || 1, p.created_at || now, p.updated_at || now
 						)
@@ -536,19 +537,21 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			updatedStockCounts = scRes.results || [];
 		}
 
-		// Pengaturan pajak: first-sync selalu dikirim, delta hanya jika berubah
+		// Pengaturan pajak & identitas toko: first-sync selalu dikirim, delta hanya jika berubah
 		let taxSettings: any = null;
-		const taxRes = await d1
-			.prepare('SELECT value, updated_at FROM app_settings WHERE key = ?')
-			.bind('tax_settings')
-			.first<{ value: string; updated_at: string }>();
-		if (taxRes && taxRes.value) {
-			if (!lastSyncedAt || (taxRes.updated_at && taxRes.updated_at >= lastSyncedAt)) {
-				try {
-					taxSettings = JSON.parse(taxRes.value);
-				} catch {
-					taxSettings = null;
-				}
+		let storeSettings: any = null;
+		const settingsRes = await d1
+			.prepare("SELECT key, value, updated_at FROM app_settings WHERE key IN ('tax_settings', 'store_settings')")
+			.all();
+		for (const row of settingsRes.results || []) {
+			const r = row as { key: string; value: string; updated_at: string };
+			if (!r.value) continue;
+			if (lastSyncedAt && !(r.updated_at && r.updated_at >= lastSyncedAt)) continue;
+			try {
+				if (r.key === 'tax_settings') taxSettings = JSON.parse(r.value);
+				if (r.key === 'store_settings') storeSettings = JSON.parse(r.value);
+			} catch {
+				// Nilai JSON rusak: lewati
 			}
 		}
 
@@ -593,7 +596,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				shifts: updatedShifts,
 				purchases: updatedPurchases,
 				stock_counts: updatedStockCounts,
-				...(taxSettings ? { tax_settings: taxSettings } : {})
+				...(taxSettings ? { tax_settings: taxSettings } : {}),
+				...(storeSettings ? { store_settings: storeSettings } : {})
 			}
 		});
 	} catch (error: any) {

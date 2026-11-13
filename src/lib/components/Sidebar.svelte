@@ -22,7 +22,9 @@
 		ChevronRight,
 		Clock,
 		Truck,
-		ClipboardList
+		ClipboardList,
+		LayoutDashboard,
+		Tags
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -299,6 +301,20 @@
 						{/if}
 					</button>
 				{:else if authState.user?.role === 'admin'}
+					<!-- Beranda Admin -->
+					<button
+						onclick={() => selectTab('dashboard')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'dashboard' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<LayoutDashboard class="h-4 w-4 {activeTab === 'dashboard' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Beranda</span>
+						</div>
+						{#if activeTab === 'dashboard'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
 					<!-- Kelola Pengguna -->
 					<button
 						onclick={() => selectTab('users')}
@@ -323,6 +339,20 @@
 							<span>Kelola Cabang</span>
 						</div>
 						{#if activeTab === 'branches'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
+					<!-- Manajemen Kategori -->
+					<button
+						onclick={() => selectTab('categories')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'categories' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Tags class="h-4 w-4 {activeTab === 'categories' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<span>Kategori</span>
+						</div>
+						{#if activeTab === 'categories'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>
@@ -376,7 +406,7 @@
 					>
 						<div class="flex items-center gap-3">
 							<Receipt class="h-4 w-4 {activeTab === 'tax' ? 'text-emerald-400' : 'text-zinc-400'}" />
-							<span>Pengaturan Pajak</span>
+							<span>Pengaturan Toko</span>
 						</div>
 						{#if activeTab === 'tax'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
