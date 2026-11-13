@@ -26,6 +26,7 @@ export class SyncEngine {
 	constructor() {
 		if (typeof window !== 'undefined') {
 			this.isOnline = navigator.onLine;
+			this.lastSyncedAt = localStorage.getItem('kasir_last_synced_at');
 
 			window.addEventListener('online', () => {
 				this.isOnline = true;
@@ -116,6 +117,10 @@ export class SyncEngine {
 				body: JSON.stringify(payload)
 			});
 
+			if (response.status === 401) {
+				throw new Error('Sesi tidak valid atau sudah berakhir. Silakan keluar lalu masuk kembali saat perangkat online.');
+			}
+
 			if (!response.ok) {
 				throw new Error(`Server merespons kode status ${response.status}`);
 			}
@@ -170,7 +175,9 @@ export class SyncEngine {
 					}
 				}
 
-				this.lastSyncedAt = new Date().toISOString();
+				// Gunakan waktu server agar delta pull tidak terpengaruh selisih jam perangkat
+				this.lastSyncedAt = result.syncedAt || new Date().toISOString();
+				localStorage.setItem('kasir_last_synced_at', this.lastSyncedAt);
 				await this.updatePendingCount();
 				this.isSyncing = false;
 				return { success: true, message: 'Sinkronisasi berhasil!' };

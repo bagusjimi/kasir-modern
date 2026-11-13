@@ -112,6 +112,15 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+
 -- Indeks untuk performa query real-time monitoring dan sinkronisasi
 CREATE INDEX IF NOT EXISTS idx_transactions_branch ON transactions(branch_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
@@ -121,4 +130,6 @@ CREATE INDEX IF NOT EXISTS idx_products_updated ON products(updated_at);
 CREATE INDEX IF NOT EXISTS idx_expenses_branch ON expenses(branch_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 

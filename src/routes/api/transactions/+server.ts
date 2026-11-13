@@ -1,14 +1,18 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import { getSession, unauthorized } from '#lib/server/auth.js';
 
-export const GET: RequestHandler = async ({ url, platform }) => {
+export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
 
 	try {
 		const branchId = url.searchParams.get('branch_id');
@@ -56,11 +60,16 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, platform }) => {
+export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
 	}
+
+	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
 
 	try {
 		const body = (await request.json()) as any;

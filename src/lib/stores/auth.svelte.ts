@@ -1,5 +1,6 @@
 import type { User, Branch } from '../types/index.js';
 import { db } from '../db/index.js';
+import { hashPin, verifyPin, isHashedPin } from '../auth/pin.js';
 
 class AuthState {
 	user = $state<User | null>(null);
@@ -60,8 +61,14 @@ class AuthState {
 			return { success: false, message: 'Akun ini dinonaktifkan oleh Admin' };
 		}
 
-		if (user.pin !== pin.trim()) {
+		const pinOk = await verifyPin(pin.trim(), user.pin);
+		if (!pinOk) {
 			return { success: false, message: 'PIN / Sandi salah' };
+		}
+
+		// Upgrade PIN plaintext lama menjadi hash (migrasi bertahap)
+		if (!isHashedPin(user.pin)) {
+			await db.users.update(user.id, { pin: await hashPin(pin.trim()) });
 		}
 
 		// VALIDASI KETAT PENUGASAN CABANG UNTUK KASIR:
@@ -102,6 +109,19 @@ class AuthState {
 			localStorage.setItem('kasir_session_branch_id', 'all');
 		}
 
+		// Buat sesi server (best-effort, tidak mewajibkan koneksi)
+		if (typeof navigator !== 'undefined' && navigator.onLine) {
+			try {
+				await fetch('/api/auth/login', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ username: user.username, pin: pin.trim() })
+				});
+			} catch {
+				// Sesi server bisa dibuat saat login berikutnya saat online
+			}
+		}
+
 		// Log aktivitas login
 		await db.activity_logs.add({
 			id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
@@ -136,6 +156,14 @@ class AuthState {
 				});
 			} catch (e) {
 				console.error(e);
+			}
+		}
+
+		if (typeof navigator !== 'undefined' && navigator.onLine) {
+			try {
+				await fetch('/api/auth/logout', { method: 'POST' });
+			} catch {
+				// abaikan jika offline
 			}
 		}
 

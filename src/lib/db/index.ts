@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { hashPin } from '../auth/pin.js';
 import type {
 	Branch,
 	User,
@@ -97,9 +98,11 @@ export async function seedInitialData(): Promise<void> {
 		{ id: 'cat-lainnya', name: 'Lainnya' }
 	];
 
-	// 3. Pengguna / User
+	// 3. Pengguna / User (PIN disimpan sebagai hash PBKDF2)
 	// Catatan: Admin TIDAK bisa input transaksi kasir, hanya memantau dan kelola user.
 	// Kasir memiliki akses kasir penuh di cabangnya.
+	const adminPinHash = await hashPin('123456');
+	const kasirPinHash = await hashPin('1234');
 	const initialUsers: User[] = [
 		{
 			id: 'usr-admin-1',
@@ -107,7 +110,7 @@ export async function seedInitialData(): Promise<void> {
 			name: 'Admin Pusat (Owner)',
 			role: 'admin',
 			branch_id: 'all',
-			pin: '123456',
+			pin: adminPinHash,
 			active: true,
 			created_at: now,
 			updated_at: now
@@ -118,7 +121,7 @@ export async function seedInitialData(): Promise<void> {
 			name: 'Siti Rahma',
 			role: 'cashier',
 			branch_id: 'cb-01',
-			pin: '1234',
+			pin: kasirPinHash,
 			active: true,
 			created_at: now,
 			updated_at: now
@@ -129,7 +132,7 @@ export async function seedInitialData(): Promise<void> {
 			name: 'Budi Santoso',
 			role: 'cashier',
 			branch_id: 'cb-02',
-			pin: '1234',
+			pin: kasirPinHash,
 			active: true,
 			created_at: now,
 			updated_at: now
@@ -140,7 +143,7 @@ export async function seedInitialData(): Promise<void> {
 			name: 'Dewi Lestari',
 			role: 'cashier',
 			branch_id: 'cb-03',
-			pin: '1234',
+			pin: kasirPinHash,
 			active: true,
 			created_at: now,
 			updated_at: now

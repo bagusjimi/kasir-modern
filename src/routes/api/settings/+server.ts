@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import { getSession, unauthorized, forbidden } from '#lib/server/auth.js';
 import type { TaxSettings } from '#lib/types/index.js';
 
-export const GET: RequestHandler = async ({ platform }) => {
+export const GET: RequestHandler = async ({ platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({
@@ -18,6 +19,10 @@ export const GET: RequestHandler = async ({ platform }) => {
 
 	try {
 		await ensureD1Seeded(d1);
+
+		const session = await getSession(d1, cookies);
+		if (!session) return unauthorized();
+
 		const row = await d1
 			.prepare('SELECT value FROM app_settings WHERE key = ?')
 			.bind('tax_settings')
@@ -40,7 +45,16 @@ export const GET: RequestHandler = async ({ platform }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, platform }) => {
+export const POST: RequestHandler = async ({ request, platform, cookies }) => {
+	const d1 = getD1(platform);
+	if (d1) {
+		await ensureD1Seeded(d1);
+
+		const session = await getSession(d1, cookies);
+		if (!session) return unauthorized();
+		if (session.role !== 'admin') return forbidden();
+	}
+
 	const body = (await request.json()) as any;
 	const { enabled, rate, name } = body;
 
@@ -55,7 +69,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		updated_at: new Date().toISOString()
 	};
 
-	const d1 = getD1(platform);
 	if (d1) {
 		try {
 			await ensureD1Seeded(d1);

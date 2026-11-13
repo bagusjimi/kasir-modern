@@ -1,14 +1,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import { getSession, unauthorized } from '#lib/server/auth.js';
+import { hashPin, isHashedPin } from '#lib/auth/pin.js';
 
-export const POST: RequestHandler = async ({ request, platform }) => {
+export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB tidak ditemukan' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
 
 	try {
 		const payload = (await request.json()) as any;
@@ -42,7 +47,19 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			);
 		}
 
-		// 1. Sinkronisasi Transaksi
+		// 1. Sinkronisasi Transaksi (stok hanya dikurangi untuk transaksi yang benar-benar baru)
+		const existingTxIds = new Set<string>();
+		if (transactions.length > 0) {
+			const txIdPlaceholders = transactions.map(() => '?').join(',');
+			const existingRes = await d1
+				.prepare(`SELECT id FROM transactions WHERE id IN (${txIdPlaceholders})`)
+				.bind(...transactions.map((t: any) => t.id))
+				.all();
+			for (const row of existingRes.results || []) {
+				existingTxIds.add((row as any).id);
+			}
+		}
+
 		for (const tx of transactions) {
 			statements.push(
 				d1.prepare(`
@@ -72,8 +89,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 						)
 					);
 
-					// Kurangi stok di D1 jika transaksi baru
-					if (item.product_id) {
+					// Kurangi stok di D1 hanya jika transaksi benar-benar baru (idempoten)
+					if (item.product_id && !existingTxIds.has(tx.id)) {
 						statements.push(
 							d1.prepare(`
 								UPDATE products
@@ -124,6 +141,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			} else if (q.entity === 'user') {
 				const u = q.data;
 				if (q.action === 'insert' || q.action === 'update') {
+					const pinHash = u.pin && !isHashedPin(u.pin) ? await hashPin(u.pin) : (u.pin || '');
 					statements.push(
 						d1.prepare(`
 							INSERT INTO users (id, username, name, role, branch_id, pin, active, created_at, updated_at)
@@ -136,7 +154,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 								active = excluded.active,
 								updated_at = excluded.updated_at
 						`).bind(
-							u.id, u.username, u.name, u.role, u.branch_id, u.pin,
+							u.id, u.username, u.name, u.role, u.branch_id, pinHash,
 							u.active !== undefined ? (u.active ? 1 : 0) : 1,
 							u.created_at || now, u.updated_at || now
 						)
@@ -204,22 +222,22 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		let categories: any[] = [];
 
 		if (lastSyncedAt) {
-			const prodRes = await d1.prepare('SELECT * FROM products WHERE updated_at > ?').bind(lastSyncedAt).all();
+			const prodRes = await d1.prepare('SELECT * FROM products WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedProducts = prodRes.results || [];
 
-			const userRes = await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at > ?').bind(lastSyncedAt).all();
+			const userRes = await d1.prepare('SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedUsers = (userRes.results || []).map((u: any) => ({
 				...u,
 				active: Boolean(u.active)
 			}));
 
-			const expRes = await d1.prepare('SELECT * FROM expenses WHERE updated_at > ?').bind(lastSyncedAt).all();
+			const expRes = await d1.prepare('SELECT * FROM expenses WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedExpenses = expRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
 			const [prodRes, userRes, branchRes, catRes, expRes] = await d1.batch([
 				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
-				d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1'),
+				d1.prepare('SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE active = 1'),
 				d1.prepare('SELECT * FROM branches'),
 				d1.prepare('SELECT * FROM categories'),
 				d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200')
@@ -259,13 +277,16 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 };
 
-export const GET: RequestHandler = async ({ platform }) => {
+export const GET: RequestHandler = async ({ platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB tidak ditemukan' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
 
 	try {
 		const [recentLogs, txSummary] = await d1.batch([
