@@ -80,8 +80,11 @@
 		const allProducts = await db.products.toArray();
 		products = allProducts.filter(p => p.is_active && (p.branch_id === 'all' || p.branch_id === currentBranchId));
 		branches = await db.branches.orderBy('name').toArray();
-		const allTransfers = await db.stock_transfers.orderBy('created_at').reverse().limit(50).toArray();
-		transfers = allTransfers.filter(t => currentBranchId === 'all' || t.from_branch_id === currentBranchId || t.to_branch_id === currentBranchId);
+		const allTransfers = await db.stock_transfers.toArray();
+		transfers = allTransfers
+			.sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+			.slice(0, 50)
+			.filter(t => currentBranchId === 'all' || t.from_branch_id === currentBranchId || t.to_branch_id === currentBranchId);
 		isLoading = false;
 	}
 
