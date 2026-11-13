@@ -9,7 +9,9 @@ import type {
 	TransactionItem,
 	SyncQueueItem,
 	ActivityLog,
-	Expense
+	Expense,
+	StockMovement,
+	TransactionAdjustment
 } from '../types/index.js';
 
 export interface SettingItem {
@@ -27,6 +29,8 @@ export class KasirDatabase extends Dexie {
 	sync_queue!: Table<SyncQueueItem, string>;
 	activity_logs!: Table<ActivityLog, string>;
 	expenses!: Table<Expense, string>;
+	stock_movements!: Table<StockMovement, string>;
+	transaction_adjustments!: Table<TransactionAdjustment, string>;
 	app_settings!: Table<SettingItem, string>;
 
 	constructor() {
@@ -46,6 +50,11 @@ export class KasirDatabase extends Dexie {
 
 		this.version(2).stores({
 			expenses: 'id, branch_id, category, date, created_at'
+		});
+
+		this.version(3).stores({
+			stock_movements: 'id, branch_id, product_id, type, reference_id, created_at',
+			transaction_adjustments: 'id, transaction_id, type, created_at'
 		});
 	}
 }

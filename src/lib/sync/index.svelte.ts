@@ -11,6 +11,7 @@ interface SyncApiResponse {
 		branches?: any[];
 		categories?: any[];
 		expenses?: any[];
+		stock_movements?: any[];
 	};
 }
 
@@ -55,8 +56,9 @@ export class SyncEngine {
 			const unsyncedTx = await db.transactions.filter(t => !t.synced).count();
 			const unsyncedExp = await db.expenses.filter(e => !e.synced).count();
 			const unsyncedLogs = await db.activity_logs.filter(l => !l.synced).count();
+			const unsyncedMv = await db.stock_movements.filter(m => !m.synced).count();
 			const queueCount = await db.sync_queue.where('status').equals('pending').count();
-			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + queueCount;
+			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + unsyncedMv + queueCount;
 			return this.pendingCount;
 		} catch (e) {
 			console.warn('Gagal menghitung antrean sync:', e);
@@ -95,7 +97,13 @@ export class SyncEngine {
 				.limit(50)
 				.toArray();
 
-			// 4. Ambil antrean perubahan umum (produk, user, expense delete, dll.)
+			// 4. Ambil ledger stok yang belum tersinkron
+			const pendingMovements = await db.stock_movements
+				.filter(m => !m.synced)
+				.limit(100)
+				.toArray();
+
+			// 5. Ambil antrean perubahan umum (produk, user, expense, void/retur, dll.)
 			const queueItems = await db.sync_queue
 				.where('status')
 				.equals('pending')
@@ -107,6 +115,7 @@ export class SyncEngine {
 				transactions: pendingTransactions,
 				expenses: pendingExpenses,
 				activity_logs: pendingLogs,
+				stock_movements: pendingMovements,
 				queue: queueItems,
 				lastSyncedAt: this.lastSyncedAt
 			};
@@ -149,6 +158,13 @@ export class SyncEngine {
 					}
 				}
 
+				// Tandai ledger stok sebagai tersinkron
+				if (pendingMovements.length > 0) {
+					for (const mv of pendingMovements) {
+						await db.stock_movements.update(mv.id, { synced: true });
+					}
+				}
+
 				// Bersihkan queue
 				if (queueItems.length > 0) {
 					const queueIds = queueItems.map(q => q.id);
@@ -172,6 +188,13 @@ export class SyncEngine {
 							synced: true
 						}));
 						await db.expenses.bulkPut(formattedExpenses);
+					}
+					if (result.serverUpdates.stock_movements && result.serverUpdates.stock_movements.length > 0) {
+						const formattedMovements = result.serverUpdates.stock_movements.map(m => ({
+							...m,
+							synced: true
+						}));
+						await db.stock_movements.bulkPut(formattedMovements);
 					}
 				}
 

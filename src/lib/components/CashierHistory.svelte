@@ -2,7 +2,8 @@
 	import { onMount } from 'svelte';
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
-	import type { Transaction } from '../types/index.js';
+	import { syncEngine } from '../sync/index.js';
+	import type { Transaction, TransactionAdjustmentType } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
 		Search,
@@ -11,13 +12,24 @@
 		Calendar,
 		DollarSign,
 		CheckCircle2,
-		Clock
+		Clock,
+		Ban,
+		Undo2,
+		AlertCircle,
+		X
 	} from 'lucide-svelte';
 
 	let transactions = $state<Transaction[]>([]);
 	let searchQuery = $state<string>('');
 	let selectedDate = $state<string>(new Date().toISOString().slice(0, 10));
 	let selectedTx = $state<Transaction | null>(null);
+
+	// Modal Pembatalan / Retur
+	let isAdjustModalOpen = $state<boolean>(false);
+	let adjustType = $state<TransactionAdjustmentType>('void');
+	let adjustTx = $state<Transaction | null>(null);
+	let adjustReason = $state<string>('');
+	let adjustError = $state<string | null>(null);
 
 	onMount(async () => {
 		await loadHistory();
@@ -55,6 +67,120 @@
 			currency: 'IDR',
 			minimumFractionDigits: 0
 		}).format(num);
+	}
+
+	function openAdjustModal(tx: Transaction, type: TransactionAdjustmentType) {
+		adjustType = type;
+		adjustTx = tx;
+		adjustReason = '';
+		adjustError = null;
+		isAdjustModalOpen = true;
+	}
+
+	async function confirmAdjust() {
+		if (!adjustTx) return;
+		if (!adjustReason.trim()) {
+			adjustError = 'Alasan wajib diisi';
+			return;
+		}
+
+		const tx = adjustTx;
+		const type = adjustType;
+		const now = new Date().toISOString();
+		const user = authState.user;
+		const newStatus = type === 'void' ? 'voided' : 'refunded';
+		const actionLabel = type === 'void' ? 'dibatalkan' : 'diretur';
+
+		// 1. Ubah status transaksi lokal
+		await db.transactions.update(tx.id, {
+			status: newStatus,
+			void_reason: adjustReason.trim(),
+			voided_at: now,
+			voided_by: user?.id || '',
+			voided_by_name: user?.name || '',
+			synced: false
+		});
+
+		// 2. Kembalikan stok produk lokal + catat ledger stok
+		for (const item of tx.items) {
+			if (!item.product_id) continue;
+			const prod = await db.products.get(item.product_id);
+			if (prod) {
+				await db.products.update(prod.id, {
+					stock: prod.stock + item.quantity,
+					updated_at: now
+				});
+			}
+			await db.stock_movements.put({
+				id: `mv-${type}-${tx.id}-${item.id}`,
+				branch_id: tx.branch_id,
+				product_id: item.product_id,
+				quantity: item.quantity,
+				type,
+				reference_id: tx.id,
+				reason: adjustReason.trim(),
+				user_id: user?.id || '',
+				user_name: user?.name || '',
+				created_at: now,
+				synced: false
+			});
+		}
+
+		// 3. Catat penyesuaian transaksi
+		await db.transaction_adjustments.put({
+			id: `adj-${tx.id}`,
+			transaction_id: tx.id,
+			type,
+			reason: adjustReason.trim(),
+			user_id: user?.id || '',
+			user_name: user?.name || '',
+			branch_id: tx.branch_id,
+			created_at: now,
+			synced: false
+		});
+
+		// 4. Log aktivitas
+		await db.activity_logs.add({
+			id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+			branch_id: tx.branch_id,
+			branch_name: tx.branch_name,
+			user_id: user?.id || '',
+			user_name: user?.name || 'Kasir',
+			role: 'cashier',
+			action: type === 'void' ? 'void_transaction' : 'return_transaction',
+			details: `Transaksi ${tx.invoice_no} ${actionLabel}: ${adjustReason.trim()}`,
+			timestamp: now,
+			synced: false
+		});
+
+		// 5. Antrean sinkronisasi ke server
+		await db.sync_queue.add({
+			id: 'sq-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+			entity: 'transaction_adjustment',
+			action: 'insert',
+			data: {
+				id: `adj-${tx.id}`,
+				transaction_id: tx.id,
+				type,
+				reason: adjustReason.trim(),
+				user_id: user?.id || '',
+				user_name: user?.name || '',
+				branch_id: tx.branch_id,
+				created_at: now
+			},
+			timestamp: Date.now(),
+			retry_count: 0,
+			status: 'pending'
+		});
+
+		await syncEngine.updatePendingCount();
+		await loadHistory();
+		isAdjustModalOpen = false;
+		adjustTx = null;
+
+		if (syncEngine.isOnline) {
+			syncEngine.triggerSync();
+		}
 	}
 </script>
 
@@ -148,7 +274,19 @@
 										{tx.payment_method}
 									</span>
 								</td>
-								<td class="px-5 py-3.5 font-bold text-emerald-700">{formatRupiah(tx.total)}</td>
+								<td class="px-5 py-3.5">
+									{#if tx.status === 'voided'}
+										<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+											<Ban class="h-3 w-3" /> Dibatalkan
+										</span>
+									{:else if tx.status === 'refunded'}
+										<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+											<Undo2 class="h-3 w-3" /> Retur
+										</span>
+									{:else}
+										<span class="font-bold text-emerald-700">{formatRupiah(tx.total)}</span>
+									{/if}
+								</td>
 								<td class="px-5 py-3.5">
 									{#if tx.synced}
 										<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
@@ -160,7 +298,7 @@
 										</span>
 									{/if}
 								</td>
-								<td class="px-5 py-3.5 text-right">
+								<td class="px-5 py-3.5 text-right whitespace-nowrap">
 									<button
 										onclick={() => selectedTx = tx}
 										class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 font-semibold transition cursor-pointer"
@@ -169,6 +307,24 @@
 										<Printer class="h-3.5 w-3.5" />
 										<span>Cetak</span>
 									</button>
+									{#if tx.status === 'completed'}
+										<button
+											onclick={() => openAdjustModal(tx, 'return')}
+											class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 font-semibold transition cursor-pointer"
+											title="Retur Transaksi (stok dikembalikan)"
+										>
+											<Undo2 class="h-3.5 w-3.5" />
+											<span>Retur</span>
+										</button>
+										<button
+											onclick={() => openAdjustModal(tx, 'void')}
+											class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold transition cursor-pointer"
+											title="Batalkan Transaksi (stok dikembalikan)"
+										>
+											<Ban class="h-3.5 w-3.5" />
+											<span>Batal</span>
+										</button>
+									{/if}
 								</td>
 							</tr>
 						{/each}
@@ -183,4 +339,67 @@
 	transaction={selectedTx}
 	onClose={() => selectedTx = null}
 />
+
+<!-- Modal Pembatalan / Retur -->
+{#if isAdjustModalOpen && adjustTx}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+		<div class="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+			<div class="flex items-center gap-3 mb-3">
+				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {adjustType === 'void' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}">
+					{#if adjustType === 'void'}
+						<Ban class="h-5 w-5" />
+					{:else}
+						<Undo2 class="h-5 w-5" />
+					{/if}
+				</div>
+				<div>
+					<h3 class="text-base font-bold text-gray-900">
+						{adjustType === 'void' ? 'Batalkan Transaksi?' : 'Retur Transaksi?'}
+					</h3>
+					<p class="text-xs text-gray-500">Stok akan dikembalikan otomatis</p>
+				</div>
+			</div>
+
+			<div class="my-4 rounded-xl bg-gray-50 p-3 border border-gray-100 text-xs space-y-1">
+				<div class="font-bold text-gray-800 font-mono">{adjustTx.invoice_no}</div>
+				<div class="text-gray-500">Total: <span class="font-bold text-gray-700">{formatRupiah(adjustTx.total)}</span> • {adjustTx.items.length} macam item</div>
+			</div>
+
+			<div class="mb-4">
+				<label for="adjustReason" class="block text-xs font-semibold text-gray-700 mb-1">
+					Alasan {adjustType === 'void' ? 'Pembatalan' : 'Retur'} (Wajib)
+				</label>
+				<textarea
+					id="adjustReason"
+					bind:value={adjustReason}
+					placeholder={adjustType === 'void' ? 'Contoh: Salah input kasir, transaksi ganda' : 'Contoh: Produk rusak/cacat, salah beli pelanggan'}
+					rows="3"
+					class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
+				></textarea>
+			</div>
+
+			{#if adjustError}
+				<div class="flex items-center gap-1.5 p-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-medium mb-4">
+					<AlertCircle class="h-4 w-4 shrink-0" />
+					<span>{adjustError}</span>
+				</div>
+			{/if}
+
+			<div class="flex items-center justify-end gap-2">
+				<button
+					onclick={() => { isAdjustModalOpen = false; adjustTx = null; }}
+					class="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs cursor-pointer"
+				>
+					Kembali
+				</button>
+				<button
+					onclick={confirmAdjust}
+					class="px-5 py-2 rounded-xl {adjustType === 'void' ? 'bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-600/20' : 'bg-amber-500 hover:bg-amber-600 shadow-md shadow-amber-500/20'} text-white font-bold text-xs transition cursor-pointer"
+				>
+					{adjustType === 'void' ? 'Batalkan Transaksi' : 'Proses Retur'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 

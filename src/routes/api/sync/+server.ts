@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const payload = (await request.json()) as any;
-		const { transactions = [], activity_logs = [], expenses = [], queue = [], lastSyncedAt = null } = payload || {};
+		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], queue = [], lastSyncedAt = null } = payload || {};
 
 		const statements: any[] = [];
 		const now = new Date().toISOString();
@@ -100,6 +100,18 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 								WHERE id = ?
 							`).bind(item.quantity, now, item.product_id)
 						);
+
+						// Catat ledger stok keluar (audit)
+						statements.push(
+							d1.prepare(`
+								INSERT INTO stock_movements (id, branch_id, product_id, quantity, type, reference_id, user_id, user_name, created_at)
+								VALUES (?, ?, ?, ?, 'sale', ?, ?, ?, ?)
+								ON CONFLICT(id) DO NOTHING
+							`).bind(
+								`mv-sale-${item.id}`, tx.branch_id, item.product_id, -item.quantity,
+								tx.id, tx.cashier_id, tx.cashier_name, tx.created_at || now
+							)
+						);
 					}
 				}
 			}
@@ -164,6 +176,94 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						d1.prepare('DELETE FROM users WHERE id = ?').bind(u.id)
 					);
 				}
+			} else if (q.entity === 'transaction_adjustment') {
+				const adj = q.data;
+				if ((adj.type === 'void' || adj.type === 'return') && adj.transaction_id) {
+					const existingTx = await d1
+						.prepare('SELECT id, branch_id, cashier_id, status FROM transactions WHERE id = ?')
+						.bind(adj.transaction_id)
+						.first<any>();
+
+					if (existingTx && existingTx.status !== 'completed') {
+						continue; // sudah dibatalkan/diretur sebelumnya
+					}
+					if (existingTx && session.role === 'cashier' && existingTx.cashier_id !== session.userId) {
+						continue; // kasir hanya boleh membatalkan transaksinya sendiri
+					}
+
+					const newStatus = adj.type === 'void' ? 'voided' : 'refunded';
+					const adjBranchId = existingTx?.branch_id || adj.branch_id || 'all';
+
+					// Ubah status transaksi (idempoten: lewati jika penyesuaian sudah tercatat)
+					statements.push(
+						d1.prepare(`
+							UPDATE transactions
+							SET status = ?, updated_at = ?
+							WHERE id = ? AND NOT EXISTS (SELECT 1 FROM transaction_adjustments WHERE transaction_id = ?)
+						`).bind(newStatus, now, adj.transaction_id, adj.transaction_id)
+					);
+					statements.push(
+						d1.prepare(`
+							INSERT INTO transaction_adjustments (id, transaction_id, type, reason, user_id, user_name, branch_id, created_at)
+							VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+							ON CONFLICT(transaction_id) DO NOTHING
+						`).bind(
+							adj.id || `adj-${adj.transaction_id}`, adj.transaction_id, adj.type,
+							adj.reason || '', adj.user_id || session.userId, adj.user_name || '',
+							adjBranchId, adj.created_at || now
+						)
+					);
+
+					// Kembalikan stok per item (idempoten via ledger stock_movements)
+					let adjItems: any[] = [];
+					if (existingTx) {
+						const itemsRes = await d1
+							.prepare('SELECT id, product_id, quantity FROM transaction_items WHERE transaction_id = ?')
+							.bind(adj.transaction_id)
+							.all();
+						adjItems = itemsRes.results || [];
+					} else {
+						const payloadTx = transactions.find((t: any) => t.id === adj.transaction_id);
+						adjItems = (payloadTx?.items || []).map((it: any) => ({ id: it.id, product_id: it.product_id, quantity: it.quantity }));
+					}
+
+					for (const item of adjItems) {
+						if (!item.product_id) continue;
+						const mvId = `mv-${adj.type}-${adj.transaction_id}-${item.id || item.product_id}`;
+						statements.push(
+							d1.prepare(`
+								UPDATE products
+								SET stock = stock + ?, version = version + 1, updated_at = ?
+								WHERE id = ? AND NOT EXISTS (SELECT 1 FROM stock_movements WHERE id = ?)
+							`).bind(item.quantity, now, item.product_id, mvId)
+						);
+						statements.push(
+							d1.prepare(`
+								INSERT INTO stock_movements (id, branch_id, product_id, quantity, type, reference_id, reason, user_id, user_name, created_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+								ON CONFLICT(id) DO NOTHING
+							`).bind(
+								mvId, adjBranchId, item.product_id, item.quantity, adj.type,
+								adj.transaction_id, adj.reason || '', adj.user_id || session.userId,
+								adj.user_name || '', adj.created_at || now
+							)
+						);
+					}
+
+					statements.push(
+						d1.prepare(`
+							INSERT INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp)
+							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+							ON CONFLICT(id) DO NOTHING
+						`).bind(
+							`act-adj-${adj.transaction_id}`, adjBranchId, adjBranchId === 'all' ? 'Pusat' : adjBranchId,
+							adj.user_id || session.userId, adj.user_name || session.role, session.role,
+							adj.type === 'void' ? 'void_transaction' : 'return_transaction',
+							`Transaksi ${adj.transaction_id} ${adj.type === 'void' ? 'dibatalkan' : 'diretur'}: ${adj.reason || '-'}`,
+							adj.created_at || now
+						)
+					);
+				}
 			} else if (q.entity === 'expense') {
 				const exp = q.data;
 				if (q.action === 'insert' || q.action === 'update') {
@@ -196,7 +296,22 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			}
 		}
 
-		// 3. Sinkronisasi Activity Logs
+		// 3. Sinkronisasi Ledger Stok (Stock Movements)
+		for (const mv of stock_movements) {
+			statements.push(
+				d1.prepare(`
+					INSERT INTO stock_movements (id, branch_id, product_id, quantity, type, reference_id, reason, user_id, user_name, created_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(id) DO NOTHING
+				`).bind(
+					mv.id, mv.branch_id, mv.product_id, mv.quantity, mv.type,
+					mv.reference_id || '', mv.reason || '', mv.user_id, mv.user_name,
+					mv.created_at || now
+				)
+			);
+		}
+
+		// 4. Sinkronisasi Activity Logs
 		for (const log of activity_logs) {
 			statements.push(
 				d1.prepare(`
@@ -218,6 +333,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		let updatedProducts: any[] = [];
 		let updatedUsers: any[] = [];
 		let updatedExpenses: any[] = [];
+		let updatedMovements: any[] = [];
 		let branches: any[] = [];
 		let categories: any[] = [];
 
@@ -233,14 +349,18 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 			const expRes = await d1.prepare('SELECT * FROM expenses WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedExpenses = expRes.results || [];
+
+			const mvRes = await d1.prepare('SELECT * FROM stock_movements WHERE created_at >= ? ORDER BY created_at ASC LIMIT 200').bind(lastSyncedAt).all();
+			updatedMovements = mvRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
-			const [prodRes, userRes, branchRes, catRes, expRes] = await d1.batch([
+			const [prodRes, userRes, branchRes, catRes, expRes, mvRes] = await d1.batch([
 				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
 				d1.prepare('SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE active = 1'),
 				d1.prepare('SELECT * FROM branches'),
 				d1.prepare('SELECT * FROM categories'),
-				d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200')
+				d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200'),
+				d1.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 200')
 			]);
 
 			updatedProducts = prodRes.results || [];
@@ -251,6 +371,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			branches = branchRes.results || [];
 			categories = catRes.results || [];
 			updatedExpenses = expRes.results || [];
+			updatedMovements = mvRes.results || [];
 		}
 
 		return json({
@@ -262,7 +383,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				users: updatedUsers,
 				branches,
 				categories,
-				expenses: updatedExpenses
+				expenses: updatedExpenses,
+				stock_movements: updatedMovements
 			}
 		});
 	} catch (error: any) {

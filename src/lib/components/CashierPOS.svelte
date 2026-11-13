@@ -201,9 +201,9 @@
 		await db.transactions.add(transaction);
 		await db.transaction_items.bulkAdd(items);
 
-		// 2. Kurangi stok produk secara lokal
-		for (const item of cart) {
-			const prod = await db.products.get(item.product.id);
+		// 2. Kurangi stok produk secara lokal + catat ledger stok (audit)
+		for (const item of items) {
+			const prod = await db.products.get(item.product_id);
 			if (prod) {
 				const newStock = Math.max(0, prod.stock - item.quantity);
 				await db.products.update(prod.id, {
@@ -211,6 +211,19 @@
 					updated_at: now.toISOString()
 				});
 			}
+
+			await db.stock_movements.put({
+				id: `mv-sale-${item.id}`,
+				branch_id: transaction.branch_id,
+				product_id: item.product_id,
+				quantity: -item.quantity,
+				type: 'sale',
+				reference_id: txId,
+				user_id: transaction.cashier_id,
+				user_name: transaction.cashier_name,
+				created_at: now.toISOString(),
+				synced: false
+			});
 		}
 
 		// 3. Tambahkan ke Log Aktivitas

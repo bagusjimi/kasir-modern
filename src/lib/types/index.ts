@@ -82,10 +82,44 @@ export interface Transaction {
 	payment_method: PaymentMethod;
 	amount_paid: number;
 	change: number;
-	status: 'completed' | 'cancelled';
+	status: 'completed' | 'cancelled' | 'voided' | 'refunded';
+	void_reason?: string;
+	voided_at?: string;
+	voided_by?: string;
+	voided_by_name?: string;
 	items: TransactionItem[];
 	created_at: string;
 	updated_at: string;
+	synced: boolean;
+}
+
+export type StockMovementType = 'sale' | 'restock' | 'void' | 'return' | 'adjustment';
+
+export interface StockMovement {
+	id: string;
+	branch_id: string;
+	product_id: string;
+	quantity: number; // negatif = stok keluar, positif = stok masuk
+	type: StockMovementType;
+	reference_id?: string;
+	reason?: string;
+	user_id: string;
+	user_name: string;
+	created_at: string;
+	synced: boolean;
+}
+
+export type TransactionAdjustmentType = 'void' | 'return';
+
+export interface TransactionAdjustment {
+	id: string;
+	transaction_id: string;
+	type: TransactionAdjustmentType;
+	reason: string;
+	user_id: string;
+	user_name: string;
+	branch_id: string;
+	created_at: string;
 	synced: boolean;
 }
 
@@ -120,7 +154,7 @@ export interface Expense {
 
 export interface SyncQueueItem {
 	id: string;
-	entity: 'transaction' | 'product' | 'user' | 'activity' | 'expense';
+	entity: 'transaction' | 'product' | 'user' | 'activity' | 'expense' | 'transaction_adjustment';
 	action: 'insert' | 'update' | 'delete';
 	data: unknown;
 	timestamp: number;
