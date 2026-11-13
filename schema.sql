@@ -121,6 +121,32 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TEXT NOT NULL
 );
 
+-- Ledger pergerakan stok (audit stok): penjualan, restock, void, retur, penyesuaian
+CREATE TABLE IF NOT EXISTS stock_movements (
+    id TEXT PRIMARY KEY,
+    branch_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    reference_id TEXT,
+    reason TEXT,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+-- Pembatalan (void) / retur transaksi, dengan alasan wajib
+CREATE TABLE IF NOT EXISTS transaction_adjustments (
+    id TEXT PRIMARY KEY,
+    transaction_id TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 -- Indeks untuk performa query real-time monitoring dan sinkronisasi
 CREATE INDEX IF NOT EXISTS idx_transactions_branch ON transactions(branch_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
@@ -132,4 +158,8 @@ CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_branch ON stock_movements(branch_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_created ON stock_movements(created_at);
+CREATE INDEX IF NOT EXISTS idx_tx_adjustments_tx ON transaction_adjustments(transaction_id);
 

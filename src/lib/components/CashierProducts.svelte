@@ -3,7 +3,7 @@
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
-	import type { Product, Category } from '../types/index.js';
+	import type { Product, Category, StockMovement } from '../types/index.js';
 	import {
 		Plus,
 		Edit3,
@@ -13,6 +13,7 @@
 		Package,
 		AlertCircle,
 		CheckCircle2,
+		History,
 		X
 	} from 'lucide-svelte';
 
@@ -43,6 +44,19 @@
 	// Modal Konfirmasi Hapus Produk
 	let isDeleteModalOpen = $state<boolean>(false);
 	let productToDelete = $state<Product | null>(null);
+
+	// Modal Riwayat Stok (Audit)
+	let isHistoryModalOpen = $state<boolean>(false);
+	let historyProduct = $state<Product | null>(null);
+	let productMovements = $state<StockMovement[]>([]);
+
+	const movementLabels: Record<string, string> = {
+		sale: 'Penjualan',
+		restock: 'Restock',
+		void: 'Pembatalan',
+		return: 'Retur',
+		adjustment: 'Penyesuaian'
+	};
 
 	onMount(async () => {
 		await loadData();
@@ -104,6 +118,15 @@
 	function openDeleteModal(prod: Product) {
 		productToDelete = prod;
 		isDeleteModalOpen = true;
+	}
+
+	async function openHistoryModal(prod: Product) {
+		historyProduct = prod;
+		const list = await db.stock_movements.where('product_id').equals(prod.id).toArray();
+		productMovements = list
+			.sort((a, b) => b.created_at.localeCompare(a.created_at))
+			.slice(0, 50);
+		isHistoryModalOpen = true;
 	}
 
 	async function confirmDeleteProduct() {
@@ -179,8 +202,21 @@
 			version: prod.version + 1
 		};
 
-		// 1. Perbarui stok lokal di IndexedDB
+		// 1. Perbarui stok lokal di IndexedDB + catat ledger stok (audit)
 		await db.products.put(updatedProduct);
+
+		await db.stock_movements.put({
+			id: `mv-restock-${prod.id}-${Date.now()}`,
+			branch_id: branchId,
+			product_id: prod.id,
+			quantity: qty,
+			type: 'restock',
+			reason: restockNotes.trim() || undefined,
+			user_id: authState.user?.id || 'usr-kasir',
+			user_name: authState.user?.name || 'Kasir',
+			created_at: now,
+			synced: false
+		});
 
 		// 2. Catat ke antrean sinkronisasi
 		await db.sync_queue.add({
@@ -425,6 +461,14 @@
 									</button>
 								</td>
 								<td class="px-5 py-3.5 text-right whitespace-nowrap">
+									<button
+										onclick={() => openHistoryModal(prod)}
+										class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 font-semibold transition cursor-pointer mr-1.5"
+										title="Riwayat Pergerakan Stok"
+									>
+										<History class="h-3.5 w-3.5" />
+										<span>Riwayat</span>
+									</button>
 									<button
 										onclick={() => openRestockModal(prod)}
 										class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold transition cursor-pointer mr-1.5"
@@ -676,6 +720,65 @@
 						Konfirmasi Restock
 					</button>
 				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Modal Riwayat Pergerakan Stok -->
+{#if isHistoryModalOpen && historyProduct}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+		<div class="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+			<div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+				<div class="flex items-center gap-2">
+					<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+						<History class="h-4 w-4" />
+					</div>
+					<div>
+						<h3 class="text-base font-bold text-gray-900">Riwayat Pergerakan Stok</h3>
+						<p class="text-[11px] text-gray-400">{historyProduct.name} • {historyProduct.sku}</p>
+					</div>
+				</div>
+				<button onclick={() => isHistoryModalOpen = false} class="text-gray-400 hover:text-gray-600 cursor-pointer">
+					<X class="h-5 w-5" />
+				</button>
+			</div>
+
+			{#if productMovements.length === 0}
+				<p class="text-xs text-gray-400 text-center py-8">Belum ada pergerakan stok tercatat untuk produk ini.</p>
+			{:else}
+				<div class="max-h-80 overflow-y-auto divide-y divide-gray-100 text-xs">
+					{#each productMovements as mv}
+						<div class="flex items-center justify-between py-2.5">
+							<div>
+								<div class="flex items-center gap-2">
+									<span class="font-semibold {mv.quantity >= 0 ? 'text-emerald-700' : 'text-rose-700'}">
+										{mv.quantity >= 0 ? '+' : ''}{mv.quantity} {historyProduct.unit}
+									</span>
+									<span class="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
+										{movementLabels[mv.type] || mv.type}
+									</span>
+								</div>
+								{#if mv.reason}
+									<p class="text-[11px] text-gray-500 mt-0.5">{mv.reason}</p>
+								{/if}
+							</div>
+							<div class="text-right text-[11px] text-gray-400">
+								<div>{new Date(mv.created_at).toLocaleString('id-ID')}</div>
+								<div>{mv.user_name}</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="flex items-center justify-end pt-3 border-t border-gray-100 mt-3">
+				<button
+					onclick={() => isHistoryModalOpen = false}
+					class="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs cursor-pointer"
+				>
+					Tutup
+				</button>
 			</div>
 		</div>
 	</div>

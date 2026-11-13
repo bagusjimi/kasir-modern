@@ -76,8 +76,22 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				token TEXT PRIMARY KEY, user_id TEXT NOT NULL, role TEXT NOT NULL,
 				branch_id TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
 			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_movements (
+				id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, product_id TEXT NOT NULL,
+				quantity INTEGER NOT NULL, type TEXT NOT NULL, reference_id TEXT,
+				reason TEXT, user_id TEXT NOT NULL, user_name TEXT NOT NULL, created_at TEXT NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS transaction_adjustments (
+				id TEXT PRIMARY KEY, transaction_id TEXT NOT NULL UNIQUE, type TEXT NOT NULL,
+				reason TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+				branch_id TEXT NOT NULL, created_at TEXT NOT NULL
+			)`),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)'),
-			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)')
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_movements_branch ON stock_movements(branch_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_movements_created ON stock_movements(created_at)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_tx_adjustments_tx ON transaction_adjustments(transaction_id)')
 		]);
 	} catch (tableErr) {
 		console.warn('Gagal memastikan tabel D1:', tableErr);
