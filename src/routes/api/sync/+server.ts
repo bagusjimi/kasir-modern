@@ -153,6 +153,11 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			} else if (q.entity === 'user') {
 				const u = q.data;
 				if (q.action === 'insert' || q.action === 'update') {
+					// Cegah konflik UNIQUE(username) antar ID: hapus record lama dengan username sama
+					// tetapi id berbeda sebelum upsert
+					statements.push(
+						d1.prepare('DELETE FROM users WHERE username = ? AND id != ?').bind(u.username, u.id)
+					);
 					const pinHash = u.pin && !isHashedPin(u.pin) ? await hashPin(u.pin) : (u.pin || '');
 					statements.push(
 						d1.prepare(`

@@ -112,11 +112,27 @@ class AuthState {
 		// Buat sesi server (best-effort, tidak mewajibkan koneksi)
 		if (typeof navigator !== 'undefined' && navigator.onLine) {
 			try {
-				await fetch('/api/auth/login', {
+				const res = await fetch('/api/auth/login', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ username: user.username, pin: pin.trim() })
 				});
+				if (!res.ok && user.role === 'admin') {
+					const err: any = await res.json().catch(() => null);
+					if (err && err.code === 'NO_USERS') {
+						// Server belum punya pengguna: bootstrap admin pertama dari data lokal
+						await fetch('/api/auth/bootstrap', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								username: user.username,
+								name: user.name,
+								pin: pin.trim(),
+								client_id: user.id
+							})
+						}).catch(() => null);
+					}
+				}
 			} catch {
 				// Sesi server bisa dibuat saat login berikutnya saat online
 			}
@@ -135,6 +151,152 @@ class AuthState {
 			timestamp: new Date().toISOString(),
 			synced: false
 		});
+
+		return { success: true };
+	}
+
+	/**
+	 * Pengaturan Awal: membuat akun admin pertama saat belum ada pengguna sama sekali.
+	 * Jika server sudah memiliki pengguna (USERS_EXIST), coba login dengan kredensial
+	 * yang dimasukkan agar perangkat kedua mengadopsi akun yang sudah ada.
+	 */
+	async setupOwner(username: string, name: string, pin: string): Promise<{ success: boolean; message?: string }> {
+		const cleanUsername = username.trim().toLowerCase();
+		const cleanName = name.trim();
+		const cleanPin = pin.trim();
+
+		if (!cleanName) {
+			return { success: false, message: 'Nama lengkap harus diisi' };
+		}
+		if (cleanUsername.length < 3) {
+			return { success: false, message: 'Username minimal 3 karakter' };
+		}
+		if (!/^[a-z0-9_.]+$/.test(cleanUsername)) {
+			return { success: false, message: 'Username hanya boleh huruf kecil, angka, titik, dan garis bawah' };
+		}
+		if (cleanPin.length < 4) {
+			return { success: false, message: 'PIN minimal 4 karakter' };
+		}
+
+		const existing = await db.users.where('username').equalsIgnoreCase(cleanUsername).first();
+		if (existing) {
+			return { success: false, message: 'Username sudah digunakan di perangkat ini' };
+		}
+
+		const now = new Date().toISOString();
+		const pinHash = await hashPin(cleanPin);
+		let userId = `usr-${crypto.randomUUID()}`;
+
+		// Online: bootstrap ke server dulu agar ID server = ID lokal (hindari konflik UNIQUE(username)
+		// saat queue insert disinkronkan). Jika server sudah punya pengguna, coba login dengan
+		// kredensial yang sama untuk mengadopsi akun yang sudah terdaftar.
+		if (typeof navigator !== 'undefined' && navigator.onLine) {
+			try {
+				const res = await fetch('/api/auth/bootstrap', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ username: cleanUsername, name: cleanName, pin: cleanPin, client_id: userId })
+				});
+				if (res.ok) {
+					const data: any = await res.json().catch(() => null);
+					const serverUser = data && data.user ? data.user : null;
+					if (serverUser && serverUser.id) {
+						// Adopsi ID server agar sesi server konsisten
+						userId = serverUser.id;
+					}
+				} else {
+					const err: any = await res.json().catch(() => null);
+					if (err && err.code === 'USERS_EXIST') {
+						try {
+							const loginRes = await fetch('/api/auth/login', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ username: cleanUsername, pin: cleanPin })
+							});
+							if (loginRes.ok) {
+								const loginData: any = await loginRes.json().catch(() => null);
+								const serverUser = loginData && loginData.user ? loginData.user : null;
+								if (!serverUser) {
+									return { success: false, message: 'Gagal mengambil data akun dari server' };
+								}
+								// Adopsi user server tanpa queue insert (sudah ada di server)
+								const adopted: User = {
+									id: serverUser.id,
+									username: serverUser.username,
+									name: serverUser.name,
+									role: serverUser.role,
+									branch_id: serverUser.branch_id,
+									pin: pinHash,
+									active: true,
+									created_at: now,
+									updated_at: now
+								};
+								await db.users.put(adopted);
+								this.user = adopted;
+								this.branch = null;
+								localStorage.setItem('kasir_session_user_id', adopted.id);
+								localStorage.setItem('kasir_session_branch_id', 'all');
+								return { success: true };
+							}
+							return {
+								success: false,
+								message: 'Pengaturan awal sudah dilakukan sebelumnya. Gunakan username & PIN akun yang sudah terdaftar.'
+							};
+						} catch {
+							return {
+								success: false,
+								message: 'Pengaturan awal sudah dilakukan sebelumnya. Gunakan username & PIN akun yang sudah terdaftar.'
+							};
+						}
+					}
+					// Error lain: lanjut simpan lokal, sinkronisasi menyusul saat online
+				}
+			} catch {
+				// Offline atau server tidak terjangkau: lanjut simpan lokal
+			}
+		}
+
+		const owner: User = {
+			id: userId,
+			username: cleanUsername,
+			name: cleanName,
+			role: 'admin',
+			branch_id: 'all',
+			pin: pinHash,
+			active: true,
+			created_at: now,
+			updated_at: now
+		};
+
+		await db.users.put(owner);
+
+		await db.sync_queue.add({
+			id: 'sq-' + Date.now(),
+			entity: 'user',
+			action: 'insert',
+			data: owner,
+			timestamp: Date.now(),
+			retry_count: 0,
+			status: 'pending'
+		});
+
+		await db.activity_logs.add({
+			id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+			branch_id: 'all',
+			branch_name: 'Pusat',
+			user_id: owner.id,
+			user_name: owner.name,
+			role: 'admin',
+			action: 'setup_owner',
+			details: `${owner.name} melakukan pengaturan awal dan menjadi admin pertama.`,
+			timestamp: now,
+			synced: false
+		});
+
+		this.user = owner;
+		this.branch = null;
+		localStorage.setItem('kasir_session_user_id', owner.id);
+		localStorage.setItem('kasir_session_branch_id', 'all');
 
 		return { success: true };
 	}

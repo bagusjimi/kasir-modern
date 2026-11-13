@@ -1,6 +1,5 @@
 import { env } from 'cloudflare:workers';
-import type { Branch, User, Category, Product, Transaction, TransactionItem, ActivityLog } from '../types/index.js';
-import { hashPin } from '../auth/pin.js';
+import type { Branch, Category, Product, Transaction, TransactionItem, ActivityLog } from '../types/index.js';
 
 /**
  * Helper untuk mengambil binding Cloudflare D1 dari cloudflare:workers env
@@ -146,9 +145,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 
 	const now = new Date().toISOString();
 
-	const adminPinHash = await hashPin('123456');
-	const kasirPinHash = await hashPin('1234');
-
 	const seedQueries = [
 		// Branches
 		d1.prepare(`INSERT OR IGNORE INTO branches (id, code, name, address, phone, created_at, updated_at) VALUES
@@ -165,22 +161,9 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			('cat-lainnya', 'Lainnya')
 		`),
 
-		// Users (PIN disimpan sebagai hash PBKDF2)
-		d1.prepare(`INSERT OR IGNORE INTO users (id, username, name, role, branch_id, pin, active, created_at, updated_at) VALUES
-			('usr-admin-1', 'admin', 'Admin Pusat (Owner)', 'admin', 'all', ?, 1, ?, ?),
-			('usr-kasir-jkt', 'kasir_jkt', 'Siti Rahma', 'cashier', 'cb-01', ?, 1, ?, ?),
-			('usr-kasir-bdg', 'kasir_bdg', 'Budi Santoso', 'cashier', 'cb-02', ?, 1, ?, ?),
-			('usr-kasir-sby', 'kasir_sby', 'Dewi Lestari', 'cashier', 'cb-03', ?, 1, ?, ?)
-		`).bind(
-			adminPinHash, now, now,
-			kasirPinHash, now, now,
-			kasirPinHash, now, now,
-			kasirPinHash, now, now
-		),
-
 		// Log inisialisasi
 		d1.prepare(`INSERT OR IGNORE INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp) VALUES
-			('act-init-server', 'all', 'Pusat', 'usr-admin-1', 'Admin Pusat', 'admin', 'system_initialized', 'Database Cloudflare D1 berhasil diinisialisasi otomatis dengan data awal cabang dan pengguna.', ?)
+			('act-init-server', 'all', 'Pusat', 'system', 'Sistem', 'admin', 'system_initialized', 'Database Cloudflare D1 berhasil diinisialisasi otomatis dengan data awal cabang dan kategori.', ?)
 		`).bind(now)
 	];
 
