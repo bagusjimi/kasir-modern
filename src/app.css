@@ -18,6 +18,24 @@
 	#thermal-receipt, #thermal-receipt * {
 		visibility: visible;
 	}
+	#transfer-document, #transfer-document * {
+		visibility: visible;
+	}
+	#transfer-document {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		max-width: 190mm;
+		margin: 0 auto;
+		padding: 24px;
+		color: #000;
+		background: #fff;
+		font-size: 12px;
+		border: none;
+		border-radius: 0;
+		box-shadow: none;
+	}
 	#thermal-receipt {
 		position: absolute;
 		left: 0;

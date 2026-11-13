@@ -5,6 +5,7 @@
 	import { syncEngine } from '../sync/index.svelte.js';
 	import { formatDateTime } from '../shift/index.js';
 	import type { Product, Branch, StockTransfer, StockTransferItem, StockTransferStatus } from '../types/index.js';
+	import type { StoreSettings } from '../types/index.js';
 	import {
 		ArrowLeftRight,
 		Plus,
@@ -15,7 +16,9 @@
 		Send,
 		XCircle,
 		Download,
-		Clock
+		Clock,
+		Printer,
+		FileText
 	} from 'lucide-svelte';
 
 	let products = $state<Product[]>([]);
@@ -53,6 +56,15 @@
 	let isDetailOpen = $state<boolean>(false);
 	let detailTransfer = $state<StockTransfer | null>(null);
 
+	// Dokumen serah terima (surat jalan)
+	let storeSettings = $state<StoreSettings | null>(null);
+	let isDocOpen = $state<boolean>(false);
+	let docTransfer = $state<StockTransfer | null>(null);
+
+	function handlePrintDoc() {
+		window.print();
+	}
+
 	let currentBranchId = $state<string>('all');
 
 	const outgoing = $derived(transfers.filter(t => t.from_branch_id === currentBranchId || currentBranchId === 'all'));
@@ -80,6 +92,8 @@
 		const allProducts = await db.products.toArray();
 		products = allProducts.filter(p => p.is_active && (p.branch_id === 'all' || p.branch_id === currentBranchId));
 		branches = await db.branches.orderBy('name').toArray();
+		const settings = await db.app_settings.get('store_settings');
+		storeSettings = (settings?.value as StoreSettings) || null;
 		const allTransfers = await db.stock_transfers.toArray();
 		transfers = allTransfers
 			.sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
@@ -512,6 +526,11 @@
 		detailTransfer = trf;
 		isDetailOpen = true;
 	}
+
+	function openDoc(trf: StockTransfer) {
+		docTransfer = trf;
+		isDocOpen = true;
+	}
 </script>
 
 <div class="space-y-6">
@@ -590,6 +609,14 @@
 							{/if}
 						</div>
 						<div class="flex items-center gap-1.5 shrink-0">
+							<button
+								onclick={() => openDoc(trf)}
+								class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
+								title="Cetak dokumen serah terima"
+							>
+								<FileText class="h-3.5 w-3.5" />
+								Dokumen
+							</button>
 							<button
 								onclick={() => openDetail(trf)}
 								class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
@@ -878,6 +905,125 @@
 					class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer"
 				>
 					Ya, Batalkan
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+
+<!-- Modal Dokumen Serah Terima (Surat Jalan) -->
+{#if isDocOpen && docTransfer}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+		<div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl p-6 space-y-4">
+			<div class="flex items-center justify-between">
+				<h3 class="text-base font-bold text-zinc-900">Dokumen Serah Terima</h3>
+				<button
+					onclick={() => isDocOpen = false}
+					class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 transition cursor-pointer"
+					aria-label="Tutup"
+				>
+					<XCircle class="h-4 w-4" />
+				</button>
+			</div>
+
+			<div id="transfer-document" class="rounded-xl border border-zinc-200 p-6 bg-white text-zinc-900 text-xs">
+				<!-- Kop Dokumen -->
+				<div class="text-center border-b-2 border-black pb-3">
+					<h2 class="text-base font-black uppercase tracking-wide">{storeSettings?.name?.trim() || docTransfer.from_branch_name || 'KASIR MODERN'}</h2>
+					{#if storeSettings?.address}
+						<p class="text-[10px]">{storeSettings.address}</p>
+					{/if}
+					{#if storeSettings?.phone}
+						<p class="text-[10px]">Telp. {storeSettings.phone}</p>
+					{/if}
+					<p class="mt-2 font-bold uppercase text-sm">Surat Jalan / Dokumen Serah Terima Barang</p>
+				</div>
+
+				<!-- Info Transfer -->
+				<div class="grid grid-cols-2 gap-x-6 gap-y-1.5 py-3">
+					<div class="flex justify-between gap-2"><span class="text-zinc-500">No. Dokumen</span><span class="font-bold font-mono">{docTransfer.transfer_no}</span></div>
+					<div class="flex justify-between gap-2"><span class="text-zinc-500">Tanggal</span><span>{formatDateTime(docTransfer.created_at)}</span></div>
+					<div class="flex justify-between gap-2"><span class="text-zinc-500">Dikirim Dari</span><span class="font-semibold">{docTransfer.from_branch_name || docTransfer.from_branch_id}</span></div>
+					<div class="flex justify-between gap-2"><span class="text-zinc-500">Dikirim Ke</span><span class="font-semibold">{docTransfer.to_branch_name || docTransfer.to_branch_id}</span></div>
+					<div class="flex justify-between gap-2"><span class="text-zinc-500">Status</span><span class="font-bold uppercase">{docTransfer.status}</span></div>
+					{#if docTransfer.notes}
+						<div class="flex justify-between gap-2 col-span-2"><span class="text-zinc-500">Catatan</span><span class="italic">{docTransfer.notes}</span></div>
+					{/if}
+				</div>
+
+				<!-- Tabel Barang -->
+				<table class="w-full border-collapse text-[11px]">
+					<thead>
+						<tr class="bg-zinc-100">
+							<th class="border border-zinc-400 px-2 py-1.5 text-left w-8">No</th>
+							<th class="border border-zinc-400 px-2 py-1.5 text-left">Nama Barang</th>
+							<th class="border border-zinc-400 px-2 py-1.5 text-left">SKU</th>
+							<th class="border border-zinc-400 px-2 py-1.5 text-right">Jumlah</th>
+							<th class="border border-zinc-400 px-2 py-1.5 text-left">Satuan</th>
+							{#if docTransfer.status !== 'dikirim'}
+								<th class="border border-zinc-400 px-2 py-1.5 text-right">Diterima</th>
+							{/if}
+						</tr>
+					</thead>
+					<tbody>
+						{#each docTransfer.items as it, i (it.id)}
+							<tr>
+								<td class="border border-zinc-400 px-2 py-1.5">{i + 1}</td>
+								<td class="border border-zinc-400 px-2 py-1.5 font-semibold">{it.product_name}</td>
+								<td class="border border-zinc-400 px-2 py-1.5 font-mono">{it.sku}</td>
+								<td class="border border-zinc-400 px-2 py-1.5 text-right font-bold">{it.quantity}</td>
+								<td class="border border-zinc-400 px-2 py-1.5">{it.unit || '-'}</td>
+								{#if docTransfer.status !== 'dikirim'}
+									<td class="border border-zinc-400 px-2 py-1.5 text-right {it.quantity_received < it.quantity ? 'font-bold' : ''}">{it.quantity_received}</td>
+								{/if}
+							</tr>
+						{/each}
+						<tr class="bg-zinc-50 font-bold">
+							<td class="border border-zinc-400 px-2 py-1.5" colspan={docTransfer.status !== 'dikirim' ? 3 : 3}>Total</td>
+							<td class="border border-zinc-400 px-2 py-1.5 text-right">{docTransfer.items.reduce((s, it) => s + it.quantity, 0)}</td>
+							<td class="border border-zinc-400 px-2 py-1.5"></td>
+							{#if docTransfer.status !== 'dikirim'}
+								<td class="border border-zinc-400 px-2 py-1.5 text-right">{docTransfer.items.reduce((s, it) => s + it.quantity_received, 0)}</td>
+							{/if}
+						</tr>
+					</tbody>
+				</table>
+
+				<!-- Tanda Tangan -->
+				<div class="grid grid-cols-2 gap-8 pt-8 mt-4">
+					<div class="text-center">
+						<p class="font-semibold">Diserahkan oleh,</p>
+						<div class="h-16"></div>
+						<p class="font-bold border-t border-zinc-400 pt-1 mx-4">{docTransfer.user_name}</p>
+						<p class="text-[10px] text-zinc-500">{docTransfer.from_branch_name || docTransfer.from_branch_id}</p>
+					</div>
+					<div class="text-center">
+						<p class="font-semibold">Diterima oleh,</p>
+						<div class="h-16"></div>
+						<p class="font-bold border-t border-zinc-400 pt-1 mx-4">{docTransfer.received_by_name || '..............................'}</p>
+						<p class="text-[10px] text-zinc-500">{docTransfer.to_branch_name || docTransfer.to_branch_id}{docTransfer.received_at ? ' - ' + formatDateTime(docTransfer.received_at) : ''}</p>
+					</div>
+				</div>
+
+				<p class="text-[9px] text-zinc-500 pt-4 text-center">
+					Dokumen ini dicatat dalam sistem Kasir Modern ({docTransfer.transfer_no}). Barang dinyatakan diterima sesuai jumlah pada kolom "Diterima".
+				</p>
+			</div>
+
+			<div class="flex items-center justify-end gap-2">
+				<button
+					onclick={() => isDocOpen = false}
+					class="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-semibold cursor-pointer"
+				>
+					Tutup
+				</button>
+				<button
+					onclick={handlePrintDoc}
+					class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
+				>
+					<Printer class="h-4 w-4" />
+					Cetak Dokumen
 				</button>
 			</div>
 		</div>
