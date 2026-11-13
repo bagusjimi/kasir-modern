@@ -26,7 +26,7 @@
 	let isEditing = $state<boolean>(false);
 	let formId = $state<string>('');
 	let formName = $state<string>('');
-	let formCategory = $state<string>('Makanan');
+	let formCategory = $state<string>('');
 	let formSku = $state<string>('');
 	let formPrice = $state<number>(0);
 	let formCostPrice = $state<number>(0);
@@ -67,7 +67,7 @@
 	async function loadData() {
 		categories = await db.categories.toArray();
 		const allProducts = await db.products.toArray();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		products = allProducts.filter(
 			p => p.branch_id === 'all' || p.branch_id === branchId
 		);
@@ -85,7 +85,7 @@
 		isEditing = false;
 		formId = '';
 		formName = '';
-		formCategory = categories[0]?.name || 'Makanan';
+		formCategory = categories[0]?.name || '';
 		formSku = 'PRD-' + Math.floor(100 + Math.random() * 900);
 		formPrice = 0;
 		formCostPrice = 0;
@@ -136,7 +136,7 @@
 
 		const prod = productToDelete;
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 
 		// 1. Hapus dari IndexedDB lokal
 		await db.products.delete(prod.id);
@@ -157,7 +157,7 @@
 			id: 'act-' + Date.now(),
 			branch_id: branchId,
 			branch_name: authState.branch?.name,
-			user_id: authState.user?.id || 'usr-kasir',
+			user_id: authState.user?.id || '-',
 			user_name: authState.user?.name || 'Kasir',
 			role: 'cashier',
 			action: 'delete_product',
@@ -193,7 +193,7 @@
 		}
 
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const oldStock = prod.stock;
 		const newStock = oldStock + qty;
 
@@ -214,7 +214,7 @@
 			quantity: qty,
 			type: 'restock',
 			reason: restockNotes.trim() || undefined,
-			user_id: authState.user?.id || 'usr-kasir',
+			user_id: authState.user?.id || '-',
 			user_name: authState.user?.name || 'Kasir',
 			created_at: now,
 			synced: false
@@ -237,7 +237,7 @@
 			id: 'act-' + Date.now(),
 			branch_id: branchId,
 			branch_name: authState.branch?.name,
-			user_id: authState.user?.id || 'usr-kasir',
+			user_id: authState.user?.id || '-',
 			user_name: authState.user?.name || 'Kasir',
 			role: 'cashier',
 			action: 'restock_product',
@@ -262,13 +262,17 @@
 			formError = 'Nama produk wajib diisi';
 			return;
 		}
+		if (!formCategory.trim()) {
+			formError = 'Kategori wajib diisi';
+			return;
+		}
 		if (formPrice <= 0) {
 			formError = 'Harga jual harus lebih besar dari 0';
 			return;
 		}
 
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 
 		if (isEditing) {
 			const existing = await db.products.get(formId);
@@ -304,7 +308,7 @@
 				id: 'act-' + Date.now(),
 				branch_id: branchId,
 				branch_name: authState.branch?.name,
-				user_id: authState.user?.id || 'usr-kasir',
+				user_id: authState.user?.id || '-',
 				user_name: authState.user?.name || 'Kasir',
 				role: 'cashier',
 				action: 'update_product',
@@ -346,7 +350,7 @@
 				id: 'act-' + Date.now(),
 				branch_id: branchId,
 				branch_name: authState.branch?.name,
-				user_id: authState.user?.id || 'usr-kasir',
+				user_id: authState.user?.id || '-',
 				user_name: authState.user?.name || 'Kasir',
 				role: 'cashier',
 				action: 'create_product',
@@ -388,7 +392,7 @@
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs">
 		<div>
 			<h2 class="text-lg font-bold text-gray-900">Manajemen Produk & Stok</h2>
-			<p class="text-xs text-gray-500 mt-0.5">Kelola ketersediaan inventaris cabang {authState.branch?.name || 'Lokal'}</p>
+			<p class="text-xs text-gray-500 mt-0.5">Kelola ketersediaan inventaris cabang {authState.branch?.name || '-'}</p>
 		</div>
 
 		<div class="flex items-center gap-3">
@@ -533,15 +537,19 @@
 				<div class="grid grid-cols-2 gap-3">
 					<div>
 						<label for="formCategory" class="block font-semibold text-gray-700 mb-1">Kategori</label>
-						<select
+						<input
 							id="formCategory"
+							type="text"
 							bind:value={formCategory}
+							list="category-suggestions"
+							placeholder="Contoh: Makanan, Minuman..."
 							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
-						>
+						/>
+						<datalist id="category-suggestions">
 							{#each categories as cat}
-								<option value={cat.name}>{cat.name}</option>
+								<option value={cat.name}></option>
 							{/each}
-						</select>
+						</datalist>
 					</div>
 					<div>
 						<label for="formSku" class="block font-semibold text-gray-700 mb-1">SKU / Kode</label>

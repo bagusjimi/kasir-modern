@@ -43,7 +43,7 @@
 
 	async function loadData() {
 		isLoading = true;
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const allProducts = await db.products.toArray();
 		products = allProducts.filter(p => p.is_active && (p.branch_id === 'all' || p.branch_id === branchId));
 		purchases = await db.purchases.orderBy('created_at').reverse().limit(10).toArray();
@@ -102,9 +102,9 @@
 		}
 
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const purchaseId = 'po-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-		const userId = authState.user?.id || 'usr-kasir';
+		const userId = authState.user?.id || '-';
 		const userName = authState.user?.name || 'Kasir';
 
 		const items: PurchaseItem[] = [];

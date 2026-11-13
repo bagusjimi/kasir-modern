@@ -70,9 +70,9 @@
 		const now = new Date().toISOString();
 		const shift: Shift = {
 			id: 'sh-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-			branch_id: authState.branch?.id || 'cb-01',
+			branch_id: authState.branch?.id || authState.user?.branch_id || 'all',
 			branch_name: authState.branch?.name,
-			cashier_id: authState.user?.id || 'usr-kasir',
+			cashier_id: authState.user?.id || '-',
 			cashier_name: authState.user?.name || 'Kasir',
 			opening_cash: openingCash,
 			opened_at: now,

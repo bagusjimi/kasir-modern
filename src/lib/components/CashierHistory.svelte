@@ -36,7 +36,7 @@
 	});
 
 	async function loadHistory() {
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const allTx = await db.transactions
 			.where('branch_id')
 			.equals(branchId)

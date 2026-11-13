@@ -80,7 +80,7 @@
 		categories = await db.categories.toArray();
 		const allProducts = await db.products.toArray();
 		// Kasir hanya melihat produk aktif yang berlaku untuk semua cabang atau cabang aktifnya
-		const branchId = authState.branch?.id || 'cb-01';
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		products = allProducts.filter(
 			p => p.is_active && (p.branch_id === 'all' || p.branch_id === branchId)
 		);
@@ -171,7 +171,7 @@
 
 		const now = new Date();
 		const dateCode = now.toISOString().slice(0, 10).replace(/-/g, '');
-		const branchCode = authState.branch?.code || 'CB01';
+		const branchCode = authState.branch?.code || '-';
 		const randomNum = Math.floor(1000 + Math.random() * 9000);
 		const invoiceNo = `INV/${dateCode}/${branchCode}/${randomNum}`;
 
@@ -192,9 +192,9 @@
 		const transaction: Transaction = {
 			id: txId,
 			invoice_no: invoiceNo,
-			branch_id: authState.branch?.id || 'cb-01',
-			branch_name: authState.branch?.name || 'Cabang Utama',
-			cashier_id: authState.user?.id || 'usr-kasir',
+			branch_id: authState.branch?.id || authState.user?.branch_id || 'all',
+			branch_name: authState.branch?.name || '-',
+			cashier_id: authState.user?.id || '-',
 			cashier_name: authState.user?.name || 'Kasir',
 			customer_name: customerName.trim() || undefined,
 			subtotal,

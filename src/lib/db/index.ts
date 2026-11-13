@@ -72,69 +72,13 @@ export class KasirDatabase extends Dexie {
 
 export const db = new KasirDatabase();
 
-// Inisialisasi Data Struktur Dasar (cabang & kategori) saat pertama kali dibuka.
-// TIDAK ada akun demo: akun admin pertama dibuat lewat layar Pengaturan Awal (LoginScreen).
+// Inisialisasi pengaturan default aplikasi saat pertama kali dibuka.
+// TIDAK ada data fiktif: akun admin & cabang pertama dibuat lewat layar Pengaturan Awal (LoginScreen).
 export async function seedInitialData(): Promise<void> {
-	const branchCount = await db.branches.count();
-	if (branchCount > 0) return; // Sudah terinisialisasi
+	const taxExists = await db.app_settings.get('tax_settings');
+	if (taxExists) return; // Sudah terinisialisasi
 
 	const now = new Date().toISOString();
-
-	// 1. Cabang
-	const initialBranches: Branch[] = [
-		{
-			id: 'cb-01',
-			code: 'CB01',
-			name: 'Cabang Jakarta Pusat (Menteng)',
-			address: 'Jl. Teuku Umar No. 12, Menteng, Jakarta Pusat',
-			phone: '021-3901234',
-			created_at: now,
-			updated_at: now
-		},
-		{
-			id: 'cb-02',
-			code: 'CB02',
-			name: 'Cabang Bandung (Riau)',
-			address: 'Jl. LLRE Martadinata No. 88, Riau, Bandung',
-			phone: '022-4205678',
-			created_at: now,
-			updated_at: now
-		},
-		{
-			id: 'cb-03',
-			code: 'CB03',
-			name: 'Cabang Surabaya (Gubeng)',
-			address: 'Jl. Pemuda No. 45, Gubeng, Surabaya',
-			phone: '031-5319988',
-			created_at: now,
-			updated_at: now
-		}
-	];
-
-	// 2. Kategori
-	const initialCategories: Category[] = [
-		{ id: 'cat-makanan', name: 'Makanan' },
-		{ id: 'cat-minuman', name: 'Minuman' },
-		{ id: 'cat-snack', name: 'Camilan & Roti' },
-		{ id: 'cat-lainnya', name: 'Lainnya' }
-	];
-
-	await db.branches.bulkAdd(initialBranches);
-	await db.categories.bulkAdd(initialCategories);
-
-	// Log aktivitas inisialisasi
-	await db.activity_logs.add({
-		id: 'act-init-1',
-		branch_id: 'all',
-		branch_name: 'Pusat',
-		user_id: 'system',
-		user_name: 'Sistem',
-		role: 'admin',
-		action: 'system_initialized',
-		details: 'Database lokal berhasil diinisialisasi dengan data awal cabang dan kategori.',
-		timestamp: now,
-		synced: true
-	});
 
 	// Default tax settings: PPN 11% aktif
 	await db.app_settings.put({

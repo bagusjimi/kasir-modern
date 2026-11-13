@@ -263,7 +263,7 @@
 								<div class="flex items-center gap-2">
 									<span class="font-bold text-gray-900 text-xs">{log.user_name}</span>
 									<span class="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-										{log.branch_name || 'Cabang Pusat'}
+										{log.branch_name || '-'}
 									</span>
 									<span class="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded uppercase">
 										{log.action.replace('_', ' ')}

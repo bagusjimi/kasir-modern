@@ -165,7 +165,7 @@
 			<div class="flex items-center gap-2 text-xs font-semibold text-zinc-800">
 				<Building2 class="h-3.5 w-3.5 text-zinc-500 shrink-0" />
 				<span class="truncate">
-					{authState.branch?.name || (authState.user?.role === 'admin' ? 'Semua Cabang Toko' : 'Cabang Utama')}
+					{authState.branch?.name || (authState.user?.role === 'admin' ? 'Semua Cabang Toko' : '-')}
 				</span>
 			</div>
 			{#if authState.branch?.code}

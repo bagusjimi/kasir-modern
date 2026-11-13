@@ -57,10 +57,13 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const body = (await request.json()) as any;
-		const { username, name, role = 'cashier', branch_id = 'all', pin = '1234' } = body || {};
+		const { username, name, role = 'cashier', branch_id = 'all', pin } = body || {};
 
 		if (!username || !name) {
 			return json({ success: false, message: 'Username dan nama lengkap wajib diisi' }, { status: 400 });
+		}
+		if (!pin || String(pin).length < 4) {
+			return json({ success: false, message: 'PIN minimal 4 karakter wajib diisi' }, { status: 400 });
 		}
 
 		// Cek username unik

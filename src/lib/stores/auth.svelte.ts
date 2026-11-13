@@ -162,10 +162,12 @@ class AuthState {
 	 * Jika server sudah memiliki pengguna (USERS_EXIST), coba login dengan kredensial
 	 * yang dimasukkan agar perangkat kedua mengadopsi akun yang sudah ada.
 	 */
-	async setupOwner(username: string, name: string, pin: string): Promise<{ success: boolean; message?: string }> {
+	async setupOwner(username: string, name: string, pin: string, branchCode: string, branchName: string): Promise<{ success: boolean; message?: string }> {
 		const cleanUsername = username.trim().toLowerCase();
 		const cleanName = name.trim();
 		const cleanPin = pin.trim();
+		const cleanBranchCode = branchCode.trim().toUpperCase();
+		const cleanBranchName = branchName.trim();
 
 		if (!cleanName) {
 			return { success: false, message: 'Nama lengkap harus diisi' };
@@ -178,6 +180,15 @@ class AuthState {
 		}
 		if (cleanPin.length < 4) {
 			return { success: false, message: 'PIN minimal 4 karakter' };
+		}
+		if (!cleanBranchCode) {
+			return { success: false, message: 'Kode cabang pertama wajib diisi' };
+		}
+		if (!/^[A-Z0-9_-]+$/.test(cleanBranchCode)) {
+			return { success: false, message: 'Kode cabang hanya boleh huruf besar, angka, garis, dan garis bawah' };
+		}
+		if (!cleanBranchName) {
+			return { success: false, message: 'Nama cabang pertama wajib diisi' };
 		}
 
 		const existing = await db.users.where('username').equalsIgnoreCase(cleanUsername).first();
@@ -282,6 +293,29 @@ class AuthState {
 			status: 'pending'
 		});
 
+		// Cabang pertama dibuat dari data asli yang diisi admin (bukan seed fiktif)
+		const firstBranch: Branch = {
+			id: 'cb-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+			code: cleanBranchCode,
+			name: cleanBranchName,
+			address: '',
+			phone: '',
+			created_at: now,
+			updated_at: now
+		};
+
+		await db.branches.put(firstBranch);
+
+		await db.sync_queue.add({
+			id: 'sq-' + Date.now() + '-b',
+			entity: 'branch',
+			action: 'insert',
+			data: firstBranch,
+			timestamp: Date.now(),
+			retry_count: 0,
+			status: 'pending'
+		});
+
 		await db.activity_logs.add({
 			id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
 			branch_id: 'all',
@@ -290,7 +324,7 @@ class AuthState {
 			user_name: owner.name,
 			role: 'admin',
 			action: 'setup_owner',
-			details: `${owner.name} melakukan pengaturan awal dan menjadi admin pertama.`,
+			details: `${owner.name} melakukan pengaturan awal dan menjadi admin pertama. Cabang pertama: ${firstBranch.name} (${firstBranch.code}).`,
 			timestamp: now,
 			synced: false
 		});

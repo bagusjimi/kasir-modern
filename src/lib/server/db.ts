@@ -23,8 +23,7 @@ export function getD1(platform?: App.Platform | undefined): D1Database | null {
 }
 
 /**
- * Melakukan auto-seeding data awal ke database D1 jika tabel branches/users masih kosong.
- * Hal ini memastikan D1 Cloudflare langsung memiliki data siap pakai saat pertama kali dijalankan.
+ * Memastikan skema tabel D1 sudah ada (DDL saja, tanpa data).
  */
 export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 	// Pastikan semua tabel dibuat jika belum ada
@@ -134,42 +133,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		console.warn('Gagal memastikan tabel D1:', tableErr);
 	}
 
-	try {
-		const check = await d1.prepare('SELECT count(*) as count FROM branches').first<{ count: number }>();
-		if (check && check.count > 0) {
-			return; // Database sudah memiliki data
-		}
-	} catch (e) {
-		// Abaikan jika query check gagal
-	}
-
-	const now = new Date().toISOString();
-
-	const seedQueries = [
-		// Branches
-		d1.prepare(`INSERT OR IGNORE INTO branches (id, code, name, address, phone, created_at, updated_at) VALUES
-			('cb-01', 'CB01', 'Cabang Jakarta Pusat (Menteng)', 'Jl. Teuku Umar No. 12, Menteng, Jakarta Pusat', '021-3901234', ?, ?),
-			('cb-02', 'CB02', 'Cabang Bandung (Riau)', 'Jl. LLRE Martadinata No. 88, Riau, Bandung', '022-4205678', ?, ?),
-			('cb-03', 'CB03', 'Cabang Surabaya (Gubeng)', 'Jl. Pemuda No. 45, Gubeng, Surabaya', '031-5319988', ?, ?)
-		`).bind(now, now, now, now, now, now),
-
-		// Categories
-		d1.prepare(`INSERT OR IGNORE INTO categories (id, name) VALUES
-			('cat-makanan', 'Makanan'),
-			('cat-minuman', 'Minuman'),
-			('cat-snack', 'Camilan & Roti'),
-			('cat-lainnya', 'Lainnya')
-		`),
-
-		// Log inisialisasi
-		d1.prepare(`INSERT OR IGNORE INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp) VALUES
-			('act-init-server', 'all', 'Pusat', 'system', 'Sistem', 'admin', 'system_initialized', 'Database Cloudflare D1 berhasil diinisialisasi otomatis dengan data awal cabang dan kategori.', ?)
-		`).bind(now)
-	];
-
-	try {
-		await d1.batch(seedQueries);
-	} catch (err) {
-		console.error('Gagal melakukan auto-seeding D1:', err);
-	}
+	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat
+	// oleh pengguna lewat alur Pengaturan Awal dan menu admin (data asli, bukan fiktif).
 }
