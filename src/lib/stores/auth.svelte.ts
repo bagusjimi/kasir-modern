@@ -51,7 +51,7 @@ class AuthState {
 		}
 	}
 
-	async login(username: string, pin: string, selectedBranchId?: string): Promise<{ success: boolean; message?: string }> {
+	async login(username: string, pin: string): Promise<{ success: boolean; message?: string }> {
 		let user = await db.users.where('username').equalsIgnoreCase(username.trim()).first();
 
 		// Perangkat baru: data pengguna belum ada di lokal. Jika online, verifikasi ke
@@ -90,33 +90,16 @@ class AuthState {
 			await db.users.update(user.id, { pin: await hashPin(pin.trim()) });
 		}
 
-		// VALIDASI KETAT PENUGASAN CABANG UNTUK KASIR:
-		// Kasir HANYA diizinkan login ke cabang tempat dia ditugaskan.
-		if (user.role === 'cashier' && user.branch_id && user.branch_id !== 'all') {
-			if (selectedBranchId && selectedBranchId !== user.branch_id) {
-				const assignedBranch = await db.branches.get(user.branch_id);
-				const selectedBranch = selectedBranchId !== 'all' ? await db.branches.get(selectedBranchId) : null;
-				const assignedName = assignedBranch ? assignedBranch.name : user.branch_id;
-				const selectedName = selectedBranch ? selectedBranch.name : 'cabang lain';
-
-				return {
-					success: false,
-					message: `Akses ditolak: Kasir "${user.name}" hanya terdaftar di "${assignedName}". Anda tidak diizinkan masuk ke "${selectedName}".`
-				};
-			}
-		}
-
 		this.user = user;
 		localStorage.setItem('kasir_session_user_id', user.id);
 
-		// Tentukan Cabang:
-		// Jika kasir, paksa selalu menggunakan user.branch_id
-		// Jika admin, admin dapat memilih cabang spesifik atau 'all' (pusat)
+		// Tentukan Cabang tanpa input login:
+		// Kasir otomatis terikat cabang penugasannya; admin masuk sebagai Pusat (semua cabang)
 		let branchIdToUse: string;
 		if (user.role === 'cashier') {
 			branchIdToUse = user.branch_id;
 		} else {
-			branchIdToUse = (selectedBranchId && selectedBranchId !== 'all') ? selectedBranchId : 'all';
+			branchIdToUse = 'all';
 		}
 
 		if (branchIdToUse && branchIdToUse !== 'all') {

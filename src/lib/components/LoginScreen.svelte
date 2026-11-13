@@ -7,7 +7,6 @@
 		Store,
 		KeyRound,
 		User as UserIcon,
-		Building2,
 		AlertCircle,
 		ArrowRight,
 		Wifi,
@@ -19,12 +18,11 @@
 
 	let username = $state<string>('');
 	let pin = $state<string>('');
-	let selectedBranchId = $state<string>('cb-01');
-	let branches = $state<Branch[]>([]);
 	let errorMessage = $state<string | null>(null);
 	let isSubmitting = $state<boolean>(false);
 
 	let detectedUser = $state<User | null>(null);
+	let branches = $state<Branch[]>([]);
 
 	// Mode Pengaturan Awal: aktif saat perangkat DAN server belum memiliki pengguna sama sekali
 	let isSetupMode = $state<boolean>(false);
@@ -37,9 +35,6 @@
 
 	onMount(async () => {
 		branches = await db.branches.toArray();
-		if (branches.length > 0) {
-			selectedBranchId = branches[0].id;
-		}
 		const userCount = await db.users.count();
 		if (userCount === 0) {
 			let serverHasUsers: boolean | null = null;
@@ -62,15 +57,12 @@
 		}
 	});
 
-	// Otomatis deteksi cabang penugasan saat username diinput
+	// Deteksi kasir saat username diinput (cabang otomatis terikat penugasannya saat login)
 	$effect(() => {
 		const trimmed = username.trim().toLowerCase();
 		if (trimmed) {
 			db.users.where('username').equalsIgnoreCase(trimmed).first().then(u => {
 				detectedUser = u || null;
-				if (u && u.role === 'cashier' && u.branch_id && u.branch_id !== 'all') {
-					selectedBranchId = u.branch_id;
-				}
 			});
 		} else {
 			detectedUser = null;
@@ -89,7 +81,7 @@
 		}
 
 		isSubmitting = true;
-		const res = await authState.login(username.trim(), pin.trim(), selectedBranchId);
+		const res = await authState.login(username.trim(), pin.trim());
 		isSubmitting = false;
 
 		if (!res.success) {
@@ -124,6 +116,7 @@
 			errorMessage = res.message || 'Pengaturan awal gagal';
 		}
 	}
+
 
 	function getBranchName(branchId: string): string {
 		const b = branches.find(item => item.id === branchId);
@@ -285,31 +278,6 @@
 								class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-mono tracking-widest focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
 							/>
 						</div>
-					</div>
-
-					<div>
-						<label for="branch" class="block text-xs font-bold text-gray-700 mb-1.5">Lokasi Cabang Operasional</label>
-						<div class="relative">
-							<Building2 class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-							<select
-								id="branch"
-								bind:value={selectedBranchId}
-								disabled={detectedUser?.role === 'cashier'}
-								class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium disabled:bg-gray-100 disabled:text-gray-600 disabled:cursor-not-allowed"
-							>
-								{#if detectedUser?.role === 'admin'}
-									<option value="all">Semua Cabang (Pusat)</option>
-								{/if}
-								{#each branches as b}
-									<option value={b.id}>{b.name} ({b.code})</option>
-								{/each}
-							</select>
-						</div>
-						{#if detectedUser?.role === 'cashier'}
-							<p class="text-[10px] text-gray-400 mt-1 italic">
-								*Cabang terkunci otomatis sesuai hak akses dan penugasan kasir.
-							</p>
-						{/if}
 					</div>
 
 					{#if errorMessage}
