@@ -1,6 +1,7 @@
 import type { User, Branch } from '../types/index.js';
 import { db } from '../db/index.js';
 import { hashPin, verifyPin, isHashedPin } from '../auth/pin.js';
+import { syncEngine } from '../sync/index.js';
 
 class AuthState {
 	user = $state<User | null>(null);
@@ -51,7 +52,25 @@ class AuthState {
 	}
 
 	async login(username: string, pin: string, selectedBranchId?: string): Promise<{ success: boolean; message?: string }> {
-		const user = await db.users.where('username').equalsIgnoreCase(username.trim()).first();
+		let user = await db.users.where('username').equalsIgnoreCase(username.trim()).first();
+
+		// Perangkat baru: data pengguna belum ada di lokal. Jika online, verifikasi ke
+		// server lalu tarik data pengguna (termasuk hash PIN) lewat sinkronisasi.
+		if (!user && typeof navigator !== 'undefined' && navigator.onLine) {
+			try {
+				const res = await fetch('/api/auth/login', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ username: username.trim(), pin: pin.trim() })
+				});
+				if (res.ok) {
+					await syncEngine.triggerSync();
+					user = await db.users.where('username').equalsIgnoreCase(username.trim()).first();
+				}
+			} catch {
+				// Server tidak terjangkau: lanjut dengan validasi lokal
+			}
+		}
 
 		if (!user) {
 			return { success: false, message: 'Nama pengguna tidak ditemukan' };

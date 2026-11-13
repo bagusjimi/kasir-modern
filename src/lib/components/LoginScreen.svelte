@@ -26,8 +26,10 @@
 
 	let detectedUser = $state<User | null>(null);
 
-	// Mode Pengaturan Awal: aktif saat perangkat belum memiliki pengguna sama sekali
+	// Mode Pengaturan Awal: aktif saat perangkat DAN server belum memiliki pengguna sama sekali
 	let isSetupMode = $state<boolean>(false);
+	// Perangkat kosong tapi server sudah punya pengguna: tampilkan mode login biasa
+	let needsInitialSync = $state<boolean>(false);
 	let setupName = $state<string>('');
 	let setupUsername = $state<string>('');
 	let setupPin = $state<string>('');
@@ -40,7 +42,23 @@
 		}
 		const userCount = await db.users.count();
 		if (userCount === 0) {
-			isSetupMode = true;
+			let serverHasUsers: boolean | null = null;
+			if (typeof navigator !== 'undefined' && navigator.onLine) {
+				try {
+					const res = await fetch('/api/auth/status');
+					if (res.ok) {
+						const data: any = await res.json();
+						serverHasUsers = Boolean(data.has_users);
+					}
+				} catch {
+					// Server tidak terjangkau: anggap belum ada pengguna
+				}
+			}
+			if (serverHasUsers === true) {
+				needsInitialSync = true;
+			} else {
+				isSetupMode = true;
+			}
 		}
 	});
 
@@ -141,6 +159,12 @@
 
 		<!-- Card Login / Pengaturan Awal -->
 		<div class="rounded-3xl bg-white p-7 shadow-2xl border border-white/20">
+			{#if needsInitialSync}
+				<div class="flex items-start gap-2 rounded-xl bg-amber-50 p-3 mb-4 text-xs text-amber-800 border border-amber-200">
+					<AlertCircle class="h-4 w-4 shrink-0 mt-0.5" />
+					<span>Perangkat ini belum memiliki data pengguna tersimpan. Masuk dengan akun yang terdaftar di server — data pengguna akan ditarik otomatis saat login (butuh koneksi internet).</span>
+				</div>
+			{/if}
 			{#if isSetupMode}
 				<!-- Pengaturan Awal: buat akun admin pertama -->
 				<form onsubmit={(e) => { e.preventDefault(); handleSetup(); }} class="space-y-4">
