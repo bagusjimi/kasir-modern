@@ -23,8 +23,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies, url }) 
 		const user = await d1.prepare(`
 			SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at
 			FROM users
-			WHERE username = ?
-		`).bind(username.toLowerCase().trim()).first<any>();
+			WHERE lower(username) = lower(?)
+		`).bind(username.trim()).first<any>();
 
 		if (!user || !user.active) {
 			return json({ success: false, message: 'Username atau PIN salah' }, { status: 401 });

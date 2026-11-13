@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
 					exp.user_name, exp.category, Number(exp.amount), exp.description,
 					exp.recipient || '', exp.receipt_number || '', exp.date,
-					exp.created_at || now, exp.updated_at || now
+					exp.created_at || now, now
 				)
 			);
 		}
@@ -168,7 +168,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						`).bind(
 							u.id, u.username, u.name, u.role, u.branch_id, pinHash,
 							u.active !== undefined ? (u.active ? 1 : 0) : 1,
-							u.created_at || now, u.updated_at || now
+							u.created_at || now, now
 						)
 					);
 				} else if (q.action === 'delete') {
@@ -285,7 +285,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 							exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
 							exp.user_name, exp.category, Number(exp.amount), exp.description,
 							exp.recipient || '', exp.receipt_number || '', exp.date,
-							exp.created_at || now, exp.updated_at || now
+							exp.created_at || now, now
 						)
 					);
 				} else if (q.action === 'delete') {
@@ -429,7 +429,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			const prodRes = await d1.prepare('SELECT * FROM products WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedProducts = prodRes.results || [];
 
-			const userRes = await d1.prepare('SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			const userRes = await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			updatedUsers = (userRes.results || []).map((u: any) => ({
 				...u,
 				active: Boolean(u.active)
@@ -453,7 +453,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			// Jika first sync, kirimkan semua master data
 			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([
 				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
-				d1.prepare('SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE active = 1'),
+				d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1'),
 				d1.prepare('SELECT * FROM branches'),
 				d1.prepare('SELECT * FROM categories'),
 				d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200'),

@@ -32,6 +32,13 @@ export class SyncEngine {
 			this.isOnline = navigator.onLine;
 			this.lastSyncedAt = localStorage.getItem('kasir_last_synced_at');
 
+			// Migrasi: pull users lama tidak membawa kolom pin sehingga hash PIN lokal
+			// tertimpa hilang. Paksa satu kali full sync agar hash PIN dipulihkan.
+			if (!localStorage.getItem('kasir_users_pin_resync_v1')) {
+				this.lastSyncedAt = null;
+				localStorage.setItem('kasir_users_pin_resync_v1', '1');
+			}
+
 			window.addEventListener('online', () => {
 				this.isOnline = true;
 				this.lastError = null;
@@ -218,7 +225,14 @@ export class SyncEngine {
 						await db.products.bulkPut(result.serverUpdates.products);
 					}
 					if (result.serverUpdates.users && result.serverUpdates.users.length > 0) {
-						await db.users.bulkPut(result.serverUpdates.users);
+						const serverUsers = result.serverUpdates.users;
+						const existingUsers = await db.users.bulkGet(serverUsers.map(u => u.id));
+						const mergedUsers = serverUsers.map((u, i) => ({
+							...u,
+							active: Boolean(u.active),
+							pin: u.pin || existingUsers[i]?.pin || ''
+						}));
+						await db.users.bulkPut(mergedUsers);
 					}
 					if (result.serverUpdates.branches && result.serverUpdates.branches.length > 0) {
 						await db.branches.bulkPut(result.serverUpdates.branches);
