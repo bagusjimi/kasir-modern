@@ -14,14 +14,16 @@
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
 	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
 	import AdminTaxSettings from '../lib/components/AdminTaxSettings.svelte';
+	import AdminDashboard from '../lib/components/AdminDashboard.svelte';
+	import AdminCategories from '../lib/components/AdminCategories.svelte';
 
 	let activeTab = $state<string>('pos');
 
 	$effect(() => {
 		if (authState.user) {
 			if (authState.user.role === 'admin' && (activeTab === 'pos' || activeTab === 'products' || activeTab === 'history' || activeTab === 'shift' || activeTab === 'purchases' || activeTab === 'opname')) {
-				activeTab = 'users';
-			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'branches' || activeTab === 'monitoring')) {
+				activeTab = 'dashboard';
+			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'branches' || activeTab === 'monitoring' || activeTab === 'dashboard' || activeTab === 'categories')) {
 				activeTab = 'pos';
 			}
 		}
@@ -70,8 +72,12 @@
 					<AdminTaxSettings />
 				{/if}
 			{:else if authState.user.role === 'admin'}
-				{#if activeTab === 'users'}
+				{#if activeTab === 'dashboard'}
+					<AdminDashboard />
+				{:else if activeTab === 'users'}
 					<AdminUsers />
+				{:else if activeTab === 'categories'}
+					<AdminCategories />
 				{:else if activeTab === 'branches'}
 					<AdminBranches />
 				{:else if activeTab === 'monitoring'}

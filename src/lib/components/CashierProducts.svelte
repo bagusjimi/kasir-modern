@@ -32,6 +32,7 @@
 	let formPrice = $state<number>(0);
 	let formCostPrice = $state<number>(0);
 	let formStock = $state<number>(0);
+	let formMinStock = $state<number>(0);
 	let formUnit = $state<string>('pcs');
 	let formError = $state<string | null>(null);
 
@@ -118,6 +119,7 @@
 		formPrice = 0;
 		formCostPrice = 0;
 		formStock = 10;
+		formMinStock = 0;
 		formUnit = 'pcs';
 		formError = null;
 		isModalOpen = true;
@@ -133,6 +135,7 @@
 		formPrice = prod.price;
 		formCostPrice = prod.cost_price;
 		formStock = prod.stock;
+		formMinStock = prod.min_stock || 0;
 		formUnit = prod.unit;
 		formError = null;
 		isModalOpen = true;
@@ -348,6 +351,7 @@
 				price: Number(formPrice),
 				cost_price: Number(formCostPrice),
 				stock: Number(formStock),
+				min_stock: Number(formMinStock) || 0,
 				unit: formUnit.trim(),
 				updated_at: now,
 				version: existing.version + 1
@@ -389,6 +393,7 @@
 				price: Number(formPrice),
 				cost_price: Number(formCostPrice),
 				stock: Number(formStock),
+				min_stock: Number(formMinStock) || 0,
 				unit: formUnit.trim(),
 				is_active: true,
 				created_at: now,
@@ -519,6 +524,11 @@
 									<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold {prod.stock <= 5 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">
 										{prod.stock} {prod.unit}
 									</span>
+									{#if (prod.min_stock || 0) > 0 && prod.stock <= (prod.min_stock || 0)}
+										<span class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+											Stok menipis
+										</span>
+									{/if}
 								</td>
 								<td class="px-5 py-3.5">
 									<button
@@ -654,13 +664,23 @@
 					</div>
 				</div>
 
-				<div class="grid grid-cols-2 gap-3">
+				<div class="grid grid-cols-3 gap-3">
 					<div>
 						<label for="formStock" class="block font-semibold text-gray-700 mb-1">Jumlah Stok</label>
 						<input
 							id="formStock"
 							type="number"
 							bind:value={formStock}
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
+						/>
+					</div>
+					<div>
+						<label for="formMinStock" class="block font-semibold text-gray-700 mb-1">Stok Minimum</label>
+						<input
+							id="formMinStock"
+							type="number"
+							bind:value={formMinStock}
+							min="0"
 							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
 						/>
 					</div>
@@ -675,6 +695,7 @@
 						/>
 					</div>
 				</div>
+				<p class="text-[11px] text-gray-400 -mt-1">Stok minimum &gt; 0 akan memunculkan peringatan stok menipis di beranda admin saat stok mencapai batas.</p>
 
 				{#if formError}
 					<div class="flex items-center gap-1.5 p-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-medium">

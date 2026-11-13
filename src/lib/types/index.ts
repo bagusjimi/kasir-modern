@@ -26,6 +26,14 @@ export interface Category {
 	id: string;
 	name: string;
 	icon?: string;
+	updated_at?: string;
+}
+
+export interface StoreSettings {
+	name: string;
+	address: string;
+	phone: string;
+	updated_at?: string;
 }
 
 export interface Product {
@@ -38,6 +46,7 @@ export interface Product {
 	price: number;
 	cost_price: number;
 	stock: number;
+	min_stock?: number;
 	unit: string;
 	image_url?: string;
 	is_active: boolean;

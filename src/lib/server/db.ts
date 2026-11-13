@@ -151,6 +151,13 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		console.warn('Gagal backfill updated_at kategori:', backfillErr);
 	}
 
+	// Migrasi: stok minimum produk untuk peringatan stok menipis
+	try {
+		await d1.prepare('ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0').run();
+	} catch {
+		// Kolom sudah ada
+	}
+
 	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat
 	// oleh pengguna lewat alur Pengaturan Awal dan menu admin (data asli, bukan fiktif).
 }

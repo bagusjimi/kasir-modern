@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Transaction } from '../types/index.js';
+	import type { Branch, StoreSettings } from '../types/index.js';
+	import { db } from '../db/index.js';
 	import { Printer, X, CheckCircle2 } from 'lucide-svelte';
 
 	interface Props {
@@ -8,6 +10,32 @@
 	}
 
 	let { transaction, onClose }: Props = $props();
+
+	let storeSettings = $state<StoreSettings | null>(null);
+	let branch = $state<Branch | null>(null);
+
+	$effect(() => {
+		const tx = transaction;
+		if (!tx) {
+			storeSettings = null;
+			branch = null;
+			return;
+		}
+		(async () => {
+			try {
+				const [settings, branchRow] = await Promise.all([
+					db.app_settings.get('store_settings'),
+					db.branches.get(tx.branch_id)
+				]);
+				storeSettings = (settings?.value as StoreSettings) || null;
+				branch = branchRow || null;
+			} catch (err) {
+				console.warn('Gagal memuat identitas toko untuk struk:', err);
+			}
+		})();
+	});
+
+	const storeName = $derived(storeSettings?.name?.trim() || transaction?.branch_name || 'KASIR MODERN');
 
 	function handlePrint() {
 		window.print();
@@ -48,9 +76,16 @@
 				>
 					<!-- Header Toko -->
 					<div class="text-center pb-3 border-b border-dashed border-gray-300">
-						<h3 class="text-base font-bold tracking-wider uppercase">KASIR MODERN</h3>
-						<p class="font-semibold text-gray-700">{transaction.branch_name}</p>
-						<p class="text-[10px] text-gray-500">Sistem Kasir Offline-First Multi Cabang</p>
+						<h3 class="text-base font-bold tracking-wider uppercase">{storeName}</h3>
+						{#if storeSettings?.name?.trim() && transaction.branch_name}
+							<p class="font-semibold text-gray-700">{transaction.branch_name}</p>
+						{/if}
+						{#if branch?.address}
+							<p class="text-[10px] text-gray-500">{branch.address}</p>
+						{/if}
+						{#if branch?.phone}
+							<p class="text-[10px] text-gray-500">Telp. {branch.phone}</p>
+						{/if}
 					</div>
 
 					<!-- Info Transaksi -->
