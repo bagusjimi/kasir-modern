@@ -227,7 +227,7 @@ export interface Expense {
 
 export interface SyncQueueItem {
 	id: string;
-	entity: 'transaction' | 'product' | 'user' | 'activity' | 'expense' | 'transaction_adjustment';
+	entity: 'transaction' | 'product' | 'user' | 'branch' | 'activity' | 'expense' | 'transaction_adjustment';
 	action: 'insert' | 'update' | 'delete';
 	data: unknown;
 	timestamp: number;

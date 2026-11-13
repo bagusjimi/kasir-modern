@@ -150,6 +150,33 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						d1.prepare('DELETE FROM products WHERE id = ?').bind(p.id)
 					);
 				}
+			} else if (q.entity === 'branch') {
+				const br = q.data;
+				if (q.action === 'insert' || q.action === 'update') {
+					// Cegah konflik UNIQUE(code) antar ID sebelum upsert
+					statements.push(
+						d1.prepare('DELETE FROM branches WHERE code = ? AND id != ?').bind(br.code, br.id)
+					);
+					statements.push(
+						d1.prepare(`
+							INSERT INTO branches (id, code, name, address, phone, created_at, updated_at)
+							VALUES (?, ?, ?, ?, ?, ?, ?)
+							ON CONFLICT(id) DO UPDATE SET
+								code = excluded.code,
+								name = excluded.name,
+								address = excluded.address,
+								phone = excluded.phone,
+								updated_at = excluded.updated_at
+						`).bind(
+							br.id, br.code, br.name, br.address || '', br.phone || '',
+							br.created_at || now, now
+						)
+					);
+				} else if (q.action === 'delete') {
+					statements.push(
+						d1.prepare('DELETE FROM branches WHERE id = ?').bind(br.id)
+					);
+				}
 			} else if (q.entity === 'user') {
 				const u = q.data;
 				if (q.action === 'insert' || q.action === 'update') {
@@ -454,6 +481,9 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 			const scRes = await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
 			updatedStockCounts = scRes.results || [];
+
+			const branchDeltaRes = await d1.prepare('SELECT * FROM branches WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			branches = branchDeltaRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
 			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([

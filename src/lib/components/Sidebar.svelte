@@ -313,6 +313,20 @@
 						{/if}
 					</button>
 
+					<!-- Kelola Cabang -->
+					<button
+						onclick={() => selectTab('branches')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'branches' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Building2 class="h-4 w-4 {activeTab === 'branches' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<span>Kelola Cabang</span>
+						</div>
+						{#if activeTab === 'branches'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
 					<!-- Monitoring Aktivitas Kasir -->
 					<button
 						onclick={() => selectTab('monitoring')}

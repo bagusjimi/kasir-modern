@@ -9,6 +9,7 @@
 	import CashierPurchases from '../lib/components/CashierPurchases.svelte';
 	import CashierStockOpname from '../lib/components/CashierStockOpname.svelte';
 	import AdminUsers from '../lib/components/AdminUsers.svelte';
+	import AdminBranches from '../lib/components/AdminBranches.svelte';
 	import AdminMonitoring from '../lib/components/AdminMonitoring.svelte';
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
 	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
@@ -20,7 +21,7 @@
 		if (authState.user) {
 			if (authState.user.role === 'admin' && (activeTab === 'pos' || activeTab === 'products' || activeTab === 'history' || activeTab === 'shift' || activeTab === 'purchases' || activeTab === 'opname')) {
 				activeTab = 'users';
-			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'monitoring')) {
+			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'branches' || activeTab === 'monitoring')) {
 				activeTab = 'pos';
 			}
 		}
@@ -71,6 +72,8 @@
 			{:else if authState.user.role === 'admin'}
 				{#if activeTab === 'users'}
 					<AdminUsers />
+				{:else if activeTab === 'branches'}
+					<AdminBranches />
 				{:else if activeTab === 'monitoring'}
 					<AdminMonitoring />
 				{:else if activeTab === 'expenses'}
