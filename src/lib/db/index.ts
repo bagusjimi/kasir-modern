@@ -11,7 +11,10 @@ import type {
 	ActivityLog,
 	Expense,
 	StockMovement,
-	TransactionAdjustment
+	TransactionAdjustment,
+	Shift,
+	Purchase,
+	StockCount
 } from '../types/index.js';
 
 export interface SettingItem {
@@ -31,6 +34,9 @@ export class KasirDatabase extends Dexie {
 	expenses!: Table<Expense, string>;
 	stock_movements!: Table<StockMovement, string>;
 	transaction_adjustments!: Table<TransactionAdjustment, string>;
+	shifts!: Table<Shift, string>;
+	purchases!: Table<Purchase, string>;
+	stock_counts!: Table<StockCount, string>;
 	app_settings!: Table<SettingItem, string>;
 
 	constructor() {
@@ -55,6 +61,12 @@ export class KasirDatabase extends Dexie {
 		this.version(3).stores({
 			stock_movements: 'id, branch_id, product_id, type, reference_id, created_at',
 			transaction_adjustments: 'id, transaction_id, type, created_at'
+		});
+
+		this.version(4).stores({
+			shifts: 'id, branch_id, cashier_id, status, opened_at',
+			purchases: 'id, branch_id, supplier_name, created_at',
+			stock_counts: 'id, branch_id, created_at'
 		});
 	}
 }

@@ -93,7 +93,7 @@ export interface Transaction {
 	synced: boolean;
 }
 
-export type StockMovementType = 'sale' | 'restock' | 'void' | 'return' | 'adjustment';
+export type StockMovementType = 'sale' | 'restock' | 'void' | 'return' | 'purchase' | 'opname' | 'adjustment';
 
 export interface StockMovement {
 	id: string;
@@ -119,6 +119,79 @@ export interface TransactionAdjustment {
 	user_id: string;
 	user_name: string;
 	branch_id: string;
+	created_at: string;
+	synced: boolean;
+}
+
+export interface Shift {
+	id: string;
+	branch_id: string;
+	branch_name?: string;
+	cashier_id: string;
+	cashier_name: string;
+	opening_cash: number;
+	opened_at: string;
+	closed_at?: string;
+	closing_cash?: number;
+	expected_cash?: number;
+	cash_difference?: number;
+	total_sales?: number;
+	cash_sales?: number;
+	non_cash_sales?: number;
+	total_transactions?: number;
+	voided_count?: number;
+	refunded_count?: number;
+	status: 'open' | 'closed';
+	note?: string;
+	updated_at: string;
+	synced: boolean;
+}
+
+export interface PurchaseItem {
+	id: string;
+	purchase_id: string;
+	product_id: string;
+	product_name: string;
+	quantity: number;
+	cost_price: number;
+	subtotal: number;
+}
+
+export interface Purchase {
+	id: string;
+	branch_id: string;
+	branch_name?: string;
+	supplier_name: string;
+	supplier_phone?: string;
+	total: number;
+	note?: string;
+	user_id: string;
+	user_name: string;
+	items: PurchaseItem[];
+	created_at: string;
+	updated_at: string;
+	synced: boolean;
+}
+
+export interface StockCountItem {
+	id: string;
+	stock_count_id: string;
+	product_id: string;
+	product_name: string;
+	system_qty: number;
+	counted_qty: number;
+	difference: number;
+}
+
+export interface StockCount {
+	id: string;
+	branch_id: string;
+	branch_name?: string;
+	note?: string;
+	user_id: string;
+	user_name: string;
+	items: StockCountItem[];
+	total_difference_qty: number;
 	created_at: string;
 	synced: boolean;
 }

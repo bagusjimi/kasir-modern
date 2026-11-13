@@ -55,6 +55,8 @@
 		restock: 'Restock',
 		void: 'Pembatalan',
 		return: 'Retur',
+		purchase: 'Pembelian',
+		opname: 'Opname',
 		adjustment: 'Penyesuaian'
 	};
 

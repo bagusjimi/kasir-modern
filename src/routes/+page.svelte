@@ -5,6 +5,9 @@
 	import CashierPOS from '../lib/components/CashierPOS.svelte';
 	import CashierProducts from '../lib/components/CashierProducts.svelte';
 	import CashierHistory from '../lib/components/CashierHistory.svelte';
+	import CashierShift from '../lib/components/CashierShift.svelte';
+	import CashierPurchases from '../lib/components/CashierPurchases.svelte';
+	import CashierStockOpname from '../lib/components/CashierStockOpname.svelte';
 	import AdminUsers from '../lib/components/AdminUsers.svelte';
 	import AdminMonitoring from '../lib/components/AdminMonitoring.svelte';
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
@@ -15,7 +18,7 @@
 
 	$effect(() => {
 		if (authState.user) {
-			if (authState.user.role === 'admin' && (activeTab === 'pos' || activeTab === 'products' || activeTab === 'history')) {
+			if (authState.user.role === 'admin' && (activeTab === 'pos' || activeTab === 'products' || activeTab === 'history' || activeTab === 'shift' || activeTab === 'purchases' || activeTab === 'opname')) {
 				activeTab = 'users';
 			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'monitoring')) {
 				activeTab = 'pos';
@@ -52,6 +55,12 @@
 					<CashierProducts />
 				{:else if activeTab === 'history'}
 					<CashierHistory />
+				{:else if activeTab === 'shift'}
+					<CashierShift />
+				{:else if activeTab === 'purchases'}
+					<CashierPurchases />
+				{:else if activeTab === 'opname'}
+					<CashierStockOpname />
 				{:else if activeTab === 'expenses'}
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}

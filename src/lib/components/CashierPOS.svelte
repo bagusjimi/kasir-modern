@@ -3,7 +3,8 @@
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
-	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings } from '../types/index.js';
+	import { getOpenShift } from '../shift/index.js';
+	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings, Shift } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
 		Search,
@@ -16,7 +17,8 @@
 		CheckCircle,
 		AlertCircle,
 		ShoppingBag,
-		ArrowRight
+		ArrowRight,
+		Clock
 	} from 'lucide-svelte';
 
 	let products = $state<Product[]>([]);
@@ -50,10 +52,18 @@
 	// Modal Struk Setelah Transaksi Sukses
 	let completedTransaction = $state<Transaction | null>(null);
 
+	// Shift kasir aktif (transaksi hanya bisa diproses saat shift terbuka)
+	let openShift = $state<Shift | null>(null);
+
 	onMount(async () => {
 		await loadProductsAndCategories();
 		await loadTaxSettings();
+		await loadOpenShift();
 	});
+
+	async function loadOpenShift() {
+		openShift = (await getOpenShift(authState.user?.id || '')) || null;
+	}
 
 	async function loadTaxSettings() {
 		try {
@@ -142,6 +152,10 @@
 
 	function openPayment() {
 		if (cart.length === 0) return;
+		if (!openShift) {
+			paymentError = 'Belum ada shift aktif. Buka shift terlebih dahulu di menu Shift Kasir.';
+			return;
+		}
 		amountPaid = totalAmount; // Default uang pas
 		paymentError = null;
 		isPaymentModalOpen = true;
@@ -269,6 +283,16 @@
 		}).format(num);
 	}
 </script>
+
+{#if !openShift}
+	<div class="mb-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+		<Clock class="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+		<div>
+			<p class="text-sm font-bold text-amber-800">Belum ada shift aktif</p>
+			<p class="text-xs text-amber-700 mt-0.5">Buka shift di menu <strong>Shift Kasir</strong> dengan setoran awal sebelum memproses transaksi.</p>
+		</div>
+	</div>
+{/if}
 
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-5rem)]">
 	<!-- Kolom Kiri: Katalog Produk (7 Kolom pada Desktop) -->
