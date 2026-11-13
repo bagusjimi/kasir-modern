@@ -24,7 +24,8 @@
 		Truck,
 		ClipboardList,
 		LayoutDashboard,
-		Tags
+		Tags,
+		ArrowLeftRight
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -273,6 +274,20 @@
 						{/if}
 					</button>
 
+					<!-- Transfer Stok Antar Cabang -->
+					<button
+						onclick={() => selectTab('transfers')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'transfers' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<ArrowLeftRight class="h-4 w-4 {activeTab === 'transfers' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Transfer Stok</span>
+						</div>
+						{#if activeTab === 'transfers'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
 					<!-- Pengeluaran Operasional Minimarket -->
 					<button
 						onclick={() => selectTab('expenses')}
@@ -353,6 +368,20 @@
 							<span>Kategori</span>
 						</div>
 						{#if activeTab === 'categories'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
+					<!-- Transfer Stok Antar Cabang (Admin) -->
+					<button
+						onclick={() => selectTab('transfers')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'transfers' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<ArrowLeftRight class="h-4 w-4 {activeTab === 'transfers' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<span>Transfer Stok</span>
+						</div>
+						{#if activeTab === 'transfers'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>

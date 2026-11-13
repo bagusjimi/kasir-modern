@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const payload = (await request.json()) as any;
-		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], shifts = [], purchases = [], stock_counts = [], queue = [], lastSyncedAt = null } = payload || {};
+		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], shifts = [], purchases = [], stock_counts = [], stock_transfers = [], queue = [], lastSyncedAt = null } = payload || {};
 
 		// Eksekusi dikelompokkan per item sumber: kegagalan satu item
 		// tidak menggagalkan item lain (d1.batch bersifat atomik per grup).
@@ -466,6 +466,45 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			flush('sc:' + sc.id);
 		}
 
+		// 6b. Sinkronisasi Transfer Stok Antar Cabang
+		for (const trf of stock_transfers) {
+			statements.push(
+				d1.prepare(`
+					INSERT INTO stock_transfers (id, transfer_no, from_branch_id, from_branch_name, to_branch_id, to_branch_name, status, notes, user_id, user_name, received_by, received_by_name, received_at, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(id) DO UPDATE SET
+						status = excluded.status,
+						notes = excluded.notes,
+						received_by = excluded.received_by,
+						received_by_name = excluded.received_by_name,
+						received_at = excluded.received_at,
+						updated_at = excluded.updated_at
+				`).bind(
+					trf.id, trf.transfer_no, trf.from_branch_id, trf.from_branch_name || '',
+					trf.to_branch_id, trf.to_branch_name || '', trf.status || 'dikirim',
+					trf.notes || '', trf.user_id, trf.user_name,
+					trf.received_by || null, trf.received_by_name || null, trf.received_at || null,
+					trf.created_at || now, trf.updated_at || now
+				)
+			);
+			for (const it of trf.items || []) {
+				statements.push(
+					d1.prepare(`
+						INSERT INTO stock_transfer_items (id, transfer_id, product_id, product_name, sku, quantity, quantity_received, created_at)
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+						ON CONFLICT(id) DO UPDATE SET
+							quantity = excluded.quantity,
+							quantity_received = excluded.quantity_received
+						`).bind(
+						it.id, trf.id, it.product_id, it.product_name,
+						it.sku || '', Number(it.quantity) || 0,
+						Number(it.quantity_received) || 0, it.created_at || trf.created_at || now
+					)
+				);
+			}
+			flush('trf:' + trf.id);
+		}
+
 		// 7. Sinkronisasi Activity Logs
 		for (const log of activity_logs) {
 			statements.push(
@@ -501,6 +540,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		let updatedShifts: any[] = [];
 		let updatedPurchases: any[] = [];
 		let updatedStockCounts: any[] = [];
+		let updatedTransfers: any[] = [];
 		let branches: any[] = [];
 		let categories: any[] = [];
 
@@ -529,6 +569,9 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			const scRes = await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
 			updatedStockCounts = scRes.results || [];
 
+			const trfRes = await d1.prepare('SELECT * FROM stock_transfers WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			updatedTransfers = trfRes.results || [];
+
 			const branchDeltaRes = await d1.prepare('SELECT * FROM branches WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			branches = branchDeltaRes.results || [];
 
@@ -536,7 +579,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			categories = catDeltaRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
-			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([
+			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes, trfRes] = await d1.batch([
 				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
 				d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1'),
 				d1.prepare('SELECT * FROM branches'),
@@ -545,7 +588,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				d1.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 200'),
 				d1.prepare('SELECT * FROM shifts ORDER BY opened_at DESC LIMIT 100'),
 				d1.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT 100'),
-				d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100')
+				d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100'),
+				d1.prepare('SELECT * FROM stock_transfers ORDER BY created_at DESC LIMIT 100')
 			]);
 
 			updatedProducts = prodRes.results || [];
@@ -560,6 +604,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			updatedShifts = shiftRes.results || [];
 			updatedPurchases = poRes.results || [];
 			updatedStockCounts = scRes.results || [];
+			updatedTransfers = trfRes.results || [];
 		}
 
 		// Pengaturan pajak & identitas toko: first-sync selalu dikirim, delta hanya jika berubah
@@ -607,6 +652,19 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			updatedStockCounts = updatedStockCounts.map((s: any) => ({ ...s, items: itemsBySc[s.id] || [] }));
 		}
 
+		if (updatedTransfers.length > 0) {
+			const trfIds = updatedTransfers.map((t: any) => t.id);
+			const trfItemsRes = await d1
+				.prepare(`SELECT * FROM stock_transfer_items WHERE transfer_id IN (${trfIds.map(() => '?').join(',')})`)
+				.bind(...trfIds)
+				.all();
+			const itemsByTrf: Record<string, any[]> = {};
+			for (const it of trfItemsRes.results || []) {
+				(itemsByTrf[(it as any).transfer_id] ||= []).push(it);
+			}
+			updatedTransfers = updatedTransfers.map((t: any) => ({ ...t, items: itemsByTrf[t.id] || [] }));
+		}
+
 		return json({
 			success: true,
 			message: `Sinkronisasi D1 berhasil: ${transactions.length} transaksi, ${expenses.length} pengeluaran, ${activity_logs.length} log, ${queue.length} antrean.`,
@@ -622,6 +680,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				shifts: updatedShifts,
 				purchases: updatedPurchases,
 				stock_counts: updatedStockCounts,
+				stock_transfers: updatedTransfers,
 				...(taxSettings ? { tax_settings: taxSettings } : {}),
 				...(storeSettings ? { store_settings: storeSettings } : {})
 			}

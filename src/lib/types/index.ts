@@ -102,7 +102,7 @@ export interface Transaction {
 	synced: boolean;
 }
 
-export type StockMovementType = 'sale' | 'restock' | 'void' | 'return' | 'purchase' | 'opname' | 'adjustment';
+export type StockMovementType = 'sale' | 'restock' | 'void' | 'return' | 'purchase' | 'opname' | 'adjustment' | 'transfer_out' | 'transfer_in';
 
 export interface StockMovement {
 	id: string;
@@ -182,6 +182,39 @@ export interface Purchase {
 	synced: boolean;
 }
 
+export type StockTransferStatus = 'dikirim' | 'diterima' | 'dibatalkan';
+
+export interface StockTransferItem {
+	id: string;
+	transfer_id: string;
+	product_id: string;
+	product_name: string;
+	sku: string;
+	quantity: number;
+	quantity_received: number;
+	created_at: string;
+}
+
+export interface StockTransfer {
+	id: string;
+	transfer_no: string;
+	from_branch_id: string;
+	from_branch_name?: string;
+	to_branch_id: string;
+	to_branch_name?: string;
+	status: StockTransferStatus;
+	notes?: string;
+	user_id: string;
+	user_name: string;
+	items: StockTransferItem[];
+	created_at: string;
+	updated_at: string;
+	synced: boolean;
+	received_by?: string;
+	received_by_name?: string;
+	received_at?: string;
+}
+
 export interface StockCountItem {
 	id: string;
 	stock_count_id: string;
@@ -236,7 +269,7 @@ export interface Expense {
 
 export interface SyncQueueItem {
 	id: string;
-	entity: 'transaction' | 'product' | 'user' | 'branch' | 'category' | 'activity' | 'expense' | 'transaction_adjustment';
+	entity: 'transaction' | 'product' | 'user' | 'branch' | 'category' | 'activity' | 'expense' | 'transaction_adjustment' | 'transfer';
 	action: 'insert' | 'update' | 'delete';
 	data: unknown;
 	timestamp: number;

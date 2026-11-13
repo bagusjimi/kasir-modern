@@ -59,7 +59,9 @@
 		return: 'Retur',
 		purchase: 'Pembelian',
 		opname: 'Opname',
-		adjustment: 'Penyesuaian'
+		adjustment: 'Penyesuaian',
+		transfer_out: 'Transfer Keluar',
+		transfer_in: 'Transfer Masuk'
 	};
 
 	onMount(async () => {

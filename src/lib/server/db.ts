@@ -114,6 +114,20 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				product_name TEXT NOT NULL, system_qty INTEGER NOT NULL,
 				counted_qty INTEGER NOT NULL, difference INTEGER NOT NULL
 			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_transfers (
+				id TEXT PRIMARY KEY, transfer_no TEXT NOT NULL,
+				from_branch_id TEXT NOT NULL, from_branch_name TEXT,
+				to_branch_id TEXT NOT NULL, to_branch_name TEXT,
+				status TEXT NOT NULL DEFAULT 'dikirim', notes TEXT,
+				user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+				received_by TEXT, received_by_name TEXT, received_at TEXT,
+				created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS stock_transfer_items (
+				id TEXT PRIMARY KEY, transfer_id TEXT NOT NULL, product_id TEXT NOT NULL,
+				product_name TEXT NOT NULL, sku TEXT, quantity INTEGER NOT NULL,
+				quantity_received INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+			)`),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_branch ON shifts(branch_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_shifts_updated ON shifts(updated_at)'),
@@ -122,6 +136,10 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items(purchase_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_counts_branch ON stock_counts(branch_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_count_items_count ON stock_count_items(stock_count_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfers_from ON stock_transfers(from_branch_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfers_to ON stock_transfers(to_branch_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfers_updated ON stock_transfers(updated_at)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)'),

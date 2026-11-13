@@ -13,7 +13,8 @@ import type {
 	TransactionAdjustment,
 	Shift,
 	Purchase,
-	StockCount
+	StockCount,
+	StockTransfer
 } from '../types/index.js';
 
 export interface SettingItem {
@@ -36,6 +37,7 @@ export class KasirDatabase extends Dexie {
 	shifts!: Table<Shift, string>;
 	purchases!: Table<Purchase, string>;
 	stock_counts!: Table<StockCount, string>;
+	stock_transfers!: Table<StockTransfer, string>;
 	app_settings!: Table<SettingItem, string>;
 
 	constructor() {
@@ -66,6 +68,10 @@ export class KasirDatabase extends Dexie {
 			shifts: 'id, branch_id, cashier_id, status, opened_at',
 			purchases: 'id, branch_id, supplier_name, created_at',
 			stock_counts: 'id, branch_id, created_at'
+		});
+
+		this.version(5).stores({
+			stock_transfers: 'id, transfer_no, from_branch_id, to_branch_id, status, updated_at'
 		});
 	}
 }

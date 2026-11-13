@@ -8,6 +8,7 @@
 	import CashierShift from '../lib/components/CashierShift.svelte';
 	import CashierPurchases from '../lib/components/CashierPurchases.svelte';
 	import CashierStockOpname from '../lib/components/CashierStockOpname.svelte';
+	import CashierTransfers from '../lib/components/CashierTransfers.svelte';
 	import AdminUsers from '../lib/components/AdminUsers.svelte';
 	import AdminBranches from '../lib/components/AdminBranches.svelte';
 	import AdminMonitoring from '../lib/components/AdminMonitoring.svelte';
@@ -64,6 +65,8 @@
 					<CashierPurchases />
 				{:else if activeTab === 'opname'}
 					<CashierStockOpname />
+				{:else if activeTab === 'transfers'}
+					<CashierTransfers />
 				{:else if activeTab === 'expenses'}
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
@@ -78,6 +81,8 @@
 					<AdminUsers />
 				{:else if activeTab === 'categories'}
 					<AdminCategories />
+				{:else if activeTab === 'transfers'}
+					<CashierTransfers />
 				{:else if activeTab === 'branches'}
 					<AdminBranches />
 				{:else if activeTab === 'monitoring'}
