@@ -15,6 +15,7 @@ interface SyncApiResponse {
 		shifts?: any[];
 		purchases?: any[];
 		stock_counts?: any[];
+		tax_settings?: any;
 	};
 }
 
@@ -236,6 +237,9 @@ export class SyncEngine {
 					}
 					if (result.serverUpdates.branches && result.serverUpdates.branches.length > 0) {
 						await db.branches.bulkPut(result.serverUpdates.branches);
+					}
+					if (result.serverUpdates.tax_settings) {
+						await db.app_settings.put({ key: 'tax_settings', value: result.serverUpdates.tax_settings });
 					}
 					if (result.serverUpdates.expenses && result.serverUpdates.expenses.length > 0) {
 						const formattedExpenses = result.serverUpdates.expenses.map(e => ({

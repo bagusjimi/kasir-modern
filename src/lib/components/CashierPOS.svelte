@@ -61,6 +61,14 @@
 		await loadOpenShift();
 	});
 
+	// Muat ulang pengaturan pajak setiap kali sinkronisasi selesai,
+	// agar perubahan dari sisi admin ikut diterapkan di perangkat kasir.
+	$effect(() => {
+		if (syncEngine.lastSyncedAt) {
+			loadTaxSettings();
+		}
+	});
+
 	async function loadOpenShift() {
 		openShift = (await getOpenShift(authState.user?.id || '')) || null;
 	}

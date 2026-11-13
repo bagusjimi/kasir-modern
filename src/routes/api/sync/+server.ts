@@ -512,6 +512,22 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			updatedStockCounts = scRes.results || [];
 		}
 
+		// Pengaturan pajak: first-sync selalu dikirim, delta hanya jika berubah
+		let taxSettings: any = null;
+		const taxRes = await d1
+			.prepare('SELECT value, updated_at FROM app_settings WHERE key = ?')
+			.bind('tax_settings')
+			.first<{ value: string; updated_at: string }>();
+		if (taxRes && taxRes.value) {
+			if (!lastSyncedAt || (taxRes.updated_at && taxRes.updated_at >= lastSyncedAt)) {
+				try {
+					taxSettings = JSON.parse(taxRes.value);
+				} catch {
+					taxSettings = null;
+				}
+			}
+		}
+
 		// Lampirkan item untuk pembelian dan opname yang ditarik dari server
 		if (updatedPurchases.length > 0) {
 			const poIds = updatedPurchases.map((p: any) => p.id);
@@ -552,7 +568,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				stock_movements: updatedMovements,
 				shifts: updatedShifts,
 				purchases: updatedPurchases,
-				stock_counts: updatedStockCounts
+				stock_counts: updatedStockCounts,
+				...(taxSettings ? { tax_settings: taxSettings } : {})
 			}
 		});
 	} catch (error: any) {
