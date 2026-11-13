@@ -27,6 +27,7 @@
 	let formId = $state<string>('');
 	let formName = $state<string>('');
 	let formCategory = $state<string>('');
+	let newCategoryName = $state<string>('');
 	let formSku = $state<string>('');
 	let formPrice = $state<number>(0);
 	let formCostPrice = $state<number>(0);
@@ -73,7 +74,7 @@
 	});
 
 	async function loadData() {
-		categories = await db.categories.toArray();
+		categories = (await db.categories.toArray()).sort((a, b) => a.name.localeCompare(b.name));
 
 		// Saat online, tarik kategori langsung dari server agar pilihan kategori
 		// selalu lengkap tanpa menunggu siklus sinkronisasi berikutnya.
@@ -84,7 +85,7 @@
 					const json: any = await res.json();
 					if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
 						await db.categories.bulkPut(json.data);
-						categories = await db.categories.toArray();
+						categories = (await db.categories.toArray()).sort((a, b) => a.name.localeCompare(b.name));
 					}
 				}
 			} catch (e) {
@@ -112,6 +113,7 @@
 		formId = '';
 		formName = '';
 		formCategory = categories[0]?.name || '';
+		newCategoryName = '';
 		formSku = 'PRD-' + Math.floor(100 + Math.random() * 900);
 		formPrice = 0;
 		formCostPrice = 0;
@@ -126,6 +128,7 @@
 		formId = prod.id;
 		formName = prod.name;
 		formCategory = prod.category;
+		newCategoryName = '';
 		formSku = prod.sku;
 		formPrice = prod.price;
 		formCostPrice = prod.cost_price;
@@ -308,6 +311,13 @@
 
 	async function saveProduct() {
 		formError = null;
+		if (formCategory === '__new__') {
+			if (!newCategoryName.trim()) {
+				formError = 'Nama kategori baru wajib diisi';
+				return;
+			}
+			formCategory = newCategoryName.trim();
+		}
 		if (!formName.trim()) {
 			formError = 'Nama produk wajib diisi';
 			return;
@@ -589,19 +599,28 @@
 				<div class="grid grid-cols-2 gap-3">
 					<div>
 						<label for="formCategory" class="block font-semibold text-gray-700 mb-1">Kategori</label>
-						<input
+						<select
 							id="formCategory"
-							type="text"
 							bind:value={formCategory}
-							list="category-suggestions"
-							placeholder="Contoh: Makanan, Minuman..."
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
-						/>
-						<datalist id="category-suggestions">
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-hidden focus:border-emerald-500"
+						>
+							<option value="" disabled>Pilih kategori</option>
 							{#each categories as cat}
-								<option value={cat.name}></option>
+								<option value={cat.name}>{cat.name}</option>
 							{/each}
-						</datalist>
+							{#if formCategory && formCategory !== '__new__' && !categories.some(c => c.name === formCategory)}
+								<option value={formCategory}>{formCategory}</option>
+							{/if}
+							<option value="__new__">+ Kategori baru...</option>
+						</select>
+						{#if formCategory === '__new__'}
+							<input
+								type="text"
+								bind:value={newCategoryName}
+								placeholder="Nama kategori baru"
+								class="w-full px-3 py-2 mt-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
+							/>
+						{/if}
 					</div>
 					<div>
 						<label for="formSku" class="block font-semibold text-gray-700 mb-1">SKU / Kode</label>
