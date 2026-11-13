@@ -1,14 +1,18 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import { getSession, unauthorized, forbidden } from '#lib/server/auth.js';
 
-export const GET: RequestHandler = async ({ platform }) => {
+export const GET: RequestHandler = async ({ platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
 
 	try {
 		const res = await d1.prepare('SELECT * FROM categories ORDER BY name ASC').all();
@@ -21,11 +25,15 @@ export const GET: RequestHandler = async ({ platform }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, platform }) => {
+export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
 	}
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
+	if (session.role !== 'admin') return forbidden();
 
 	try {
 		const body = (await request.json()) as any;

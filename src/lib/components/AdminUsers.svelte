@@ -3,6 +3,7 @@
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
+	import { hashPin } from '../auth/pin.js';
 	import type { User, Branch, Role } from '../types/index.js';
 	import {
 		UserPlus,
@@ -70,7 +71,7 @@
 		formName = user.name;
 		formRole = user.role;
 		formBranchId = user.branch_id;
-		formPin = user.pin;
+		formPin = '';
 		formActive = user.active;
 		formError = null;
 		isModalOpen = true;
@@ -87,7 +88,11 @@
 			formError = 'Nama lengkap wajib diisi';
 			return;
 		}
-		if (!formPin.trim() || formPin.length < 4) {
+		if (!isEditing && (!formPin.trim() || formPin.trim().length < 4)) {
+			formError = 'PIN kasir minimal 4 digit';
+			return;
+		}
+		if (isEditing && formPin.trim() && formPin.trim().length < 4) {
 			formError = 'PIN kasir minimal 4 digit';
 			return;
 		}
@@ -95,15 +100,17 @@
 		const now = new Date().toISOString();
 
 		if (isEditing) {
+			const currentUser = users.find(u => u.id === formId);
+			const pinValue = formPin.trim() ? await hashPin(formPin.trim()) : (currentUser?.pin || '');
 			const updatedUser: User = {
 				id: formId,
 				username: formUsername.trim().toLowerCase(),
 				name: formName.trim(),
 				role: formRole,
 				branch_id: formRole === 'admin' ? 'all' : formBranchId,
-				pin: formPin.trim(),
+				pin: pinValue,
 				active: formActive,
-				created_at: users.find(u => u.id === formId)?.created_at || now,
+				created_at: currentUser?.created_at || now,
 				updated_at: now
 			};
 
@@ -145,7 +152,7 @@
 				name: formName.trim(),
 				role: formRole,
 				branch_id: formRole === 'admin' ? 'all' : formBranchId,
-				pin: formPin.trim(),
+				pin: await hashPin(formPin.trim()),
 				active: true,
 				created_at: now,
 				updated_at: now
@@ -299,7 +306,7 @@
 							</td>
 							<td class="px-5 py-3.5">
 								<span class="font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded text-[11px] tracking-widest">
-									{user.pin}
+									&bull;&bull;&bull;&bull;
 								</span>
 							</td>
 							<td class="px-5 py-3.5">

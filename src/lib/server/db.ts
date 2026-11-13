@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import type { Branch, User, Category, Product, Transaction, TransactionItem, ActivityLog } from '../types/index.js';
+import { hashPin } from '../auth/pin.js';
 
 /**
  * Helper untuk mengambil binding Cloudflare D1 dari cloudflare:workers env
@@ -70,7 +71,13 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			)`),
 			d1.prepare(`CREATE TABLE IF NOT EXISTS app_settings (
 				key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
-			)`)
+			)`),
+			d1.prepare(`CREATE TABLE IF NOT EXISTS sessions (
+				token TEXT PRIMARY KEY, user_id TEXT NOT NULL, role TEXT NOT NULL,
+				branch_id TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
+			)`),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)'),
+			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)')
 		]);
 	} catch (tableErr) {
 		console.warn('Gagal memastikan tabel D1:', tableErr);
@@ -86,6 +93,9 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 	}
 
 	const now = new Date().toISOString();
+
+	const adminPinHash = await hashPin('123456');
+	const kasirPinHash = await hashPin('1234');
 
 	const seedQueries = [
 		// Branches
@@ -103,13 +113,18 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			('cat-lainnya', 'Lainnya')
 		`),
 
-		// Users
+		// Users (PIN disimpan sebagai hash PBKDF2)
 		d1.prepare(`INSERT OR IGNORE INTO users (id, username, name, role, branch_id, pin, active, created_at, updated_at) VALUES
-			('usr-admin-1', 'admin', 'Admin Pusat (Owner)', 'admin', 'all', '123456', 1, ?, ?),
-			('usr-kasir-jkt', 'kasir_jkt', 'Siti Rahma', 'cashier', 'cb-01', '1234', 1, ?, ?),
-			('usr-kasir-bdg', 'kasir_bdg', 'Budi Santoso', 'cashier', 'cb-02', '1234', 1, ?, ?),
-			('usr-kasir-sby', 'kasir_sby', 'Dewi Lestari', 'cashier', 'cb-03', '1234', 1, ?, ?)
-		`).bind(now, now, now, now, now, now, now, now),
+			('usr-admin-1', 'admin', 'Admin Pusat (Owner)', 'admin', 'all', ?, 1, ?, ?),
+			('usr-kasir-jkt', 'kasir_jkt', 'Siti Rahma', 'cashier', 'cb-01', ?, 1, ?, ?),
+			('usr-kasir-bdg', 'kasir_bdg', 'Budi Santoso', 'cashier', 'cb-02', ?, 1, ?, ?),
+			('usr-kasir-sby', 'kasir_sby', 'Dewi Lestari', 'cashier', 'cb-03', ?, 1, ?, ?)
+		`).bind(
+			adminPinHash, now, now,
+			kasirPinHash, now, now,
+			kasirPinHash, now, now,
+			kasirPinHash, now, now
+		),
 
 		// Log inisialisasi
 		d1.prepare(`INSERT OR IGNORE INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp) VALUES

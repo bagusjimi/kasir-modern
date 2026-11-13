@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
+import { getSession, unauthorized, forbidden } from '#lib/server/auth.js';
+import { hashPin, isHashedPin } from '#lib/auth/pin.js';
 
-export const GET: RequestHandler = async ({ url, platform }) => {
+export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
@@ -10,9 +12,13 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 
 	await ensureD1Seeded(d1);
 
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
+	if (session.role !== 'admin') return forbidden();
+
 	try {
 		const branchId = url.searchParams.get('branch_id');
-		let sql = 'SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE 1=1';
+		let sql = 'SELECT id, username, name, role, branch_id, active, created_at, updated_at FROM users WHERE 1=1';
 		const params: any[] = [];
 
 		if (branchId && branchId !== 'all') {
@@ -37,11 +43,17 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, platform }) => {
+export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
 	}
+
+	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
+	if (session.role !== 'admin') return forbidden();
 
 	try {
 		const body = (await request.json()) as any;
@@ -59,19 +71,20 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 		const id = body.id || `usr-${Date.now()}`;
 		const now = new Date().toISOString();
+		const pinHash = isHashedPin(pin) ? pin : await hashPin(pin);
 
 		await d1.prepare(`
 			INSERT INTO users (id, username, name, role, branch_id, pin, active, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-		`).bind(id, username.toLowerCase().trim(), name.trim(), role, branch_id, pin, now, now).run();
+		`).bind(id, username.toLowerCase().trim(), name.trim(), role, branch_id, pinHash, now, now).run();
 
 		// Log activity
 		await d1.prepare(`
 			INSERT INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`).bind(
-			`act-${Date.now()}`, 'all', 'Pusat (Admin)', body.admin_id || 'usr-admin-1',
-			body.admin_name || 'Admin', 'admin', 'create_user',
+			crypto.randomUUID(), 'all', 'Pusat (Admin)', session.userId,
+			'Admin', 'admin', 'create_user',
 			`Admin menambahkan user baru: ${name} (${role})`, now
 		).run();
 
@@ -83,7 +96,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				name: name.trim(),
 				role,
 				branch_id,
-				pin,
 				active: true,
 				created_at: now,
 				updated_at: now
@@ -94,11 +106,17 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 };
 
-export const PUT: RequestHandler = async ({ request, platform }) => {
+export const PUT: RequestHandler = async ({ request, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
 	}
+
+	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
+	if (session.role !== 'admin') return forbidden();
 
 	try {
 		const body = (await request.json()) as any;
@@ -109,6 +127,7 @@ export const PUT: RequestHandler = async ({ request, platform }) => {
 		}
 
 		const now = new Date().toISOString();
+		const pinHash = pin ? (isHashedPin(pin) ? pin : await hashPin(pin)) : null;
 
 		await d1.prepare(`
 			UPDATE users SET
@@ -123,7 +142,7 @@ export const PUT: RequestHandler = async ({ request, platform }) => {
 			name ?? null,
 			role ?? null,
 			branch_id ?? null,
-			pin ?? null,
+			pinHash,
 			active !== undefined ? (active ? 1 : 0) : null,
 			now,
 			id
@@ -134,8 +153,8 @@ export const PUT: RequestHandler = async ({ request, platform }) => {
 			INSERT INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`).bind(
-			`act-${Date.now()}`, 'all', 'Pusat (Admin)', body.admin_id || 'usr-admin-1',
-			body.admin_name || 'Admin', 'admin', 'update_user',
+			crypto.randomUUID(), 'all', 'Pusat (Admin)', session.userId,
+			'Admin', 'admin', 'update_user',
 			`Admin memperbarui data pengguna ID: ${id}`, now
 		).run();
 
@@ -145,16 +164,26 @@ export const PUT: RequestHandler = async ({ request, platform }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ url, platform }) => {
+export const DELETE: RequestHandler = async ({ url, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
 	}
 
+	await ensureD1Seeded(d1);
+
+	const session = await getSession(d1, cookies);
+	if (!session) return unauthorized();
+	if (session.role !== 'admin') return forbidden();
+
 	try {
 		const id = url.searchParams.get('id');
 		if (!id) {
 			return json({ success: false, message: 'Parameter id diperlukan' }, { status: 400 });
+		}
+
+		if (id === session.userId) {
+			return json({ success: false, message: 'Tidak dapat menghapus akun yang sedang aktif' }, { status: 400 });
 		}
 
 		await d1.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
