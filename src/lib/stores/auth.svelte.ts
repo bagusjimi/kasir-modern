@@ -9,10 +9,10 @@ class AuthState {
 	isLoading = $state<boolean>(true);
 
 	constructor() {
+		// isLoading tetap true di server (SSR) agar HTML awal berupa layar loading,
+		// bukan form login — mencegah kilatan form login saat refresh dalam kondisi login.
 		if (typeof window !== 'undefined') {
 			this.loadStoredSession();
-		} else {
-			this.isLoading = false;
 		}
 	}
 
