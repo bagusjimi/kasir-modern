@@ -17,11 +17,13 @@
 		History,
 		X,
 		Barcode,
+		Tags,
 		Boxes,
 		Coins,
 		AlertTriangle
 	} from 'lucide-svelte';
 	import Pagination from './Pagination.svelte';
+	import BarcodeLabelModal from './BarcodeLabelModal.svelte';
 
 	let products = $state<Product[]>([]);
 	let categories = $state<Category[]>([]);
@@ -120,6 +122,30 @@
 			(p.barcode && p.barcode.includes(searchQuery))
 		)
 	);
+
+	// Seleksi produk untuk cetak label barcode
+	let selectedIds = $state<Set<string>>(new Set());
+	let isLabelModalOpen = $state<boolean>(false);
+
+	let selectedProducts = $derived(products.filter(p => selectedIds.has(p.id)));
+	let allFilteredSelected = $derived(
+		filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.has(p.id))
+	);
+
+	function toggleSelect(id: string) {
+		const next = new Set(selectedIds);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		selectedIds = next;
+	}
+
+	function toggleSelectAll() {
+		if (allFilteredSelected) {
+			selectedIds = new Set();
+		} else {
+			selectedIds = new Set(filteredProducts.map(p => p.id));
+		}
+	}
 
 	// Paginasi tabel produk
 	let currentPage = $state(1);
@@ -537,6 +563,15 @@
 		</div>
 
 		<div class="flex items-center gap-3">
+			{#if selectedProducts.length > 0}
+				<button
+					onclick={() => (isLabelModalOpen = true)}
+					class="inline-flex items-center gap-2 rounded-xl bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-4 py-2 text-xs font-bold shadow-xs active:scale-95 transition cursor-pointer"
+				>
+					<Tags class="h-4 w-4" />
+					<span>Cetak Label ({selectedProducts.length})</span>
+				</button>
+			{/if}
 			<div class="relative flex-1 sm:w-64">
 				<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
 				<input
@@ -597,6 +632,15 @@
 			<table class="w-full text-left text-xs">
 				<thead class="bg-gray-50/80 text-gray-500 font-semibold border-b border-gray-100">
 					<tr>
+						<th class="px-3 py-3.5 w-10">
+							<input
+								type="checkbox"
+								checked={allFilteredSelected}
+								onchange={toggleSelectAll}
+								title="Pilih semua produk yang terfilter"
+								class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+							/>
+						</th>
 						<th class="px-5 py-3.5">Produk</th>
 						<th class="px-5 py-3.5">Kategori</th>
 						<th class="px-5 py-3.5">Harga Modal</th>
@@ -608,7 +652,7 @@
 				<tbody class="divide-y divide-gray-100 font-medium text-gray-700">
 					{#if filteredProducts.length === 0}
 						<tr>
-							<td colspan="7" class="px-5 py-12 text-center text-gray-400">
+							<td colspan="8" class="px-5 py-12 text-center text-gray-400">
 								<Package class="h-10 w-10 mx-auto mb-2 text-gray-300 stroke-1" />
 								Tidak ada data produk yang sesuai.
 							</td>
@@ -616,6 +660,14 @@
 					{:else}
 						{#each pagedProducts as prod}
 							<tr class="hover:bg-gray-50/60 transition">
+								<td class="px-3 py-3.5">
+									<input
+										type="checkbox"
+										checked={selectedIds.has(prod.id)}
+										onchange={() => toggleSelect(prod.id)}
+										class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+									/>
+								</td>
 								<td class="px-5 py-3.5">
 									<div class="font-bold text-gray-900">{prod.name}</div>
 									<div class="text-[11px] text-gray-500 font-mono">{prod.sku}</div>
@@ -1056,3 +1108,5 @@
 		</div>
 	</div>
 {/if}
+
+<BarcodeLabelModal open={isLabelModalOpen} products={selectedProducts} onClose={() => (isLabelModalOpen = false)} />
