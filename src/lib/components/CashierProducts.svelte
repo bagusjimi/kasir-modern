@@ -18,6 +18,7 @@
 		X,
 		Barcode
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	let products = $state<Product[]>([]);
 	let categories = $state<Category[]>([]);
@@ -114,6 +115,19 @@
 			p.sku.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
+
+	// Paginasi tabel produk
+	let currentPage = $state(1);
+	let perPage = $state(25);
+	let pagedProducts = $derived(
+		filteredProducts.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat pencarian berubah
+	$effect(() => {
+		searchQuery;
+		currentPage = 1;
+	});
 
 	function openAddModal() {
 		isEditing = false;
@@ -526,7 +540,7 @@
 							</td>
 						</tr>
 					{:else}
-						{#each filteredProducts as prod}
+						{#each pagedProducts as prod}
 							<tr class="hover:bg-gray-50/60 transition">
 								<td class="px-5 py-3.5">
 									<div class="font-bold text-gray-900">{prod.name}</div>
@@ -590,6 +604,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredProducts.length} label="produk" />
 	</div>
 </div>
 

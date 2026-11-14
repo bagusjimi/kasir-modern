@@ -17,10 +17,15 @@
 		AlertCircle,
 		X
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	let users = $state<User[]>([]);
 	let branches = $state<Branch[]>([]);
 	let searchQuery = $state<string>('');
+
+	// Paginasi tabel pengguna
+	let currentPage = $state(1);
+	let perPage = $state(25);
 
 	// Modal State
 	let isModalOpen = $state<boolean>(false);
@@ -50,6 +55,16 @@
 			u.username.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
+
+	let pagedUsers = $derived(
+		filteredUsers.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat pencarian berubah
+	$effect(() => {
+		searchQuery;
+		currentPage = 1;
+	});
 
 	function openAddModal() {
 		isEditing = false;
@@ -285,7 +300,7 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-gray-100 font-medium text-gray-700">
-					{#each filteredUsers as user}
+					{#each pagedUsers as user}
 						<tr class="hover:bg-gray-50/60 transition">
 							<td class="px-5 py-3.5">
 								<div class="font-bold text-gray-900">{user.name}</div>
@@ -341,6 +356,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredUsers.length} label="pengguna" />
 	</div>
 </div>
 

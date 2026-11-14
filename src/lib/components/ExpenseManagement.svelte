@@ -25,6 +25,7 @@
 		PieChart,
 		RefreshCw
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	export const EXPENSE_CATEGORIES: { id: ExpenseCategory; label: string; iconBg: string; description: string }[] = [
 		{ id: 'listrik_air_internet', label: 'Listrik, Air & Internet', iconBg: 'bg-amber-100 text-amber-700', description: 'Tagihan PLN, PDAM, WiFi minimarket' },
@@ -150,6 +151,10 @@
 		}
 	}
 
+	// Paginasi tabel pengeluaran
+	let currentPage = $state(1);
+	let perPage = $state(25);
+
 	// Filter pengeluaran yang tampil
 	let filteredExpenses = $derived(
 		expenses.filter(item => {
@@ -178,6 +183,20 @@
 			return true;
 		})
 	);
+
+	let pagedExpenses = $derived(
+		filteredExpenses.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat filter berubah
+	$effect(() => {
+		searchQuery;
+		selectedBranchFilter;
+		selectedCategoryFilter;
+		filterStartDate;
+		filterEndDate;
+		currentPage = 1;
+	});
 
 	// Metrik Pengeluaran Terfilter
 	let totalExpenseAmount = $derived(
@@ -616,7 +635,7 @@
 								</td>
 							</tr>
 						{:else}
-							{#each filteredExpenses as item}
+							{#each pagedExpenses as item}
 								{@const catMeta = getCategoryMeta(item.category)}
 								<tr class="hover:bg-gray-50/70 transition">
 									<td class="px-4 py-3">
@@ -677,6 +696,7 @@
 					</tbody>
 				</table>
 			</div>
+			<Pagination bind:page={currentPage} bind:perPage totalItems={filteredExpenses.length} label="pengeluaran" />
 		</div>
 
 		<!-- Breakdown Beban Kategori (4 Kolom) -->

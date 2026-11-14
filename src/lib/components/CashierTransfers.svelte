@@ -18,6 +18,7 @@
 		Printer,
 		FileText
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	let products = $state<Product[]>([]);
 	let branches = $state<Branch[]>([]);
@@ -72,6 +73,20 @@
 
 	const outgoing = $derived(transfers.filter(t => (isAdmin ? t.status !== 'diterima' : t.from_branch_id === currentBranchId)));
 	const receiving = $derived(transfers.filter(t => t.status === 'diterima' && (isAdmin || t.to_branch_id === currentBranchId)));
+
+	// Paginasi daftar transfer (tab Keluar / Terima berbagi satu status halaman)
+	let transferPage = $state(1);
+	let perPage = $state(25);
+	const activeTransfers = $derived(activeView === 'keluar' ? outgoing : receiving);
+	const pagedTransfers = $derived(
+		activeTransfers.slice((transferPage - 1) * perPage, transferPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat pindah tab
+	$effect(() => {
+		activeView;
+		transferPage = 1;
+	});
 
 	const statusLabels: Record<StockTransferStatus, string> = {
 		dikirim: 'Dikirim',
@@ -599,7 +614,7 @@
 			{#if isLoading}
 				<div class="px-5 py-12 text-center text-xs text-zinc-400">Memuat...</div>
 			{:else}
-				{#each (activeView === 'keluar' ? outgoing : receiving) as trf (trf.id)}
+				{#each pagedTransfers as trf (trf.id)}
 					<div class="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-zinc-50/60 transition">
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2 flex-wrap">
@@ -657,6 +672,7 @@
 				{/each}
 			{/if}
 		</div>
+		<Pagination bind:page={transferPage} bind:perPage totalItems={activeTransfers.length} label="transfer" />
 	</div>
 </div>
 

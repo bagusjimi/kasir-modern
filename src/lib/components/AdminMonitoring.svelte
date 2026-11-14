@@ -14,6 +14,7 @@
 		Package,
 		Percent
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	let activityLogs = $state<ActivityLog[]>([]);
 	let branches = $state<Branch[]>([]);
@@ -24,6 +25,10 @@
 	// Filter periode bebas (YYYY-MM-DD); kosong = semua periode
 	let startDate = $state<string>('');
 	let endDate = $state<string>('');
+
+	// Paginasi log aktivitas
+	let currentPage = $state(1);
+	let perPage = $state(25);
 
 	// Statistik ringkasan cabang
 	let branchStats = $state<{
@@ -146,6 +151,18 @@
 			selectedBranch === 'all' || log.branch_id === selectedBranch
 		)
 	);
+
+	let pagedLogs = $derived(
+		filteredLogs.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat filter berubah
+	$effect(() => {
+		selectedBranch;
+		startDate;
+		endDate;
+		currentPage = 1;
+	});
 
 	let totalNetworkRevenue = $derived(
 		Object.values(branchStats).reduce((sum, s) => sum + s.totalRevenue, 0)
@@ -314,7 +331,7 @@
 					Belum ada aktivitas kasir yang tercatat untuk cabang ini.
 				</div>
 			{:else}
-				{#each filteredLogs as log}
+				{#each pagedLogs as log}
 					<div class="p-4 flex items-start justify-between gap-4 hover:bg-gray-50/70 transition">
 						<div class="flex items-start gap-3">
 							<div class="mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
@@ -357,6 +374,7 @@
 				{/each}
 			{/if}
 		</div>
+		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredLogs.length} label="log aktivitas" />
 	</div>
 </div>
 

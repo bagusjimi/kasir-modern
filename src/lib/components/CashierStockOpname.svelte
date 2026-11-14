@@ -14,11 +14,19 @@
 		History as HistoryIcon,
 		RefreshCw
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	let products = $state<Product[]>([]);
 	let counts = $state<StockCount[]>([]);
 	let isLoading = $state<boolean>(true);
 	let searchQuery = $state<string>('');
+
+	// Paginasi riwayat opname
+	let currentPage = $state(1);
+	let perPage = $state(25);
+	let pagedCounts = $derived(
+		counts.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
 
 	// Penghitungan opname berjalan
 	let counted: Record<string, number> = $state({});
@@ -306,7 +314,7 @@
 			</div>
 		{:else}
 			<div class="divide-y divide-zinc-100">
-				{#each counts as sc}
+				{#each pagedCounts as sc}
 					<div class="px-5 py-3.5 hover:bg-zinc-50/60">
 						<div class="flex items-center justify-between gap-2">
 							<div class="min-w-0">
@@ -336,5 +344,6 @@
 				{/each}
 			</div>
 		{/if}
+		<Pagination bind:page={currentPage} bind:perPage totalItems={counts.length} label="riwayat opname" />
 	</div>
 </div>
