@@ -10,7 +10,7 @@ import { getSession, unauthorized, forbidden } from '#lib/server/auth.js';
 export const GET: RequestHandler = async ({ platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
-		return json({ success: false, message: 'D1 database binding DB tidak ditemukan' }, { status: 503 });
+		return json({ success: false, message: 'Layanan basis data belum tersedia' }, { status: 503 });
 	}
 
 	try {
@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 		if (!session) return unauthorized();
 		if (session.role !== 'admin') return forbidden();
 
-		const [todayRes, profitRes, trendRes, branchRes, cashierRes, lowStockRes, productRes, categoryRes] = await d1.batch([
+		const [todayRes, profitRes, trendRes, branchRes, cashierRes, lowStockRes, productRes, categoryRes, stockRecapRes] = await d1.batch([
 			d1.prepare(
 				`SELECT COUNT(*) AS tx_count, COALESCE(SUM(total), 0) AS total_sales
 				 FROM transactions
@@ -59,7 +59,18 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 				 ORDER BY (stock - min_stock) ASC LIMIT 20`
 			),
 			d1.prepare(`SELECT COUNT(*) AS count FROM products WHERE is_active = 1`),
-			d1.prepare(`SELECT COUNT(*) AS count FROM categories`)
+			d1.prepare(`SELECT COUNT(*) AS count FROM categories`),
+			d1.prepare(
+				`SELECT p.branch_id, COALESCE(b.name, p.branch_id) AS branch_name,
+				        COUNT(*) AS product_count,
+				        COALESCE(SUM(p.stock), 0) AS total_units,
+				        COALESCE(SUM(p.stock * p.cost_price), 0) AS stock_value
+				 FROM products p
+				 LEFT JOIN branches b ON b.id = p.branch_id
+				 WHERE p.is_active = 1
+				 GROUP BY p.branch_id, b.name
+				 ORDER BY stock_value DESC`
+			)
 		]);
 
 		const today = (todayRes.results?.[0] || {}) as { tx_count?: number; total_sales?: number };
@@ -104,7 +115,14 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 				counts: {
 					active_products: Number((productRes.results?.[0] as any)?.count || 0),
 					categories: Number((categoryRes.results?.[0] as any)?.count || 0)
-				}
+				},
+				stock_recap: (stockRecapRes.results || []).map((r: any) => ({
+					branch_id: r.branch_id,
+					branch_name: r.branch_name,
+					product_count: Number(r.product_count || 0),
+					total_units: Number(r.total_units || 0),
+					stock_value: Number(r.stock_value || 0)
+				}))
 			}
 		});
 	} catch (err: any) {

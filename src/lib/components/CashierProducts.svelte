@@ -16,7 +16,10 @@
 		CheckCircle2,
 		History,
 		X,
-		Barcode
+		Barcode,
+		Boxes,
+		Coins,
+		AlertTriangle
 	} from 'lucide-svelte';
 	import Pagination from './Pagination.svelte';
 
@@ -128,6 +131,18 @@
 		searchQuery;
 		currentPage = 1;
 	});
+
+	// Ringkasan total stok toko (dihitung dari seluruh produk cabang, bukan hanya halaman aktif)
+	let totalStockUnits = $derived(products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0));
+	let totalStockCost = $derived(
+		products.reduce((sum, p) => sum + (Number(p.stock) || 0) * (Number(p.cost_price) || 0), 0)
+	);
+	let totalStockRetail = $derived(
+		products.reduce((sum, p) => sum + (Number(p.stock) || 0) * (Number(p.price) || 0), 0)
+	);
+	let lowStockCount = $derived(
+		products.filter(p => p.stock <= (p.min_stock || 5)).length
+	);
 
 	function openAddModal() {
 		isEditing = false;
@@ -514,6 +529,40 @@
 				<Plus class="h-4 w-4" />
 				<span>Tambah Produk</span>
 			</button>
+		</div>
+	</div>
+
+	<!-- Ringkasan Total Stok -->
+	<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+			<div class="flex items-center justify-between">
+				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Jenis Produk</span>
+				<Package class="h-4 w-4 text-emerald-500" />
+			</div>
+			<p class="mt-2 text-xl font-black text-gray-900">{products.length}</p>
+		</div>
+		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+			<div class="flex items-center justify-between">
+				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Unit Stok</span>
+				<Boxes class="h-4 w-4 text-emerald-500" />
+			</div>
+			<p class="mt-2 text-xl font-black text-gray-900">{totalStockUnits}</p>
+		</div>
+		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+			<div class="flex items-center justify-between">
+				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Nilai Stok (Modal)</span>
+				<Coins class="h-4 w-4 text-emerald-500" />
+			</div>
+			<p class="mt-2 text-xl font-black text-gray-900">{formatRupiah(totalStockCost)}</p>
+			<p class="text-[10px] text-gray-500 mt-0.5">Potensi penjualan: {formatRupiah(totalStockRetail)}</p>
+		</div>
+		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
+			<div class="flex items-center justify-between">
+				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Perlu Penambahan Stok</span>
+				<AlertTriangle class="h-4 w-4 {lowStockCount > 0 ? 'text-amber-500' : 'text-gray-300'}" />
+			</div>
+			<p class="mt-2 text-xl font-black {lowStockCount > 0 ? 'text-amber-600' : 'text-gray-900'}">{lowStockCount}</p>
+			<p class="text-[10px] text-gray-500 mt-0.5">produk pada atau di bawah batas minimum</p>
 		</div>
 	</div>
 
