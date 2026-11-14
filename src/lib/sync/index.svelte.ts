@@ -186,6 +186,10 @@ export class SyncEngine {
 			const result = (await response.json()) as SyncApiResponse;
 
 			if (result.success) {
+				// Item yang gagal tersimpan di server tidak boleh ditandai tersinkron
+				// agar dicoba ulang pada sinkronisasi berikutnya.
+				const failedKeys = new Set(result.failed_items || []);
+
 				// Tandai transaksi sebagai tersinkron
 				if (pendingTransactions.length > 0) {
 					for (const tx of pendingTransactions) {
@@ -232,6 +236,7 @@ export class SyncEngine {
 				}
 				if (pendingTransfers.length > 0) {
 					for (const trf of pendingTransfers) {
+						if (failedKeys.has('trf:' + trf.id)) continue;
 						await db.stock_transfers.update(trf.id, { synced: true });
 					}
 				}
