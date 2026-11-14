@@ -90,7 +90,7 @@
 		isLoading = true;
 		currentBranchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		const allProducts = await db.products.toArray();
-		products = allProducts.filter(p => p.is_active && (p.branch_id === 'all' || p.branch_id === currentBranchId));
+		products = allProducts.filter(p => p.is_active && p.branch_id === currentBranchId);
 		branches = await db.branches.orderBy('name').toArray();
 		const settings = await db.app_settings.get('store_settings');
 		storeSettings = (settings?.value as StoreSettings) || null;
@@ -339,7 +339,7 @@
 
 			// Produk di cabang tujuan: tambah stok, atau buat record baru jika belum ada
 			const destProducts = await db.products
-				.filter(p => (p.branch_id === currentBranchId || p.branch_id === 'all') && (p.sku === it.sku || p.name === it.product_name))
+				.filter(p => p.branch_id === currentBranchId && (p.sku === it.sku || p.name === it.product_name))
 				.toArray();
 			const destProd = destProducts[0];
 
