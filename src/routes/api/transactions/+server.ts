@@ -15,7 +15,8 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	if (!session) return unauthorized();
 
 	try {
-		const branchId = url.searchParams.get('branch_id');
+		// Isolasi cabang: sesi non-admin terkunci pada cabangnya sendiri
+		const branchId = session.branchId !== 'all' ? session.branchId : url.searchParams.get('branch_id');
 		const cashierId = url.searchParams.get('cashier_id');
 		const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
 
@@ -73,6 +74,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const body = (await request.json()) as any;
+		// Isolasi cabang: sesi non-admin hanya bisa mencatat transaksi di cabangnya sendiri
+		if (session.branchId !== 'all') body.branch_id = session.branchId;
 		const {
 			invoice_no,
 			branch_id,

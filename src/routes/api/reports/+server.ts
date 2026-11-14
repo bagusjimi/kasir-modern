@@ -15,7 +15,8 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	if (!session) return unauthorized();
 
 	try {
-		const branchId = url.searchParams.get('branch_id');
+		// Isolasi cabang: sesi non-admin terkunci pada cabangnya sendiri
+		const branchId = session.branchId !== 'all' ? session.branchId : url.searchParams.get('branch_id');
 		const startDate = url.searchParams.get('start_date');
 		const endDate = url.searchParams.get('end_date');
 		const paymentMethod = url.searchParams.get('payment_method');

@@ -34,6 +34,12 @@ class AuthState {
 						branchIdToUse = savedBranchId || 'all';
 					}
 
+					// Tandai konteks data perangkat bila belum ada (perangkat lama sebelum
+					// fitur isolasi) agar pergantian konteks berikutnya memicu pembersihan.
+					if (!localStorage.getItem('kasir_data_branch')) {
+						localStorage.setItem('kasir_data_branch', branchIdToUse);
+					}
+
 					if (branchIdToUse && branchIdToUse !== 'all') {
 						const branch = await db.branches.get(branchIdToUse);
 						this.branch = branch || null;
@@ -87,7 +93,9 @@ class AuthState {
 
 		// Upgrade PIN plaintext lama menjadi hash (migrasi bertahap)
 		if (!isHashedPin(user.pin)) {
-			await db.users.update(user.id, { pin: await hashPin(pin.trim()) });
+			const upgradedPin = await hashPin(pin.trim());
+			await db.users.update(user.id, { pin: upgradedPin });
+			user = { ...user, pin: upgradedPin };
 		}
 
 		this.user = user;
@@ -101,6 +109,19 @@ class AuthState {
 		} else {
 			branchIdToUse = 'all';
 		}
+
+		// Isolasi data per cabang: jika perangkat ini sebelumnya dipakai untuk konteks
+		// cabang berbeda, bersihkan data lokal agar data cabang lain tidak terbawa.
+		// Antrean sync dipertahankan agar pekerjaan offline yang belum terkirim tidak hilang.
+		const dataBranch = localStorage.getItem('kasir_data_branch');
+		if (dataBranch && dataBranch !== branchIdToUse) {
+			await Promise.all(db.tables.filter((t) => t.name !== 'sync_queue').map((t) => t.clear()));
+			localStorage.removeItem('kasir_last_synced_at');
+			syncEngine.lastSyncedAt = null;
+			// Simpan kembali akun yang baru login agar login offline berikutnya tetap bisa
+			await db.users.put(user);
+		}
+		localStorage.setItem('kasir_data_branch', branchIdToUse);
 
 		if (branchIdToUse && branchIdToUse !== 'all') {
 			const branch = await db.branches.get(branchIdToUse);
@@ -153,6 +174,12 @@ class AuthState {
 			timestamp: new Date().toISOString(),
 			synced: false
 		});
+
+		// Setelah pembersihan konteks lama, tarik data cabang ini segera agar
+		// perangkat tidak kosong sampai auto-sync berikutnya
+		if (typeof navigator !== 'undefined' && navigator.onLine) {
+			await syncEngine.triggerSync();
+		}
 
 		return { success: true };
 	}
@@ -249,6 +276,7 @@ class AuthState {
 								this.branch = null;
 								localStorage.setItem('kasir_session_user_id', adopted.id);
 								localStorage.setItem('kasir_session_branch_id', 'all');
+								localStorage.setItem('kasir_data_branch', 'all');
 								return { success: true };
 							}
 							return {
@@ -333,6 +361,7 @@ class AuthState {
 		this.branch = null;
 		localStorage.setItem('kasir_session_user_id', owner.id);
 		localStorage.setItem('kasir_session_branch_id', 'all');
+		localStorage.setItem('kasir_data_branch', 'all');
 
 		return { success: true };
 	}

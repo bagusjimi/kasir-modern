@@ -15,7 +15,8 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	if (!session) return unauthorized();
 
 	try {
-		const branchId = url.searchParams.get('branch_id');
+		// Isolasi cabang: sesi non-admin terkunci pada cabangnya sendiri
+		const branchId = session.branchId !== 'all' ? session.branchId : url.searchParams.get('branch_id');
 		const startDate = url.searchParams.get('start_date');
 		const endDate = url.searchParams.get('end_date');
 		const category = url.searchParams.get('category');
@@ -77,6 +78,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const body = (await request.json()) as any;
+		// Isolasi cabang: sesi non-admin hanya bisa mencatat pengeluaran di cabangnya sendiri
+		if (session.branchId !== 'all') body.branch_id = session.branchId;
 		const {
 			id,
 			branch_id,
@@ -140,6 +143,12 @@ export const DELETE: RequestHandler = async ({ url, platform, cookies }) => {
 		const id = url.searchParams.get('id');
 		if (!id) {
 			return json({ success: false, message: 'ID pengeluaran diperlukan' }, { status: 400 });
+		}
+
+		// Isolasi cabang: sesi non-admin hanya bisa menghapus pengeluaran cabangnya sendiri
+		const existingExp = await d1.prepare('SELECT branch_id FROM expenses WHERE id = ?').bind(id).first() as any;
+		if (session.branchId !== 'all' && existingExp && existingExp.branch_id !== session.branchId) {
+			return json({ success: false, message: 'Tidak diizinkan' }, { status: 403 });
 		}
 
 		await d1.prepare('DELETE FROM expenses WHERE id = ?').bind(id).run();
