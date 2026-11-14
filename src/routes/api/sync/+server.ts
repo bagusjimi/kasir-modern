@@ -167,6 +167,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 									name = excluded.name,
 									category = excluded.category,
 									sku = excluded.sku,
+									barcode = excluded.barcode,
 									price = excluded.price,
 									cost_price = excluded.cost_price,
 									stock = excluded.stock,
