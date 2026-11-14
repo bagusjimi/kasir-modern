@@ -7,8 +7,6 @@
 	import {
 		Plus,
 		Edit3,
-		Archive,
-		Eye,
 		PackagePlus,
 		Search,
 		Package,
@@ -400,50 +398,6 @@
 		}
 	}
 
-	async function toggleProductStatus(prod: Product) {
-		const newStatus = !prod.is_active;
-		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
-		const updatedProduct: Product = {
-			...prod,
-			is_active: newStatus,
-			updated_at: now,
-			version: (prod.version || 1) + 1
-		};
-
-		await db.products.put(updatedProduct);
-
-		await db.sync_queue.add({
-			id: 'sq-' + Date.now(),
-			entity: 'product',
-			action: 'update',
-			data: updatedProduct,
-			timestamp: Date.now(),
-			retry_count: 0,
-			status: 'pending'
-		});
-
-		await db.activity_logs.add({
-			id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-			branch_id: branchId,
-			branch_name: authState.branch?.name,
-			user_id: authState.user?.id || '-',
-			user_name: authState.user?.name || 'Kasir',
-			role: authState.user?.role || 'cashier',
-			action: newStatus ? 'activate_product' : 'deactivate_product',
-			details: `${newStatus ? 'Mengaktifkan kembali' : 'Menonaktifkan'} produk: ${prod.name} (SKU: ${prod.sku})`,
-			timestamp: now,
-			synced: false
-		});
-
-		await syncEngine.updatePendingCount();
-		await loadData();
-
-		if (syncEngine.isOnline) {
-			syncEngine.triggerSync();
-		}
-	}
-
 	function formatRupiah(num: number): string {
 		return new Intl.NumberFormat('id-ID', {
 			style: 'currency',
@@ -493,7 +447,6 @@
 						<th class="px-5 py-3.5">Harga Modal</th>
 						<th class="px-5 py-3.5">Harga Jual</th>
 						<th class="px-5 py-3.5">Sisa Stok</th>
-						<th class="px-5 py-3.5">Status</th>
 						<th class="px-5 py-3.5 text-right">Aksi</th>
 					</tr>
 				</thead>
@@ -529,14 +482,6 @@
 										</span>
 									{/if}
 								</td>
-								<td class="px-5 py-3.5">
-									<button
-										onclick={() => toggleProductStatus(prod)}
-										class="cursor-pointer text-[11px] font-semibold px-2 py-0.5 rounded-md {prod.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}"
-									>
-										{prod.is_active ? 'Aktif' : 'Nonaktif'}
-									</button>
-								</td>
 								<td class="px-5 py-3.5 text-right whitespace-nowrap">
 									<button
 										onclick={() => openHistoryModal(prod)}
@@ -562,19 +507,7 @@
 										<Edit3 class="h-3.5 w-3.5" />
 										<span>Edit</span>
 									</button>
-									<button
-										onclick={() => toggleProductStatus(prod)}
-										class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 font-semibold transition cursor-pointer"
-										title={prod.is_active ? 'Nonaktifkan produk (sembunyikan dari kasir)' : 'Aktifkan kembali produk'}
-									>
-										{#if prod.is_active}
-											<Archive class="h-3.5 w-3.5" />
-											<span>Nonaktifkan</span>
-										{:else}
-											<Eye class="h-3.5 w-3.5" />
-											<span>Aktifkan</span>
-										{/if}
-									</button>
+
 								</td>
 							</tr>
 						{/each}
