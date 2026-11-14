@@ -153,9 +153,11 @@ export class SyncEngine {
 				.toArray();
 
 			// 8. Ambil antrean perubahan umum (produk, user, expense, void/retur, dll.)
+			// Item 'failed' ikut dikirim ulang: upsert server idempoten, jadi aman
+			// mencoba lagi sampai berhasil tersimpan.
 			const queueItems = await db.sync_queue
 				.where('status')
-				.equals('pending')
+				.anyOf(['pending', 'failed'])
 				.limit(50)
 				.toArray();
 
@@ -190,9 +192,14 @@ export class SyncEngine {
 			const result = (await response.json()) as SyncApiResponse;
 
 			if (result.success) {
+				// Item yang gagal tersimpan di server tidak boleh ditandai tersinkron
+				// agar dicoba ulang pada sinkronisasi berikutnya.
+				const failedKeys = new Set(result.failed_items || []);
+
 				// Tandai transaksi sebagai tersinkron
 				if (pendingTransactions.length > 0) {
 					for (const tx of pendingTransactions) {
+						if (failedKeys.has('tx:' + tx.id)) continue;
 						await db.transactions.update(tx.id, { synced: true });
 					}
 				}
@@ -200,6 +207,7 @@ export class SyncEngine {
 				// Tandai pengeluaran sebagai tersinkron
 				if (pendingExpenses.length > 0) {
 					for (const exp of pendingExpenses) {
+						if (failedKeys.has('expense:' + exp.id)) continue;
 						await db.expenses.update(exp.id, { synced: true });
 					}
 				}
@@ -207,6 +215,7 @@ export class SyncEngine {
 				// Tandai activity logs sebagai tersinkron
 				if (pendingLogs.length > 0) {
 					for (const log of pendingLogs) {
+						if (failedKeys.has('log:' + log.id)) continue;
 						await db.activity_logs.update(log.id, { synced: true });
 					}
 				}
@@ -214,6 +223,7 @@ export class SyncEngine {
 				// Tandai ledger stok sebagai tersinkron
 				if (pendingMovements.length > 0) {
 					for (const mv of pendingMovements) {
+						if (failedKeys.has('mv:' + mv.id)) continue;
 						await db.stock_movements.update(mv.id, { synced: true });
 					}
 				}
@@ -221,21 +231,25 @@ export class SyncEngine {
 				// Tandai shift, pembelian, dan opname sebagai tersinkron
 				if (pendingShifts.length > 0) {
 					for (const sh of pendingShifts) {
+						if (failedKeys.has('shift:' + sh.id)) continue;
 						await db.shifts.update(sh.id, { synced: true });
 					}
 				}
 				if (pendingPurchases.length > 0) {
 					for (const po of pendingPurchases) {
+						if (failedKeys.has('po:' + po.id)) continue;
 						await db.purchases.update(po.id, { synced: true });
 					}
 				}
 				if (pendingStockCounts.length > 0) {
 					for (const sc of pendingStockCounts) {
+						if (failedKeys.has('sc:' + sc.id)) continue;
 						await db.stock_counts.update(sc.id, { synced: true });
 					}
 				}
 				if (pendingTransfers.length > 0) {
 					for (const trf of pendingTransfers) {
+						if (failedKeys.has('trf:' + trf.id)) continue;
 						await db.stock_transfers.update(trf.id, { synced: true });
 					}
 				}

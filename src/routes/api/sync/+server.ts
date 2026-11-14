@@ -22,6 +22,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		// Eksekusi dikelompokkan per item sumber: kegagalan satu item
 		// tidak menggagalkan item lain (d1.batch bersifat atomik per grup).
 		const groups: { key: string; statements: any[] }[] = [];
+		const failedItems: string[] = [];
 		let statements: any[] = [];
 		const flush = (key: string) => {
 			if (statements.length > 0) {
@@ -144,242 +145,248 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		}
 
 		for (const q of queue) {
-			if (q.entity === 'product') {
-				const p = q.data;
-				if (q.action === 'insert' || q.action === 'update') {
-					const incomingVersion = p.version || 1;
-					const currentVersion = effectiveProductVersion.get(p.id) || 0;
-					if (incomingVersion < currentVersion) {
-						supersededItems.push({ id: p.id, name: p.name || p.sku || p.id, local_version: incomingVersion, server_version: currentVersion });
-						flush('queue:' + q.id);
-						continue;
-					}
-					effectiveProductVersion.set(p.id, incomingVersion);
-					statements.push(
-						d1.prepare(`
-							INSERT INTO products (id, branch_id, sku, barcode, name, category, price, cost_price, stock, min_stock, unit, image_url, is_active, version, created_at, updated_at)
-							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-							ON CONFLICT(id) DO UPDATE SET
-								name = excluded.name,
-								category = excluded.category,
-								sku = excluded.sku,
-								price = excluded.price,
-								cost_price = excluded.cost_price,
-								stock = excluded.stock,
-								min_stock = excluded.min_stock,
-								unit = excluded.unit,
-								is_active = excluded.is_active,
-								version = excluded.version,
-								updated_at = excluded.updated_at
-							WHERE excluded.version >= products.version
-						`).bind(
-							p.id, p.branch_id || 'all', p.sku, p.barcode || '', p.name,
-							p.category, p.price, p.cost_price || 0, p.stock || 0, p.min_stock || 0, p.unit || 'pcs',
-							p.image_url || '', p.is_active !== undefined ? (p.is_active ? 1 : 0) : 1,
-							p.version || 1, p.created_at || now, p.updated_at || now
-						)
-					);
-				} else if (q.action === 'delete') {
-					statements.push(
-						d1.prepare('DELETE FROM products WHERE id = ?').bind(p.id)
-					);
-				}
-			} else if (q.entity === 'branch') {
-				const br = q.data;
-				if (q.action === 'insert' || q.action === 'update') {
-					// Cegah konflik UNIQUE(code) antar ID sebelum upsert
-					statements.push(
-						d1.prepare('DELETE FROM branches WHERE code = ? AND id != ?').bind(br.code, br.id)
-					);
-					statements.push(
-						d1.prepare(`
-							INSERT INTO branches (id, code, name, address, phone, created_at, updated_at)
-							VALUES (?, ?, ?, ?, ?, ?, ?)
-							ON CONFLICT(id) DO UPDATE SET
-								code = excluded.code,
-								name = excluded.name,
-								address = excluded.address,
-								phone = excluded.phone,
-								updated_at = excluded.updated_at
-						`).bind(
-							br.id, br.code, br.name, br.address || '', br.phone || '',
-							br.created_at || now, now
-						)
-					);
-				} else if (q.action === 'delete') {
-					statements.push(
-						d1.prepare('DELETE FROM branches WHERE id = ?').bind(br.id)
-					);
-				}
-			} else if (q.entity === 'category') {
-				const cat = q.data;
-				if (q.action === 'insert' || q.action === 'update') {
-					// Cegah duplikasi nama kategori antar ID sebelum upsert
-					statements.push(
-						d1.prepare('DELETE FROM categories WHERE name = ? AND id != ?').bind(cat.name, cat.id)
-					);
-					statements.push(
-						d1.prepare(`
-							INSERT INTO categories (id, name, updated_at)
-							VALUES (?, ?, ?)
-							ON CONFLICT(id) DO UPDATE SET
-								name = excluded.name,
-								updated_at = excluded.updated_at
-						`).bind(cat.id, cat.name, now)
-					);
-				} else if (q.action === 'delete') {
-					statements.push(
-						d1.prepare('DELETE FROM categories WHERE id = ?').bind(cat.id)
-					);
-				}
-			} else if (q.entity === 'user') {
-				const u = q.data;
-				if (q.action === 'insert' || q.action === 'update') {
-					// Cegah konflik UNIQUE(username) antar ID: hapus record lama dengan username sama
-					// tetapi id berbeda sebelum upsert
-					statements.push(
-						d1.prepare('DELETE FROM users WHERE username = ? AND id != ?').bind(u.username, u.id)
-					);
-					const pinHash = u.pin && !isHashedPin(u.pin) ? await hashPin(u.pin) : (u.pin || '');
-					statements.push(
-						d1.prepare(`
-							INSERT INTO users (id, username, name, role, branch_id, pin, active, created_at, updated_at)
-							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-							ON CONFLICT(id) DO UPDATE SET
-								name = excluded.name,
-								role = excluded.role,
-								branch_id = excluded.branch_id,
-								pin = excluded.pin,
-								active = excluded.active,
-								updated_at = excluded.updated_at
-						`).bind(
-							u.id, u.username, u.name, u.role, u.branch_id, pinHash,
-							u.active !== undefined ? (u.active ? 1 : 0) : 1,
-							u.created_at || now, now
-						)
-					);
-				} else if (q.action === 'delete') {
-					statements.push(
-						d1.prepare('DELETE FROM users WHERE id = ?').bind(u.id)
-					);
-				}
-			} else if (q.entity === 'transaction_adjustment') {
-				const adj = q.data;
-				if ((adj.type === 'void' || adj.type === 'return') && adj.transaction_id) {
-					const existingTx = await d1
-						.prepare('SELECT id, branch_id, cashier_id, status FROM transactions WHERE id = ?')
-						.bind(adj.transaction_id)
-						.first<any>();
-
-					if (existingTx && existingTx.status !== 'completed') {
-						continue; // sudah dibatalkan/diretur sebelumnya
-					}
-					if (existingTx && session.role === 'cashier' && existingTx.cashier_id !== session.userId) {
-						continue; // kasir hanya boleh membatalkan transaksinya sendiri
-					}
-
-					const newStatus = adj.type === 'void' ? 'voided' : 'refunded';
-					const adjBranchId = existingTx?.branch_id || adj.branch_id || 'all';
-
-					// Ubah status transaksi (idempoten: lewati jika penyesuaian sudah tercatat)
-					statements.push(
-						d1.prepare(`
-							UPDATE transactions
-							SET status = ?, updated_at = ?
-							WHERE id = ? AND NOT EXISTS (SELECT 1 FROM transaction_adjustments WHERE transaction_id = ?)
-						`).bind(newStatus, now, adj.transaction_id, adj.transaction_id)
-					);
-					statements.push(
-						d1.prepare(`
-							INSERT INTO transaction_adjustments (id, transaction_id, type, reason, user_id, user_name, branch_id, created_at)
-							VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-							ON CONFLICT(transaction_id) DO NOTHING
-						`).bind(
-							adj.id || `adj-${adj.transaction_id}`, adj.transaction_id, adj.type,
-							adj.reason || '', adj.user_id || session.userId, adj.user_name || '',
-							adjBranchId, adj.created_at || now
-						)
-					);
-
-					// Kembalikan stok per item (idempoten via ledger stock_movements)
-					let adjItems: any[] = [];
-					if (existingTx) {
-						const itemsRes = await d1
-							.prepare('SELECT id, product_id, quantity FROM transaction_items WHERE transaction_id = ?')
-							.bind(adj.transaction_id)
-							.all();
-						adjItems = itemsRes.results || [];
-					} else {
-						const payloadTx = transactions.find((t: any) => t.id === adj.transaction_id);
-						adjItems = (payloadTx?.items || []).map((it: any) => ({ id: it.id, product_id: it.product_id, quantity: it.quantity }));
-					}
-
-					for (const item of adjItems) {
-						if (!item.product_id) continue;
-						const mvId = `mv-${adj.type}-${adj.transaction_id}-${item.id || item.product_id}`;
+			try {
+				if (q.entity === 'product') {
+					const p = q.data;
+					if (q.action === 'insert' || q.action === 'update') {
+						const incomingVersion = p.version || 1;
+						const currentVersion = effectiveProductVersion.get(p.id) || 0;
+						if (incomingVersion < currentVersion) {
+							supersededItems.push({ id: p.id, name: p.name || p.sku || p.id, local_version: incomingVersion, server_version: currentVersion });
+							flush('queue:' + q.id);
+							continue;
+						}
+						effectiveProductVersion.set(p.id, incomingVersion);
 						statements.push(
 							d1.prepare(`
-								UPDATE products
-								SET stock = stock + ?, version = version + 1, updated_at = ?
-								WHERE id = ? AND NOT EXISTS (SELECT 1 FROM stock_movements WHERE id = ?)
-							`).bind(item.quantity, now, item.product_id, mvId)
+								INSERT INTO products (id, branch_id, sku, barcode, name, category, price, cost_price, stock, min_stock, unit, image_url, is_active, version, created_at, updated_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+								ON CONFLICT(id) DO UPDATE SET
+									name = excluded.name,
+									category = excluded.category,
+									sku = excluded.sku,
+									price = excluded.price,
+									cost_price = excluded.cost_price,
+									stock = excluded.stock,
+									min_stock = excluded.min_stock,
+									unit = excluded.unit,
+									is_active = excluded.is_active,
+									version = excluded.version,
+									updated_at = excluded.updated_at
+								WHERE excluded.version >= products.version
+							`).bind(
+								p.id, p.branch_id || 'all', p.sku, p.barcode || '', p.name,
+								p.category, p.price, p.cost_price || 0, p.stock || 0, p.min_stock || 0, p.unit || 'pcs',
+								p.image_url || '', p.is_active !== undefined ? (p.is_active ? 1 : 0) : 1,
+								p.version || 1, p.created_at || now, p.updated_at || now
+							)
+						);
+					} else if (q.action === 'delete') {
+						statements.push(
+							d1.prepare('DELETE FROM products WHERE id = ?').bind(p.id)
+						);
+					}
+				} else if (q.entity === 'branch') {
+					const br = q.data;
+					if (q.action === 'insert' || q.action === 'update') {
+						// Cegah konflik UNIQUE(code) antar ID sebelum upsert
+						statements.push(
+							d1.prepare('DELETE FROM branches WHERE code = ? AND id != ?').bind(br.code, br.id)
 						);
 						statements.push(
 							d1.prepare(`
-								INSERT INTO stock_movements (id, branch_id, product_id, quantity, type, reference_id, reason, user_id, user_name, created_at)
-								VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+								INSERT INTO branches (id, code, name, address, phone, created_at, updated_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?)
+								ON CONFLICT(id) DO UPDATE SET
+									code = excluded.code,
+									name = excluded.name,
+									address = excluded.address,
+									phone = excluded.phone,
+									updated_at = excluded.updated_at
+							`).bind(
+								br.id, br.code, br.name, br.address || '', br.phone || '',
+								br.created_at || now, now
+							)
+						);
+					} else if (q.action === 'delete') {
+						statements.push(
+							d1.prepare('DELETE FROM branches WHERE id = ?').bind(br.id)
+						);
+					}
+				} else if (q.entity === 'category') {
+					const cat = q.data;
+					if (q.action === 'insert' || q.action === 'update') {
+						// Cegah duplikasi nama kategori antar ID sebelum upsert
+						statements.push(
+							d1.prepare('DELETE FROM categories WHERE name = ? AND id != ?').bind(cat.name, cat.id)
+						);
+						statements.push(
+							d1.prepare(`
+								INSERT INTO categories (id, name, updated_at)
+								VALUES (?, ?, ?)
+								ON CONFLICT(id) DO UPDATE SET
+									name = excluded.name,
+									updated_at = excluded.updated_at
+							`).bind(cat.id, cat.name, now)
+						);
+					} else if (q.action === 'delete') {
+						statements.push(
+							d1.prepare('DELETE FROM categories WHERE id = ?').bind(cat.id)
+						);
+					}
+				} else if (q.entity === 'user') {
+					const u = q.data;
+					if (q.action === 'insert' || q.action === 'update') {
+						// Cegah konflik UNIQUE(username) antar ID: hapus record lama dengan username sama
+						// tetapi id berbeda sebelum upsert
+						statements.push(
+							d1.prepare('DELETE FROM users WHERE username = ? AND id != ?').bind(u.username, u.id)
+						);
+						const pinHash = u.pin && !isHashedPin(u.pin) ? await hashPin(u.pin) : (u.pin || '');
+						statements.push(
+							d1.prepare(`
+								INSERT INTO users (id, username, name, role, branch_id, pin, active, created_at, updated_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+								ON CONFLICT(id) DO UPDATE SET
+									name = excluded.name,
+									role = excluded.role,
+									branch_id = excluded.branch_id,
+									pin = excluded.pin,
+									active = excluded.active,
+									updated_at = excluded.updated_at
+							`).bind(
+								u.id, u.username, u.name, u.role, u.branch_id, pinHash,
+								u.active !== undefined ? (u.active ? 1 : 0) : 1,
+								u.created_at || now, now
+							)
+						);
+					} else if (q.action === 'delete') {
+						statements.push(
+							d1.prepare('DELETE FROM users WHERE id = ?').bind(u.id)
+						);
+					}
+				} else if (q.entity === 'transaction_adjustment') {
+					const adj = q.data;
+					if ((adj.type === 'void' || adj.type === 'return') && adj.transaction_id) {
+						const existingTx = await d1
+							.prepare('SELECT id, branch_id, cashier_id, status FROM transactions WHERE id = ?')
+							.bind(adj.transaction_id)
+							.first<any>();
+
+						if (existingTx && existingTx.status !== 'completed') {
+							continue; // sudah dibatalkan/diretur sebelumnya
+						}
+						if (existingTx && session.role === 'cashier' && existingTx.cashier_id !== session.userId) {
+							continue; // kasir hanya boleh membatalkan transaksinya sendiri
+						}
+
+						const newStatus = adj.type === 'void' ? 'voided' : 'refunded';
+						const adjBranchId = existingTx?.branch_id || adj.branch_id || 'all';
+
+						// Ubah status transaksi (idempoten: lewati jika penyesuaian sudah tercatat)
+						statements.push(
+							d1.prepare(`
+								UPDATE transactions
+								SET status = ?, updated_at = ?
+								WHERE id = ? AND NOT EXISTS (SELECT 1 FROM transaction_adjustments WHERE transaction_id = ?)
+							`).bind(newStatus, now, adj.transaction_id, adj.transaction_id)
+						);
+						statements.push(
+							d1.prepare(`
+								INSERT INTO transaction_adjustments (id, transaction_id, type, reason, user_id, user_name, branch_id, created_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+								ON CONFLICT(transaction_id) DO NOTHING
+							`).bind(
+								adj.id || `adj-${adj.transaction_id}`, adj.transaction_id, adj.type,
+								adj.reason || '', adj.user_id || session.userId, adj.user_name || '',
+								adjBranchId, adj.created_at || now
+							)
+						);
+
+						// Kembalikan stok per item (idempoten via ledger stock_movements)
+						let adjItems: any[] = [];
+						if (existingTx) {
+							const itemsRes = await d1
+								.prepare('SELECT id, product_id, quantity FROM transaction_items WHERE transaction_id = ?')
+								.bind(adj.transaction_id)
+								.all();
+							adjItems = itemsRes.results || [];
+						} else {
+							const payloadTx = transactions.find((t: any) => t.id === adj.transaction_id);
+							adjItems = (payloadTx?.items || []).map((it: any) => ({ id: it.id, product_id: it.product_id, quantity: it.quantity }));
+						}
+
+						for (const item of adjItems) {
+							if (!item.product_id) continue;
+							const mvId = `mv-${adj.type}-${adj.transaction_id}-${item.id || item.product_id}`;
+							statements.push(
+								d1.prepare(`
+									UPDATE products
+									SET stock = stock + ?, version = version + 1, updated_at = ?
+									WHERE id = ? AND NOT EXISTS (SELECT 1 FROM stock_movements WHERE id = ?)
+								`).bind(item.quantity, now, item.product_id, mvId)
+							);
+							statements.push(
+								d1.prepare(`
+									INSERT INTO stock_movements (id, branch_id, product_id, quantity, type, reference_id, reason, user_id, user_name, created_at)
+									VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+									ON CONFLICT(id) DO NOTHING
+								`).bind(
+									mvId, adjBranchId, item.product_id, item.quantity, adj.type,
+									adj.transaction_id, adj.reason || '', adj.user_id || session.userId,
+									adj.user_name || '', adj.created_at || now
+								)
+							);
+						}
+
+						statements.push(
+							d1.prepare(`
+								INSERT INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 								ON CONFLICT(id) DO NOTHING
 							`).bind(
-								mvId, adjBranchId, item.product_id, item.quantity, adj.type,
-								adj.transaction_id, adj.reason || '', adj.user_id || session.userId,
-								adj.user_name || '', adj.created_at || now
+								`act-adj-${adj.transaction_id}`, adjBranchId, adjBranchId === 'all' ? 'Pusat' : adjBranchId,
+								adj.user_id || session.userId, adj.user_name || session.role, session.role,
+								adj.type === 'void' ? 'void_transaction' : 'return_transaction',
+								`Transaksi ${adj.transaction_id} ${adj.type === 'void' ? 'dibatalkan' : 'diretur'}: ${adj.reason || '-'}`,
+								adj.created_at || now
 							)
 						);
 					}
-
-					statements.push(
-						d1.prepare(`
-							INSERT INTO activity_logs (id, branch_id, branch_name, user_id, user_name, role, action, details, timestamp)
-							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-							ON CONFLICT(id) DO NOTHING
-						`).bind(
-							`act-adj-${adj.transaction_id}`, adjBranchId, adjBranchId === 'all' ? 'Pusat' : adjBranchId,
-							adj.user_id || session.userId, adj.user_name || session.role, session.role,
-							adj.type === 'void' ? 'void_transaction' : 'return_transaction',
-							`Transaksi ${adj.transaction_id} ${adj.type === 'void' ? 'dibatalkan' : 'diretur'}: ${adj.reason || '-'}`,
-							adj.created_at || now
-						)
-					);
+				} else if (q.entity === 'expense') {
+					const exp = q.data;
+					if (q.action === 'insert' || q.action === 'update') {
+						statements.push(
+							d1.prepare(`
+								INSERT INTO expenses (id, branch_id, branch_name, user_id, user_name, category, amount, description, recipient, receipt_number, date, created_at, updated_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+								ON CONFLICT(id) DO UPDATE SET
+									branch_id = excluded.branch_id,
+									branch_name = excluded.branch_name,
+									category = excluded.category,
+									amount = excluded.amount,
+									description = excluded.description,
+									recipient = excluded.recipient,
+									receipt_number = excluded.receipt_number,
+									date = excluded.date,
+									updated_at = excluded.updated_at
+							`).bind(
+								exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
+								exp.user_name, exp.category, Number(exp.amount), exp.description,
+								exp.recipient || '', exp.receipt_number || '', exp.date,
+								exp.created_at || now, now
+							)
+						);
+					} else if (q.action === 'delete') {
+						statements.push(
+							d1.prepare('DELETE FROM expenses WHERE id = ?').bind(exp.id)
+						);
+					}
 				}
-			} else if (q.entity === 'expense') {
-				const exp = q.data;
-				if (q.action === 'insert' || q.action === 'update') {
-					statements.push(
-						d1.prepare(`
-							INSERT INTO expenses (id, branch_id, branch_name, user_id, user_name, category, amount, description, recipient, receipt_number, date, created_at, updated_at)
-							VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-							ON CONFLICT(id) DO UPDATE SET
-								branch_id = excluded.branch_id,
-								branch_name = excluded.branch_name,
-								category = excluded.category,
-								amount = excluded.amount,
-								description = excluded.description,
-								recipient = excluded.recipient,
-								receipt_number = excluded.receipt_number,
-								date = excluded.date,
-								updated_at = excluded.updated_at
-						`).bind(
-							exp.id, exp.branch_id, exp.branch_name || '', exp.user_id,
-							exp.user_name, exp.category, Number(exp.amount), exp.description,
-							exp.recipient || '', exp.receipt_number || '', exp.date,
-							exp.created_at || now, now
-						)
-					);
-				} else if (q.action === 'delete') {
-					statements.push(
-						d1.prepare('DELETE FROM expenses WHERE id = ?').bind(exp.id)
-					);
-				}
+			} catch (qErr: any) {
+				console.warn(`Gagal menyiapkan item antrean ${q.id}:`, qErr);
+				statements = [];
+				failedItems.push('queue:' + q.id);
 			}
 			flush('queue:' + q.id);
 		}
@@ -551,7 +558,6 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 		flush('sisa');
 
-		const failedItems: string[] = [];
 		for (const group of groups) {
 			try {
 				await d1.batch(group.statements);
