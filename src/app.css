@@ -53,6 +53,26 @@
 	#transfer-document, #transfer-document * {
 		visibility: visible;
 	}
+	#barcode-labels, #barcode-labels * {
+		visibility: visible;
+	}
+	#barcode-labels {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		display: flex;
+		flex-wrap: wrap;
+		align-content: flex-start;
+		gap: 3mm;
+		padding: 8mm;
+		background: #fff;
+	}
+	#barcode-labels .barcode-label {
+		border: none;
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
 	#transfer-document {
 		position: absolute;
 		left: 0;
