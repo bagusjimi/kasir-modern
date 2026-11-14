@@ -7,6 +7,7 @@
 		Wallet,
 		TrendingUp,
 		Package,
+		Boxes,
 		AlertTriangle,
 		Building2,
 		RefreshCw,
@@ -21,6 +22,7 @@
 		cashiers: { cashier_id: string; cashier_name: string; branch_name: string; tx_count: number; total_sales: number; total_discount: number }[];
 		low_stock: { id: string; name: string; sku: string; stock: number; min_stock: number; branch_id: string }[];
 		counts: { active_products: number; categories: number };
+		stock_recap: { branch_id: string; branch_name: string; product_count: number; total_units: number; stock_value: number }[];
 	}
 
 	let data = $state<DashboardData | null>(null);
@@ -45,6 +47,10 @@
 
 	const maxTrend = $derived(
 		data && data.trend.length > 0 ? Math.max(...data.trend.map((t) => t.total_sales), 1) : 1
+	);
+
+	const totalStockValue = $derived(
+		data ? data.stock_recap.reduce((sum, s) => sum + s.stock_value, 0) : 0
 	);
 
 	async function loadDashboard() {
@@ -258,6 +264,43 @@
 										<td class="py-2.5 pr-4 {c.total_discount > 0 ? 'text-rose-600' : 'text-gray-400'}">{c.total_discount > 0 ? formatRupiah(c.total_discount) : '-'}</td>
 										<td class="py-2.5 pr-4">{formatRupiah(Math.round(c.total_sales / c.tx_count))}</td>
 										<td class="py-2.5 text-right font-bold text-emerald-600">{formatRupiah(c.total_sales)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Nilai Stok per Cabang -->
+			<div class="lg:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
+				<div class="flex items-center justify-between gap-2 mb-4">
+					<div class="flex items-center gap-2">
+						<Boxes class="h-4 w-4 text-emerald-600" />
+						<h2 class="text-sm font-bold text-gray-900">Total Stok per Cabang</h2>
+					</div>
+					<span class="text-xs text-gray-500">Nilai modal seluruh jaringan: <span class="font-bold text-gray-900">{formatRupiah(totalStockValue)}</span></span>
+				</div>
+				{#if data.stock_recap.length === 0}
+					<p class="text-xs text-gray-400 py-6 text-center">Belum ada produk terdaftar di semua cabang.</p>
+				{:else}
+					<div class="overflow-x-auto">
+						<table class="w-full text-left text-xs">
+							<thead class="text-gray-500 font-semibold border-b border-gray-100">
+								<tr>
+									<th class="py-2 pr-4">Cabang</th>
+									<th class="py-2 pr-4">Jenis Produk</th>
+									<th class="py-2 pr-4">Total Unit</th>
+									<th class="py-2 text-right">Nilai Stok (Modal)</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-gray-100 font-medium text-gray-700">
+								{#each data.stock_recap as s (s.branch_id)}
+									<tr>
+										<td class="py-2.5 pr-4 font-bold text-gray-900">{s.branch_name}</td>
+										<td class="py-2.5 pr-4">{s.product_count}</td>
+										<td class="py-2.5 pr-4">{s.total_units}</td>
+										<td class="py-2.5 text-right font-bold text-emerald-600">{formatRupiah(s.stock_value)}</td>
 									</tr>
 								{/each}
 							</tbody>
