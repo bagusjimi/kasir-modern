@@ -580,28 +580,50 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		let categories: any[] = [];
 
 		if (lastSyncedAt) {
-			const prodRes = await d1.prepare('SELECT * FROM products WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			// Isolasi data per cabang: perangkat non-admin hanya menarik data cabangnya
+			// sendiri agar IndexedDB kasir tidak menampung data cabang lain.
+			// Admin pusat (semua cabang) tetap menerima seluruh data untuk pemantauan.
+			const isAdmin = session.branchId === 'all';
+			const branchId = session.branchId;
+
+			const prodRes = isAdmin
+				? await d1.prepare('SELECT * FROM products WHERE updated_at >= ?').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM products WHERE updated_at >= ? AND branch_id = ?').bind(lastSyncedAt, branchId).all();
 			updatedProducts = prodRes.results || [];
 
-			const userRes = await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			// Pengguna admin ikut dikirim karena login klien meresolve akun dari Dexie lokal
+			// (tanpa record admin lokal, admin tidak bisa masuk di perangkat kasir).
+			const userRes = isAdmin
+				? await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all()
+				: await d1.prepare("SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ? AND (branch_id = ? OR role = 'admin')").bind(lastSyncedAt, branchId).all();
 			updatedUsers = (userRes.results || []).map((u: any) => ({
 				...u,
 				active: Boolean(u.active)
 			}));
 
-			const expRes = await d1.prepare('SELECT * FROM expenses WHERE updated_at >= ?').bind(lastSyncedAt).all();
+			const expRes = isAdmin
+				? await d1.prepare('SELECT * FROM expenses WHERE updated_at >= ?').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM expenses WHERE updated_at >= ? AND branch_id = ?').bind(lastSyncedAt, branchId).all();
 			updatedExpenses = expRes.results || [];
 
-			const mvRes = await d1.prepare('SELECT * FROM stock_movements WHERE created_at >= ? ORDER BY created_at ASC LIMIT 200').bind(lastSyncedAt).all();
+			const mvRes = isAdmin
+				? await d1.prepare('SELECT * FROM stock_movements WHERE created_at >= ? ORDER BY created_at ASC LIMIT 200').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM stock_movements WHERE created_at >= ? AND branch_id = ? ORDER BY created_at ASC LIMIT 200').bind(lastSyncedAt, branchId).all();
 			updatedMovements = mvRes.results || [];
 
-			const shiftRes = await d1.prepare('SELECT * FROM shifts WHERE updated_at >= ? ORDER BY opened_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			const shiftRes = isAdmin
+				? await d1.prepare('SELECT * FROM shifts WHERE updated_at >= ? ORDER BY opened_at DESC LIMIT 100').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM shifts WHERE updated_at >= ? AND branch_id = ? ORDER BY opened_at DESC LIMIT 100').bind(lastSyncedAt, branchId).all();
 			updatedShifts = shiftRes.results || [];
 
-			const poRes = await d1.prepare('SELECT * FROM purchases WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			const poRes = isAdmin
+				? await d1.prepare('SELECT * FROM purchases WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM purchases WHERE updated_at >= ? AND branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt, branchId).all();
 			updatedPurchases = poRes.results || [];
 
-			const scRes = await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			const scRes = isAdmin
+				? await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? AND branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt, branchId).all();
 			updatedStockCounts = scRes.results || [];
 
 			// Catatan transfer bersifat privat per toko: pengirim melihat catatan keluarnya
@@ -623,17 +645,33 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			const catDeltaRes = await d1.prepare('SELECT * FROM categories WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			categories = catDeltaRes.results || [];
 		} else {
-			// Jika first sync, kirimkan semua master data
+			// Jika first sync, kirimkan master data (difilter per cabang untuk non-admin)
+			const isAdmin = session.branchId === 'all';
+			const branchId = session.branchId;
 			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([
-				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
-				d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1'),
+				isAdmin
+					? d1.prepare('SELECT * FROM products WHERE is_active = 1')
+					: d1.prepare('SELECT * FROM products WHERE is_active = 1 AND branch_id = ?').bind(branchId),
+				isAdmin
+					? d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1')
+					: d1.prepare("SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1 AND (branch_id = ? OR role = 'admin')").bind(branchId),
 				d1.prepare('SELECT * FROM branches'),
 				d1.prepare('SELECT * FROM categories'),
-				d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200'),
-				d1.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 200'),
-				d1.prepare('SELECT * FROM shifts ORDER BY opened_at DESC LIMIT 100'),
-				d1.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT 100'),
-				d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100')
+				isAdmin
+					? d1.prepare('SELECT * FROM expenses ORDER BY date DESC LIMIT 200')
+					: d1.prepare('SELECT * FROM expenses WHERE branch_id = ? ORDER BY date DESC LIMIT 200').bind(branchId),
+				isAdmin
+					? d1.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 200')
+					: d1.prepare('SELECT * FROM stock_movements WHERE branch_id = ? ORDER BY created_at DESC LIMIT 200').bind(branchId),
+				isAdmin
+					? d1.prepare('SELECT * FROM shifts ORDER BY opened_at DESC LIMIT 100')
+					: d1.prepare('SELECT * FROM shifts WHERE branch_id = ? ORDER BY opened_at DESC LIMIT 100').bind(branchId),
+				isAdmin
+					? d1.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT 100')
+					: d1.prepare('SELECT * FROM purchases WHERE branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(branchId),
+				isAdmin
+					? d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100')
+					: d1.prepare('SELECT * FROM stock_counts WHERE branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(branchId)
 			]);
 
 			updatedProducts = prodRes.results || [];
