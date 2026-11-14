@@ -138,10 +138,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items(purchase_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_counts_branch ON stock_counts(branch_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_count_items_count ON stock_count_items(stock_count_id)'),
-			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfers_from ON stock_transfers(from_branch_id)'),
-			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfers_to ON stock_transfers(to_branch_id)'),
-			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfers_updated ON stock_transfers(updated_at)'),
-			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)'),
 			d1.prepare('CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)'),
@@ -184,12 +180,56 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		'ALTER TABLE stock_transfer_items ADD COLUMN cost_price REAL NOT NULL DEFAULT 0',
 		'ALTER TABLE stock_transfer_items ADD COLUMN category TEXT',
 		'ALTER TABLE stock_transfer_items ADD COLUMN unit TEXT',
-		'ALTER TABLE stock_transfer_items ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0'
+		'ALTER TABLE stock_transfer_items ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0',
+		'ALTER TABLE stock_transfer_items ADD COLUMN sku TEXT',
+		'ALTER TABLE stock_transfer_items ADD COLUMN quantity_received INTEGER NOT NULL DEFAULT 0'
 	]) {
 		try {
 			await d1.prepare(ddl).run();
 		} catch {
 			// Kolom sudah ada
+		}
+	}
+
+	// Migrasi: kolom tabel stock_transfers untuk database yang dibuat dengan
+	// bentuk lama/tidak lengkap (CREATE TABLE IF NOT EXISTS tidak memperbaiki
+	// tabel yang sudah ada, sehingga tiap kolom ditambahkan secara idempoten).
+	const transferColumnMigrations: [string, string][] = [
+		['transfer_no', "TEXT NOT NULL DEFAULT ''"],
+		['from_branch_id', "TEXT NOT NULL DEFAULT ''"],
+		['from_branch_name', 'TEXT'],
+		['to_branch_id', "TEXT NOT NULL DEFAULT ''"],
+		['to_branch_name', 'TEXT'],
+		['status', "TEXT NOT NULL DEFAULT 'dikirim'"],
+		['notes', 'TEXT'],
+		['user_id', "TEXT NOT NULL DEFAULT ''"],
+		['user_name', "TEXT NOT NULL DEFAULT ''"],
+		['received_by', 'TEXT'],
+		['received_by_name', 'TEXT'],
+		['received_at', 'TEXT'],
+		['created_at', "TEXT NOT NULL DEFAULT ''"],
+		['updated_at', "TEXT NOT NULL DEFAULT ''"]
+	];
+	for (const [col, def] of transferColumnMigrations) {
+		try {
+			await d1.prepare(`ALTER TABLE stock_transfers ADD COLUMN ${col} ${def}`).run();
+		} catch {
+			// Kolom sudah ada
+		}
+	}
+
+	// Indeks transfer dibuat setelah migrasi kolom agar tidak menggagalkan
+	// batch CREATE TABLE di atas (d1.batch bersifat atomik).
+	for (const idx of [
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_from ON stock_transfers(from_branch_id)',
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_to ON stock_transfers(to_branch_id)',
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_updated ON stock_transfers(updated_at)',
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)'
+	]) {
+		try {
+			await d1.prepare(idx).run();
+		} catch (idxErr) {
+			console.warn('Gagal membuat indeks transfer:', idxErr);
 		}
 	}
 
