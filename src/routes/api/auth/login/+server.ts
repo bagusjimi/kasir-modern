@@ -7,7 +7,7 @@ import { hashPin, verifyPin, isHashedPin } from '#lib/auth/pin.js';
 export const POST: RequestHandler = async ({ request, platform, cookies, url }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
-		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
+		return json({ success: false, message: 'Layanan basis data belum tersedia' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);

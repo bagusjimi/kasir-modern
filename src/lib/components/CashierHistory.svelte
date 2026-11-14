@@ -259,7 +259,7 @@
 						<th class="px-5 py-3.5">Item</th>
 						<th class="px-5 py-3.5">Metode</th>
 						<th class="px-5 py-3.5">Total Belanja</th>
-						<th class="px-5 py-3.5">Status Sync</th>
+						<th class="px-5 py-3.5">Status Sinkronisasi</th>
 						<th class="px-5 py-3.5 text-right">Aksi</th>
 					</tr>
 				</thead>
@@ -306,11 +306,11 @@
 								<td class="px-5 py-3.5">
 									{#if tx.synced}
 										<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-											<CheckCircle2 class="h-3 w-3" /> Cloud
+											<CheckCircle2 class="h-3 w-3" /> Tersinkron
 										</span>
 									{:else}
 										<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-											<Clock class="h-3 w-3" /> Lokal
+											<Clock class="h-3 w-3" /> Belum Tersinkron
 										</span>
 									{/if}
 								</td>

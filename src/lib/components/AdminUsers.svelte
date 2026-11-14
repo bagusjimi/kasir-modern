@@ -270,7 +270,7 @@
 				<input
 					type="text"
 					bind:value={searchQuery}
-					placeholder="Cari nama atau username..."
+					placeholder="Cari nama atau nama pengguna..."
 					class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
 				/>
 			</div>
@@ -291,7 +291,7 @@
 			<table class="w-full text-left text-xs">
 				<thead class="bg-gray-50/80 text-gray-500 font-semibold border-b border-gray-100">
 					<tr>
-						<th class="px-5 py-3.5">Nama & Username</th>
+						<th class="px-5 py-3.5">Nama & Nama Pengguna</th>
 						<th class="px-5 py-3.5">Peran (Role)</th>
 						<th class="px-5 py-3.5">Penugasan Cabang</th>
 						<th class="px-5 py-3.5">PIN Masuk</th>
@@ -375,7 +375,7 @@
 
 			<div class="space-y-3.5 text-xs">
 				<div>
-					<label for="formUsername" class="block font-semibold text-gray-700 mb-1">Username Masuk</label>
+					<label for="formUsername" class="block font-semibold text-gray-700 mb-1">Nama Pengguna (Username)</label>
 					<input
 						id="formUsername"
 						type="text"

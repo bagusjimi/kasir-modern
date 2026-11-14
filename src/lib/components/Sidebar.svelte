@@ -65,7 +65,7 @@
 		<button
 			onclick={() => (isMobileOpen = !isMobileOpen)}
 			class="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 active:scale-95 transition cursor-pointer"
-			aria-label="Toggle Menu Sidebar"
+			aria-label="Buka atau Tutup Menu"
 		>
 			{#if isMobileOpen}
 				<X class="h-5 w-5" />
@@ -90,11 +90,11 @@
 	<!-- Status Jaringan & Sinkronisasi di Mobile Topbar -->
 	<div class="flex items-center gap-2">
 		{#if syncEngine.isOnline}
-			<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200" title="Online">
+			<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200" title="Terhubung ke jaringan">
 				<Wifi class="h-3 w-3" />
 			</span>
 		{:else}
-			<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200 animate-pulse" title="Offline Mode">
+			<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200 animate-pulse" title="Tidak terhubung ke jaringan">
 				<WifiOff class="h-3 w-3" />
 			</span>
 		{/if}
@@ -410,7 +410,7 @@
 					>
 						<div class="flex items-center gap-3">
 							<Activity class="h-4 w-4 {activeTab === 'monitoring' ? 'text-emerald-400' : 'text-zinc-400'}" />
-							<span>Monitoring Kasir</span>
+							<span>Pemantauan Kasir</span>
 						</div>
 						{#if activeTab === 'monitoring'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
@@ -479,7 +479,7 @@
 		<!-- Status Jaringan & Sinkronisasi -->
 		<div>
 			<p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-				Sinkronisasi & Offline
+				Sinkronisasi & Koneksi
 			</p>
 
 			<div class="rounded-xl border border-zinc-200/70 bg-white p-3 space-y-2.5 shadow-2xs">
@@ -488,11 +488,11 @@
 					<span class="text-zinc-500 font-medium">Status Koneksi</span>
 					{#if syncEngine.isOnline}
 						<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
-							<Wifi class="h-3 w-3" /> Online
+							<Wifi class="h-3 w-3" /> Terhubung
 						</span>
 					{:else}
 						<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200 animate-pulse">
-							<WifiOff class="h-3 w-3" /> Offline
+							<WifiOff class="h-3 w-3" /> Terputus
 						</span>
 					{/if}
 				</div>
@@ -553,7 +553,7 @@
 				onclick={() => authState.logout()}
 				class="rounded-xl p-2 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
 				title="Keluar dari Sistem"
-				aria-label="Logout"
+				aria-label="Keluar"
 			>
 				<LogOut class="h-4 w-4" />
 			</button>

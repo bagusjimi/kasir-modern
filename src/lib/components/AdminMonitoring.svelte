@@ -279,13 +279,13 @@
 				<TrendingUp class="h-5 w-5 text-gray-400" />
 			</div>
 			<p class="text-2xl font-bold text-gray-900 mt-2">{activityLogs.length} Peristiwa</p>
-			<p class="text-[11px] text-gray-500 mt-1">Audit log sinkronisasi realtime</p>
+			<p class="text-[11px] text-gray-500 mt-1">Catatan aktivitas tersinkronisasi secara langsung</p>
 		</div>
 	</div>
 
 	<!-- Kartu Ringkasan Per Cabang -->
 	<div>
-		<h3 class="text-sm font-bold text-gray-800 mb-3">Ringkasan Performa Cabang</h3>
+		<h3 class="text-sm font-bold text-gray-800 mb-3">Ringkasan Kinerja Cabang</h3>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			{#each branches as b}
 				{@const stat = branchStats[b.id] || { txCount: 0, totalRevenue: 0, lastActivity: '-' }}
@@ -320,7 +320,7 @@
 		<div class="p-4 border-b border-gray-100 flex items-center justify-between">
 			<div class="flex items-center gap-2">
 				<Activity class="h-4 w-4 text-emerald-600" />
-				<h3 class="font-bold text-gray-900 text-sm">Log Aktivitas Kasir & Transaksi</h3>
+				<h3 class="font-bold text-gray-900 text-sm">Catatan Aktivitas Kasir & Transaksi</h3>
 			</div>
 			<span class="text-xs text-gray-400">Terakhir disinkronkan: baru saja</span>
 		</div>
@@ -374,7 +374,7 @@
 				{/each}
 			{/if}
 		</div>
-		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredLogs.length} label="log aktivitas" />
+		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredLogs.length} label="catatan aktivitas" />
 	</div>
 </div>
 

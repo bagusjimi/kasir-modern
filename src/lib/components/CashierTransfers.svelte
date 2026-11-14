@@ -747,7 +747,7 @@
 					id="transfer-note"
 					type="text"
 					bind:value={transferNote}
-					placeholder="Contoh: permintaan restock cabang"
+					placeholder="Contoh: permintaan penambahan stok cabang"
 					class="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-hidden focus:border-emerald-500 text-sm"
 				/>
 			</div>

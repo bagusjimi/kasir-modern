@@ -7,7 +7,7 @@ import { hashPin, isHashedPin } from '#lib/auth/pin.js';
 export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
-		return json({ success: false, message: 'D1 database binding DB tidak ditemukan' }, { status: 503 });
+		return json({ success: false, message: 'Layanan basis data belum tersedia' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);
@@ -802,7 +802,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 		return json({
 			success: true,
-			message: `Sinkronisasi D1 berhasil: ${transactions.length} transaksi, ${expenses.length} pengeluaran, ${activity_logs.length} log, ${queue.length} antrean.`,
+			message: `Sinkronisasi server berhasil: ${transactions.length} transaksi, ${expenses.length} pengeluaran, ${activity_logs.length} catatan aktivitas, ${queue.length} antrean.`,
 			syncedAt: now,
 			failed_items: failedItems,
 			superseded_items: supersededItems,
@@ -828,7 +828,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		return json(
 			{
 				success: false,
-				message: error.message || 'Gagal memproses sinkronisasi di D1'
+				message: error.message || 'Gagal memproses sinkronisasi di server'
 			},
 			{ status: 500 }
 		);
@@ -838,7 +838,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 export const GET: RequestHandler = async ({ platform, cookies }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
-		return json({ success: false, message: 'D1 database binding DB tidak ditemukan' }, { status: 503 });
+		return json({ success: false, message: 'Layanan basis data belum tersedia' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);
