@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
-import { getSession, unauthorized } from '#lib/server/auth.js';
+import { getSession, unauthorized, forbidden } from '#lib/server/auth.js';
 import { deterministicProductId } from '#lib/products/id.js';
 
 export const GET: RequestHandler = async ({ url, platform, cookies }) => {
@@ -16,7 +16,8 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	if (!session) return unauthorized();
 
 	try {
-		const branchId = url.searchParams.get('branch_id');
+		// Isolasi cabang: sesi non-admin terkunci pada cabangnya sendiri
+		const branchId = session.branchId !== 'all' ? session.branchId : url.searchParams.get('branch_id');
 		const category = url.searchParams.get('category');
 		const search = url.searchParams.get('search');
 
@@ -24,7 +25,7 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 		const params: any[] = [];
 
 		if (branchId && branchId !== 'all') {
-			sql += ' AND (branch_id = ? OR branch_id = "all")';
+			sql += ' AND branch_id = ?';
 			params.push(branchId);
 		}
 
@@ -64,6 +65,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const body = (await request.json()) as any;
+		// Isolasi cabang: sesi non-admin hanya bisa mencatat produk di cabangnya sendiri
+		if (session.branchId !== 'all') body.branch_id = session.branchId;
 		const {
 			name,
 			branch_id = 'all',
@@ -160,6 +163,7 @@ export const PUT: RequestHandler = async ({ request, platform, cookies }) => {
 				version = version + 1,
 				updated_at = ?
 			WHERE id = ?
+				${session.branchId !== 'all' ? 'AND branch_id = ?' : ''}
 		`).bind(
 			name ?? null,
 			category ?? null,
@@ -171,7 +175,8 @@ export const PUT: RequestHandler = async ({ request, platform, cookies }) => {
 			unit ?? null,
 			is_active !== undefined ? (is_active ? 1 : 0) : null,
 			now,
-			id
+			id,
+			...(session.branchId !== 'all' ? [session.branchId] : [])
 		).run();
 
 		return json({ success: true, message: 'Produk berhasil diperbarui' });
@@ -197,6 +202,11 @@ export const DELETE: RequestHandler = async ({ url, platform, cookies }) => {
 
 		// Ambil data produk sebelum dihapus untuk log
 		const existing = await d1.prepare('SELECT name, branch_id FROM products WHERE id = ?').bind(id).first() as any;
+
+		// Isolasi cabang: sesi non-admin hanya bisa menghapus produk cabangnya sendiri
+		if (session.branchId !== 'all' && existing && existing.branch_id !== session.branchId) {
+			return forbidden();
+		}
 
 		await d1.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
 

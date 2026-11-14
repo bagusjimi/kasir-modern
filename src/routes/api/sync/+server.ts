@@ -148,6 +148,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			try {
 				if (q.entity === 'product') {
 					const p = q.data;
+					// Isolasi cabang: sesi non-admin hanya bisa mencatat produk di cabangnya sendiri
+					if (session.branchId !== 'all') p.branch_id = session.branchId;
 					if (q.action === 'insert' || q.action === 'update') {
 						const incomingVersion = p.version || 1;
 						const currentVersion = effectiveProductVersion.get(p.id) || 0;
@@ -591,11 +593,9 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				: await d1.prepare('SELECT * FROM products WHERE updated_at >= ? AND branch_id = ?').bind(lastSyncedAt, branchId).all();
 			updatedProducts = prodRes.results || [];
 
-			// Pengguna admin ikut dikirim karena login klien meresolve akun dari Dexie lokal
-			// (tanpa record admin lokal, admin tidak bisa masuk di perangkat kasir).
 			const userRes = isAdmin
 				? await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all()
-				: await d1.prepare("SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ? AND (branch_id = ? OR role = 'admin')").bind(lastSyncedAt, branchId).all();
+				: await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ? AND branch_id = ?').bind(lastSyncedAt, branchId).all();
 			updatedUsers = (userRes.results || []).map((u: any) => ({
 				...u,
 				active: Boolean(u.active)
@@ -654,7 +654,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					: d1.prepare('SELECT * FROM products WHERE is_active = 1 AND branch_id = ?').bind(branchId),
 				isAdmin
 					? d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1')
-					: d1.prepare("SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1 AND (branch_id = ? OR role = 'admin')").bind(branchId),
+					: d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1 AND branch_id = ?').bind(branchId),
 				d1.prepare('SELECT * FROM branches'),
 				d1.prepare('SELECT * FROM categories'),
 				isAdmin
@@ -803,17 +803,24 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 	if (!session) return unauthorized();
 
 	try {
+		// Isolasi cabang: sesi non-admin hanya melihat log & ringkasan cabangnya sendiri
+		const isAdmin = session.branchId === 'all';
+		const logSql = isAdmin
+			? 'SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 50'
+			: 'SELECT * FROM activity_logs WHERE branch_id = ? ORDER BY timestamp DESC LIMIT 50';
+		const summarySql = `
+			SELECT 
+				COUNT(*) as total_transactions,
+				COALESCE(SUM(total), 0) as total_revenue,
+				branch_id, branch_name
+			FROM transactions
+			WHERE status = 'completed'
+			${isAdmin ? '' : 'AND branch_id = ?'}
+			GROUP BY branch_id
+		`;
 		const [recentLogs, txSummary] = await d1.batch([
-			d1.prepare('SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 50'),
-			d1.prepare(`
-				SELECT 
-					COUNT(*) as total_transactions,
-					COALESCE(SUM(total), 0) as total_revenue,
-					branch_id, branch_name
-				FROM transactions
-				WHERE status = 'completed'
-				GROUP BY branch_id
-			`)
+			isAdmin ? d1.prepare(logSql) : d1.prepare(logSql).bind(session.branchId),
+			isAdmin ? d1.prepare(summarySql) : d1.prepare(summarySql).bind(session.branchId)
 		]);
 
 		return json({
