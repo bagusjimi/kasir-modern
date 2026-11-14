@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 	try {
 		const payload = (await request.json()) as any;
-		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], shifts = [], purchases = [], stock_counts = [], stock_transfers = [], queue = [], lastSyncedAt = null } = payload || {};
+		const { transactions = [], activity_logs = [], expenses = [], stock_movements = [], shifts = [], purchases = [], stock_counts = [], stock_transfers = [], announcements = [], queue = [], lastSyncedAt = null } = payload || {};
 
 		// Eksekusi dikelompokkan per item sumber: kegagalan satu item
 		// tidak menggagalkan item lain (d1.batch bersifat atomik per grup).
@@ -384,6 +384,37 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 							d1.prepare('DELETE FROM expenses WHERE id = ?').bind(exp.id)
 						);
 					}
+				} else if (q.entity === 'announcement') {
+					// Pengumuman internal hanya boleh dikelola admin pusat
+					if (session.role !== 'admin') {
+						failedItems.push('queue:' + q.id);
+						flush('queue:' + q.id);
+						continue;
+					}
+					const an = q.data;
+					if (q.action === 'insert' || q.action === 'update') {
+						statements.push(
+							d1.prepare(`
+								INSERT INTO announcements (id, branch_id, title, body, created_by, created_by_name, is_active, created_at, updated_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+								ON CONFLICT(id) DO UPDATE SET
+									branch_id = excluded.branch_id,
+									title = excluded.title,
+									body = excluded.body,
+									is_active = excluded.is_active,
+									updated_at = excluded.updated_at
+							`).bind(
+								an.id, an.branch_id || 'all', an.title, an.body,
+								an.created_by || session.userId, an.created_by_name || '',
+								an.is_active !== undefined ? (an.is_active ? 1 : 0) : 1,
+								an.created_at || now, now
+							)
+						);
+					} else if (q.action === 'delete') {
+						statements.push(
+							d1.prepare('DELETE FROM announcements WHERE id = ?').bind(an.id)
+						);
+					}
 				}
 			} catch (qErr: any) {
 				console.warn(`Gagal menyiapkan item antrean ${q.id}:`, qErr);
@@ -579,6 +610,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		let updatedPurchases: any[] = [];
 		let updatedStockCounts: any[] = [];
 		let updatedTransfers: any[] = [];
+		let updatedAnnouncements: any[] = [];
 		let branches: any[] = [];
 		let categories: any[] = [];
 
@@ -647,6 +679,18 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				console.warn('Gagal pull stock_transfers:', trfErr);
 			}
 
+			// Pengumuman internal: kasir hanya menerima pengumuman aktif untuk
+			// cabangnya atau berlaku umum ('all'); admin menerima semuanya termasuk
+			// yang sudah dinonaktifkan agar bisa mengelola ulang.
+			try {
+				const annRes = isAdmin
+					? await d1.prepare('SELECT * FROM announcements WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 200').bind(lastSyncedAt).all()
+					: await d1.prepare("SELECT * FROM announcements WHERE updated_at >= ? AND is_active = 1 AND (branch_id = ? OR branch_id = 'all') ORDER BY created_at DESC LIMIT 100").bind(lastSyncedAt, branchId).all();
+				updatedAnnouncements = annRes.results || [];
+			} catch (annErr) {
+				console.warn('Gagal pull announcements:', annErr);
+			}
+
 			const branchDeltaRes = await d1.prepare('SELECT * FROM branches WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			branches = branchDeltaRes.results || [];
 
@@ -709,6 +753,16 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				updatedTransfers = trfRes.results || [];
 			} catch (trfErr) {
 				console.warn('Gagal pull stock_transfers:', trfErr);
+			}
+
+			// Pengumuman internal first-sync (lihat komentar di blok delta pull)
+			try {
+				const annRes = isAdmin
+					? await d1.prepare('SELECT * FROM announcements ORDER BY created_at DESC LIMIT 200').all()
+					: await d1.prepare("SELECT * FROM announcements WHERE is_active = 1 AND (branch_id = ? OR branch_id = 'all') ORDER BY created_at DESC LIMIT 100").bind(branchId).all();
+				updatedAnnouncements = annRes.results || [];
+			} catch (annErr) {
+				console.warn('Gagal pull announcements:', annErr);
 			}
 		}
 
@@ -818,6 +872,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				purchases: updatedPurchases,
 				stock_counts: updatedStockCounts,
 				stock_transfers: updatedTransfers,
+				announcements: updatedAnnouncements,
 				...(taxSettings ? { tax_settings: taxSettings } : {}),
 				...(storeSettings ? { store_settings: storeSettings } : {}),
 				...(paymentSettings ? { payment_settings: paymentSettings } : {})

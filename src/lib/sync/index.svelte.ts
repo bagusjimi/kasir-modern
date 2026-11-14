@@ -19,6 +19,7 @@ interface SyncApiResponse {
 		purchases?: any[];
 		stock_counts?: any[];
 		stock_transfers?: any[];
+		announcements?: any[];
 		tax_settings?: any;
 		store_settings?: any;
 		payment_settings?: any;
@@ -351,6 +352,22 @@ export class SyncEngine {
 							synced: true
 						}));
 						await db.stock_transfers.bulkPut(formattedTransfers);
+					}
+					if (result.serverUpdates.announcements && result.serverUpdates.announcements.length > 0) {
+						const formattedAnnouncements = result.serverUpdates.announcements.map(a => ({
+							...a,
+							synced: true
+						}));
+						await db.announcements.bulkPut(formattedAnnouncements);
+						// Kasir tidak menyimpan pengumuman yang sudah dinonaktifkan di server;
+						// admin pusat tetap menyimpannya agar bisa mengelola ulang.
+						const isAdminSession = localStorage.getItem('kasir_session_branch_id') === 'all';
+						if (!isAdminSession) {
+							const inactiveIds = (await db.announcements.toArray())
+								.filter(a => !a.is_active)
+								.map(a => a.id);
+							if (inactiveIds.length > 0) await db.announcements.bulkDelete(inactiveIds);
+						}
 					}
 				}
 

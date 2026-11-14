@@ -243,6 +243,21 @@ export interface StockCount {
 	synced: boolean;
 }
 
+// Pengumuman internal dari admin pusat ke kasir cabang.
+// branch_id 'all' berarti berlaku untuk semua cabang.
+export interface Announcement {
+	id: string;
+	branch_id: string; // 'all' atau ID cabang tertentu
+	title: string;
+	body: string;
+	created_by: string;
+	created_by_name: string;
+	is_active: boolean;
+	created_at: string;
+	updated_at: string;
+	synced: boolean;
+}
+
 export type ExpenseCategory =
 	| 'listrik_air_internet'
 	| 'gaji_karyawan'
@@ -274,7 +289,7 @@ export interface Expense {
 
 export interface SyncQueueItem {
 	id: string;
-	entity: 'transaction' | 'product' | 'user' | 'branch' | 'category' | 'activity' | 'expense' | 'transaction_adjustment' | 'transfer';
+	entity: 'transaction' | 'product' | 'user' | 'branch' | 'category' | 'activity' | 'expense' | 'transaction_adjustment' | 'transfer' | 'announcement';
 	action: 'insert' | 'update' | 'delete';
 	data: unknown;
 	timestamp: number;

@@ -18,6 +18,8 @@
 	import PaymentSettings from '../lib/components/PaymentSettings.svelte';
 	import AdminDashboard from '../lib/components/AdminDashboard.svelte';
 	import AdminCategories from '../lib/components/AdminCategories.svelte';
+	import AdminAnnouncements from '../lib/components/AdminAnnouncements.svelte';
+	import CashierAnnouncements from '../lib/components/CashierAnnouncements.svelte';
 
 	let activeTab = $state<string>('pos');
 
@@ -76,6 +78,8 @@
 					<PaymentSettings />
 				{:else if activeTab === 'tax'}
 					<AdminTaxSettings />
+				{:else if activeTab === 'announcements'}
+					<CashierAnnouncements />
 				{/if}
 			{:else if authState.user.role === 'admin'}
 				{#if activeTab === 'dashboard'}
@@ -98,6 +102,8 @@
 					<PaymentSettings />
 				{:else if activeTab === 'tax'}
 					<AdminTaxSettings />
+				{:else if activeTab === 'announcements'}
+					<AdminAnnouncements />
 				{/if}
 			{/if}
 		</main>
