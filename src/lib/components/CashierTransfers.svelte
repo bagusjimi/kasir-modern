@@ -11,11 +11,9 @@
 		Plus,
 		Trash2,
 		AlertCircle,
-		CheckCircle2,
 		Package,
 		Send,
 		XCircle,
-		Download,
 		Clock,
 		Printer,
 		FileText
@@ -41,12 +39,6 @@
 	}
 
 	let draftRows = $state<DraftRow[]>([]);
-
-	// Modal terima transfer
-	let isReceiveOpen = $state<boolean>(false);
-	let receiveTransfer = $state<StockTransfer | null>(null);
-	let receiveQty: Record<string, number> = $state({});
-	let receiveError = $state<string | null>(null);
 
 	// Modal konfirmasi batal
 	let isCancelOpen = $state<boolean>(false);
@@ -297,158 +289,8 @@
 		isFormOpen = false;
 		await syncEngine.updatePendingCount();
 		await loadData();
-		if (syncEngine.isOnline) {
-			syncEngine.triggerSync();
-		}
-	}
-
-	function openReceiveModal(trf: StockTransfer) {
-		receiveTransfer = trf;
-		receiveQty = {};
-		for (const it of trf.items) {
-			receiveQty[it.id] = it.quantity;
-		}
-		receiveError = null;
-		isReceiveOpen = true;
-	}
-
-	async function confirmReceive() {
-		if (!receiveTransfer) return;
-		receiveError = null;
-
-		const now = new Date().toISOString();
-		const userId = authState.user?.id || '-';
-		const userName = authState.user?.name || 'Kasir';
-		const trf = receiveTransfer;
-
-		for (const it of trf.items) {
-			const qty = Number(receiveQty[it.id]);
-			if (isNaN(qty) || qty < 0 || qty > it.quantity) {
-				receiveError = `Jumlah diterima untuk ${it.product_name} harus antara 0 dan ${it.quantity}`;
-				return;
-			}
-		}
-
-		const updatedItems: StockTransferItem[] = trf.items.map(it => ({
-			...it,
-			quantity_received: Number(receiveQty[it.id])
-		}));
-
-		for (const it of updatedItems) {
-			if (it.quantity_received <= 0) continue;
-
-			// Produk di cabang tujuan: tambah stok, atau buat record baru jika belum ada
-			const destProducts = await db.products
-				.filter(p => p.branch_id === currentBranchId && (p.sku === it.sku || p.name === it.product_name))
-				.toArray();
-			const destProd = destProducts[0];
-
-			if (destProd) {
-				await db.products.put({
-					...destProd,
-					stock: destProd.stock + it.quantity_received,
-					updated_at: now,
-					version: (destProd.version || 1) + 1
-				});
-				await db.sync_queue.add({
-					id: newId('sq'),
-					entity: 'product',
-					action: 'update',
-					data: { ...destProd, stock: destProd.stock + it.quantity_received, updated_at: now, version: (destProd.version || 1) + 1 },
-					timestamp: Date.now(),
-					retry_count: 0,
-					status: 'pending'
-				});
-			} else {
-				const categoryName = it.category || 'Lainnya';
-				const newProduct: Product = {
-					id: newId('prod'),
-					branch_id: currentBranchId,
-					sku: it.sku,
-					name: it.product_name,
-					category: categoryName,
-					price: it.price || 0,
-					cost_price: it.cost_price || 0,
-					stock: it.quantity_received,
-					min_stock: it.min_stock || 0,
-					unit: it.unit || 'pcs',
-					is_active: true,
-					created_at: now,
-					updated_at: now,
-					version: 1
-				};
-				await db.products.add(newProduct);
-				await db.sync_queue.add({
-					id: newId('sq'),
-					entity: 'product',
-					action: 'insert',
-					data: newProduct,
-					timestamp: Date.now(),
-					retry_count: 0,
-					status: 'pending'
-				});
-
-				// Pastikan kategori terdaftar agar konsisten di semua cabang
-				const slug = categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-				const catId = 'cat-' + (slug || Date.now().toString(36));
-				const existingCat = await db.categories.get(catId);
-				if (!existingCat) {
-					const catNow = new Date().toISOString();
-					await db.categories.put({ id: catId, name: categoryName, updated_at: catNow });
-					await db.sync_queue.add({
-						id: newId('sq'),
-						entity: 'category',
-						action: 'insert',
-						data: { id: catId, name: categoryName, updated_at: catNow },
-						timestamp: Date.now(),
-						retry_count: 0,
-						status: 'pending'
-					});
-				}
-			}
-
-			// Ledger stok: barang masuk ke cabang tujuan
-			await db.stock_movements.add({
-				id: newId('mv'),
-				branch_id: currentBranchId,
-				product_id: destProd?.id || it.product_id,
-				quantity: it.quantity_received,
-				type: 'transfer_in',
-				reference_id: trf.id,
-				reason: `Terima transfer ${trf.transfer_no}`,
-				user_id: userId,
-				user_name: userName,
-				created_at: now,
-				synced: false
-			});
-		}
-
-		const receivedTransfer: StockTransfer = {
-			...trf,
-			status: 'diterima',
-			items: updatedItems,
-			received_by: userId,
-			received_by_name: userName,
-			received_at: now,
-			updated_at: now,
-			synced: false
-		};
-		await db.stock_transfers.put(receivedTransfer);
-		await queueTransfer(receivedTransfer, 'update');
-
-		const selisih = updatedItems.filter(it => it.quantity_received < it.quantity);
-		await saveActivity(
-			'stock_transfer_received',
-			`Terima transfer ${trf.transfer_no} dari ${trf.from_branch_name || trf.from_branch_id}` +
-				(selisih.length > 0 ? ` (selisih pada ${selisih.length} item)` : '') + '.',
-			currentBranchId,
-			now
-		);
-
-		isReceiveOpen = false;
-		receiveTransfer = null;
-		await syncEngine.updatePendingCount();
-		await loadData();
+		// Proses manual: langsung tampilkan dokumen serah terima untuk dicetak
+		openDoc(transfer);
 		if (syncEngine.isOnline) {
 			syncEngine.triggerSync();
 		}
@@ -541,7 +383,7 @@
 				<ArrowLeftRight class="h-5 w-5 text-emerald-600" />
 				Transfer Stok Antar Cabang
 			</h1>
-			<p class="text-xs text-zinc-500 mt-0.5">Kirim stok ke cabang lain dan konfirmasi penerimaan. Stok cabang asal berkurang saat dikirim, cabang tujuan bertambah setelah diterima.</p>
+			<p class="text-xs text-zinc-500 mt-0.5">Catat pengiriman stok ke cabang lain dan cetak dokumen serah terima. Stok toko asal berkurang saat dicatat; toko tujuan mengelola stoknya sendiri secara manual.</p>
 		</div>
 		<button
 			onclick={openForm}
@@ -623,15 +465,6 @@
 							>
 								Detail
 							</button>
-							{#if activeView === 'masuk' && trf.status === 'dikirim'}
-								<button
-									onclick={() => openReceiveModal(trf)}
-									class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer"
-								>
-									<Download class="h-3.5 w-3.5" />
-									Terima
-								</button>
-							{/if}
 							{#if trf.status === 'dikirim' && (trf.from_branch_id === currentBranchId || currentBranchId === 'all')}
 								<button
 									onclick={() => openCancelModal(trf)}
@@ -756,68 +589,6 @@
 	</div>
 {/if}
 
-<!-- Modal Terima Transfer -->
-{#if isReceiveOpen && receiveTransfer}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-		<div class="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl p-6 space-y-4">
-			<div class="flex items-center justify-between">
-				<h3 class="text-base font-bold text-zinc-900">Terima Transfer</h3>
-				<button
-					onclick={() => isReceiveOpen = false}
-					class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 transition cursor-pointer"
-					aria-label="Tutup"
-				>
-					<XCircle class="h-4 w-4" />
-				</button>
-			</div>
-			<p class="text-xs text-zinc-500">
-				{receiveTransfer.transfer_no} dari {receiveTransfer.from_branch_name || receiveTransfer.from_branch_id}.
-				Sesuaikan jumlah yang benar-benar diterima jika ada selisih.
-			</p>
-
-			<div class="space-y-2">
-				{#each receiveTransfer.items as it (it.id)}
-					<div class="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-zinc-50">
-						<div class="min-w-0">
-							<div class="text-xs font-bold text-zinc-800 truncate">{it.product_name}</div>
-							<div class="text-[10px] text-zinc-400 font-mono">{it.sku} &middot; dikirim {it.quantity}</div>
-						</div>
-						<input
-							type="number"
-							bind:value={receiveQty[it.id]}
-							min="0"
-							max={it.quantity}
-							class="w-24 px-3 py-1.5 rounded-lg border border-zinc-200 focus:outline-hidden focus:border-emerald-500 text-sm font-bold"
-						/>
-					</div>
-				{/each}
-			</div>
-
-			{#if receiveError}
-				<div class="flex items-center gap-1.5 p-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-medium">
-					<AlertCircle class="h-4 w-4 shrink-0" />
-					<span>{receiveError}</span>
-				</div>
-			{/if}
-
-			<div class="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
-				<button
-					onclick={() => isReceiveOpen = false}
-					class="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-semibold cursor-pointer"
-				>
-					Batal
-				</button>
-				<button
-					onclick={confirmReceive}
-					class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
-				>
-					<CheckCircle2 class="h-4 w-4" />
-					Konfirmasi Terima
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
 
 <!-- Modal Detail Transfer -->
 {#if isDetailOpen && detailTransfer}
@@ -874,7 +645,7 @@
 			{#if detailTransfer.status === 'dikirim'}
 				<div class="flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
 					<Clock class="h-3.5 w-3.5 shrink-0" />
-					<span>Menunggu konfirmasi penerimaan dari cabang tujuan.</span>
+					<span>Barang diserahkan secara manual — dokumen serah terima dapat dicetak kapan pun.</span>
 				</div>
 			{/if}
 		</div>
