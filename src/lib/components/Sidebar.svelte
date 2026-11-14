@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
+	import InstallPrompt from './InstallPrompt.svelte';
 	import {
 		Store,
 		Users,
@@ -526,6 +527,9 @@
 						<span class="truncate">{syncEngine.lastNotice}</span>
 					</div>
 				{/if}
+
+				<!-- Tombol Pasang Aplikasi (PWA) -->
+				<InstallPrompt />
 			</div>
 		</div>
 	</div>
