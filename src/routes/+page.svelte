@@ -15,6 +15,7 @@
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
 	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
 	import AdminTaxSettings from '../lib/components/AdminTaxSettings.svelte';
+	import AdminPaymentSettings from '../lib/components/AdminPaymentSettings.svelte';
 	import AdminDashboard from '../lib/components/AdminDashboard.svelte';
 	import AdminCategories from '../lib/components/AdminCategories.svelte';
 
@@ -24,7 +25,7 @@
 		if (authState.user) {
 			if (authState.user.role === 'admin' && (activeTab === 'pos' || activeTab === 'products' || activeTab === 'history' || activeTab === 'shift' || activeTab === 'purchases' || activeTab === 'opname')) {
 				activeTab = 'dashboard';
-			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'branches' || activeTab === 'monitoring' || activeTab === 'dashboard' || activeTab === 'categories')) {
+			} else if (authState.user.role === 'cashier' && (activeTab === 'users' || activeTab === 'branches' || activeTab === 'monitoring' || activeTab === 'dashboard' || activeTab === 'categories' || activeTab === 'payment')) {
 				activeTab = 'pos';
 			}
 		}
@@ -71,6 +72,8 @@
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
+				{:else if activeTab === 'payment'}
+					<AdminPaymentSettings />
 				{:else if activeTab === 'tax'}
 					<AdminTaxSettings />
 				{/if}
@@ -91,6 +94,8 @@
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
+				{:else if activeTab === 'payment'}
+					<AdminPaymentSettings />
 				{:else if activeTab === 'tax'}
 					<AdminTaxSettings />
 				{/if}

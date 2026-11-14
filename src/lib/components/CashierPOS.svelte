@@ -4,7 +4,7 @@
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
 	import { getOpenShift } from '../shift/index.js';
-	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings, Shift } from '../types/index.js';
+	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings, PaymentSettings, Shift } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
 		Plus,
@@ -41,6 +41,11 @@
 		name: 'PPN'
 	});
 
+	// Pengaturan metode pembayaran non-tunai (dikendalikan admin pusat)
+	let paymentSettings = $state<PaymentSettings | null>(null);
+	let qrisEnabled = $derived(paymentSettings?.qris?.enabled === true);
+	let transferEnabled = $derived(paymentSettings?.transfer?.enabled === true);
+
 	let taxRate = $derived(taxSettings.enabled ? taxSettings.rate / 100 : 0);
 	let taxLabel = $derived(
 		taxSettings.enabled && taxSettings.rate > 0
@@ -64,15 +69,17 @@
 	onMount(async () => {
 		await loadProductsAndCategories();
 		await loadTaxSettings();
+		await loadPaymentSettings();
 		await loadOpenShift();
 		scanInput?.focus();
 	});
 
-	// Muat ulang pengaturan pajak setiap kali sinkronisasi selesai,
+	// Muat ulang pengaturan pajak & pembayaran setiap kali sinkronisasi selesai,
 	// agar perubahan dari sisi admin ikut diterapkan di perangkat kasir.
 	$effect(() => {
 		if (syncEngine.lastSyncedAt) {
 			loadTaxSettings();
+			loadPaymentSettings();
 		}
 	});
 
@@ -88,6 +95,20 @@
 			}
 		} catch (e) {
 			console.warn('Gagal memuat pengaturan pajak di kasir:', e);
+		}
+	}
+
+	async function loadPaymentSettings() {
+		try {
+			const setting = await db.app_settings.get('payment_settings');
+			if (setting && setting.value) {
+				paymentSettings = setting.value as PaymentSettings;
+				// Metode yang dinonaktifkan admin tidak boleh terpilih saat modal dibuka
+				if (!qrisEnabled && paymentMethod === 'qris') paymentMethod = 'cash';
+				if (!transferEnabled && paymentMethod === 'transfer') paymentMethod = 'cash';
+			}
+		} catch (e) {
+			console.warn('Gagal memuat pengaturan pembayaran di kasir:', e);
 		}
 	}
 
@@ -226,6 +247,9 @@
 			paymentError = 'Belum ada shift aktif. Buka shift terlebih dahulu di menu Shift Kasir.';
 			return;
 		}
+		if ((paymentMethod === 'qris' && !qrisEnabled) || (paymentMethod === 'transfer' && !transferEnabled)) {
+			paymentMethod = 'cash';
+		}
 		amountPaid = totalAmount; // Default uang pas
 		paymentError = null;
 		isPaymentModalOpen = true;
@@ -237,6 +261,15 @@
 		if (paymentMethod === 'cash' && amountPaid < totalAmount) {
 			paymentError = `Nominal uang tunai kurang dari total belanja (${formatRupiah(totalAmount)})`;
 			return;
+		}
+
+		// QRIS statis: kasir wajib memastikan dana sudah masuk sebelum konfirmasi,
+		// dan QR statis harus sudah diatur oleh admin
+		if (paymentMethod === 'qris') {
+			if (!paymentSettings?.qris?.image) {
+				paymentError = 'QRIS statis belum diatur oleh Admin. Gunakan metode lain atau hubungi Admin.';
+				return;
+			}
 		}
 
 		const now = new Date();
@@ -615,13 +648,16 @@
 						<Banknote class="h-5 w-5 mb-1" />
 						<span class="text-xs">Tunai (Cash)</span>
 					</button>
+					{#if qrisEnabled}
 					<button
 						onclick={() => paymentMethod = 'qris'}
 						class="flex flex-col items-center justify-center p-3 rounded-xl border transition {paymentMethod === 'qris' ? 'border-emerald-600 bg-emerald-50 text-emerald-700 font-bold' : 'border-gray-200 hover:bg-gray-50 text-gray-700'}"
 					>
 						<QrCode class="h-5 w-5 mb-1" />
-						<span class="text-xs">QRIS Dinamis</span>
+						<span class="text-xs">QRIS</span>
 					</button>
+					{/if}
+					{#if transferEnabled}
 					<button
 						onclick={() => paymentMethod = 'transfer'}
 						class="flex flex-col items-center justify-center p-3 rounded-xl border transition {paymentMethod === 'transfer' ? 'border-emerald-600 bg-emerald-50 text-emerald-700 font-bold' : 'border-gray-200 hover:bg-gray-50 text-gray-700'}"
@@ -629,6 +665,7 @@
 						<CreditCard class="h-5 w-5 mb-1" />
 						<span class="text-xs">Transfer Bank</span>
 					</button>
+					{/if}
 				</div>
 			</div>
 
@@ -681,24 +718,44 @@
 					</div>
 				</div>
 			{:else if paymentMethod === 'qris'}
-				<div class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-xl border border-gray-200 mb-4 text-center">
-					<div class="h-32 w-32 bg-white p-2 rounded-xl border border-gray-300 flex items-center justify-center shadow-xs mb-2">
-						<QrCode class="h-24 w-24 text-gray-800" />
+				{#if paymentSettings?.qris?.image}
+					<div class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-xl border border-gray-200 mb-4 text-center">
+						<img
+							src={paymentSettings.qris.image}
+							alt="QRIS Merchant"
+							class="h-44 w-44 bg-white p-2 rounded-xl border border-gray-300 object-contain shadow-xs mb-2"
+						/>
+						{#if paymentSettings.qris.merchant_name}
+							<p class="text-xs font-bold text-gray-900">{paymentSettings.qris.merchant_name}</p>
+						{/if}
+						<p class="text-xs font-semibold text-gray-800 mt-1">Minta pelanggan scan QRIS dan bayar sesuai nominal</p>
+						<p class="text-[11px] text-gray-500 mt-1">Total: <span class="font-bold text-emerald-700">{formatRupiah(totalAmount)}</span></p>
+						<p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2">Pastikan notifikasi dana masuk terlihat sebelum menekan konfirmasi.</p>
 					</div>
-					<p class="text-xs font-semibold text-gray-800">Scan QRIS menggunakan BCA, Mandiri, GoPay, OVO, atau ShopeePay</p>
-					<p class="text-[11px] text-gray-500 mt-1">Total: <span class="font-bold text-emerald-700">{formatRupiah(totalAmount)}</span></p>
-				</div>
+				{:else}
+					<div class="flex flex-col items-center justify-center p-6 bg-amber-50 rounded-xl border border-amber-200 mb-4 text-center">
+						<QrCode class="h-10 w-10 text-amber-500 mb-2" />
+						<p class="text-xs font-semibold text-amber-800">QRIS statis belum diatur oleh Admin</p>
+						<p class="text-[11px] text-amber-700 mt-1">Atur gambar QR di menu Metode Pembayaran (Admin) atau gunakan metode lain.</p>
+					</div>
+				{/if}
 			{:else if paymentMethod === 'transfer'}
 				<div class="p-4 bg-gray-50 rounded-xl border border-gray-200 mb-4 text-xs space-y-2 text-gray-700">
 					<div class="font-semibold text-gray-900">Rekening Tujuan Toko:</div>
-					<div class="flex justify-between">
-						<span>Bank Central Asia (BCA):</span>
-						<span class="font-bold">8800-1234-5678</span>
-					</div>
-					<div class="flex justify-between">
-						<span>Atas Nama:</span>
-						<span class="font-bold">PT KASIR MODERN INDONESIA</span>
-					</div>
+					{#if paymentSettings?.transfer?.bank_name || paymentSettings?.transfer?.account_number}
+						<div class="flex justify-between">
+							<span>{paymentSettings?.transfer?.bank_name || 'Bank'}:</span>
+							<span class="font-bold">{paymentSettings?.transfer?.account_number}</span>
+						</div>
+						{#if paymentSettings?.transfer?.account_name}
+							<div class="flex justify-between">
+								<span>Atas Nama:</span>
+								<span class="font-bold">{paymentSettings.transfer.account_name}</span>
+							</div>
+						{/if}
+					{:else}
+						<p class="text-amber-700">Rekening transfer belum diatur oleh Admin.</p>
+					{/if}
 				</div>
 			{/if}
 
