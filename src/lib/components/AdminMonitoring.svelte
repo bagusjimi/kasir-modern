@@ -185,14 +185,14 @@
 					type="date"
 					bind:value={startDate}
 					onchange={() => loadData(true)}
-					class="px-2.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-indigo-500"
+					class="px-2.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-emerald-500"
 				/>
 				<span class="text-xs text-gray-400 font-semibold">s/d</span>
 				<input
 					type="date"
 					bind:value={endDate}
 					onchange={() => loadData(true)}
-					class="px-2.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-indigo-500"
+					class="px-2.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-emerald-500"
 				/>
 			</div>
 
@@ -217,7 +217,7 @@
 
 			<select
 				bind:value={selectedBranch}
-				class="px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-indigo-500"
+				class="px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-emerald-500"
 			>
 				<option value="all">Semua Cabang Toko</option>
 				{#each branches as b}
@@ -230,7 +230,7 @@
 				disabled={isRefreshing}
 				class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
 			>
-				<RefreshCw class="h-3.5 w-3.5 {isRefreshing ? 'animate-spin text-indigo-600' : ''}" />
+				<RefreshCw class="h-3.5 w-3.5 {isRefreshing ? 'animate-spin text-emerald-600' : ''}" />
 				<span>Segarkan</span>
 			</button>
 		</div>
@@ -238,13 +238,13 @@
 
 	<!-- Ringkasan Metrik Semua Cabang -->
 	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-		<div class="bg-gradient-to-tr from-indigo-700 to-indigo-500 rounded-2xl p-5 text-white shadow-lg shadow-indigo-600/20">
+		<div class="bg-gradient-to-tr from-emerald-700 to-emerald-500 rounded-2xl p-5 text-white shadow-lg shadow-emerald-600/20">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-indigo-100">Total Omset Seluruh Cabang</p>
-				<DollarSign class="h-5 w-5 text-indigo-200" />
+				<p class="text-xs font-semibold text-emerald-100">Total Omset Seluruh Cabang</p>
+				<DollarSign class="h-5 w-5 text-emerald-200" />
 			</div>
 			<p class="text-2xl font-black mt-2">{formatRupiah(totalNetworkRevenue)}</p>
-			<p class="text-[11px] text-indigo-100 mt-1">{totalNetworkTransactions} transaksi tercatat</p>
+			<p class="text-[11px] text-emerald-100 mt-1">{totalNetworkTransactions} transaksi tercatat</p>
 		</div>
 
 		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
@@ -262,7 +262,7 @@
 				<TrendingUp class="h-5 w-5 text-gray-400" />
 			</div>
 			<p class="text-2xl font-bold text-gray-900 mt-2">{activityLogs.length} Peristiwa</p>
-			<p class="text-[11px] text-gray-400 mt-1">Audit log sinkronisasi realtime</p>
+			<p class="text-[11px] text-gray-500 mt-1">Audit log sinkronisasi realtime</p>
 		</div>
 	</div>
 
@@ -272,23 +272,23 @@
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			{#each branches as b}
 				{@const stat = branchStats[b.id] || { txCount: 0, totalRevenue: 0, lastActivity: '-' }}
-				<div class="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs hover:border-indigo-400 transition">
+				<div class="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs hover:border-emerald-400 transition">
 					<div class="flex items-center justify-between pb-2 border-b border-gray-100 mb-2.5">
 						<span class="font-bold text-gray-900 text-xs">{b.name}</span>
-						<span class="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
+						<span class="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">
 							{b.code}
 						</span>
 					</div>
 					<div class="space-y-1 text-xs">
 						<div class="flex justify-between text-gray-500">
 							<span>Omset Cabang:</span>
-							<span class="font-bold text-indigo-700">{formatRupiah(stat.totalRevenue)}</span>
+							<span class="font-bold text-emerald-700">{formatRupiah(stat.totalRevenue)}</span>
 						</div>
 						<div class="flex justify-between text-gray-500">
 							<span>Jumlah Transaksi:</span>
 							<span class="font-semibold text-gray-800">{stat.txCount} nota</span>
 						</div>
-						<div class="flex justify-between text-gray-400 text-[10px] pt-1">
+						<div class="flex justify-between text-gray-500 text-[10px] pt-1">
 							<span>Aktivitas Terakhir:</span>
 							<span>{stat.lastActivity !== '-' ? new Date(stat.lastActivity).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
 						</div>
@@ -302,7 +302,7 @@
 	<div class="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
 		<div class="p-4 border-b border-gray-100 flex items-center justify-between">
 			<div class="flex items-center gap-2">
-				<Activity class="h-4 w-4 text-indigo-600" />
+				<Activity class="h-4 w-4 text-emerald-600" />
 				<h3 class="font-bold text-gray-900 text-sm">Log Aktivitas Kasir & Transaksi</h3>
 			</div>
 			<span class="text-xs text-gray-400">Terakhir disinkronkan: baru saja</span>
@@ -321,7 +321,7 @@
 								{#if log.action === 'create_transaction'}
 									<ShoppingBag class="h-4 w-4 text-emerald-600" />
 								{:else if log.action === 'login' || log.action === 'logout'}
-									<UserCheck class="h-4 w-4 text-indigo-600" />
+									<UserCheck class="h-4 w-4 text-emerald-600" />
 								{:else if log.action === 'discount_applied'}
 									<Percent class="h-4 w-4 text-rose-600" />
 								{:else if log.action.includes('product')}
@@ -336,7 +336,7 @@
 									<span class="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
 										{log.branch_name || '-'}
 									</span>
-									<span class="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded uppercase">
+									<span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded uppercase">
 										{log.action.replace('_', ' ')}
 									</span>
 								</div>
@@ -345,7 +345,7 @@
 						</div>
 
 						<div class="text-right shrink-0">
-							<span class="text-[11px] text-gray-400 font-medium">
+							<span class="text-[11px] text-gray-500 font-medium">
 								{new Date(log.timestamp).toLocaleString('id-ID', {
 									hour: '2-digit',
 									minute: '2-digit',

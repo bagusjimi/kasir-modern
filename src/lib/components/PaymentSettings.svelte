@@ -322,7 +322,7 @@
 					<div class="flex items-center gap-2">
 						<QrCode class="h-4 w-4 text-emerald-600" />
 						<span class="font-bold text-gray-900 text-base">QRIS Statis</span>
-						<span class="text-[11px] text-gray-400">QR dari bank/mitra pembayaran Anda</span>
+						<span class="text-[11px] text-gray-500">QR dari bank/mitra pembayaran Anda</span>
 					</div>
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input type="checkbox" bind:checked={qrisEnabled} class="accent-emerald-600 h-4 w-4" />
@@ -368,7 +368,7 @@
 											<span>Hapus</span>
 										</button>
 									{/if}
-									<p class="text-[11px] text-gray-400">PNG/JPG, maksimal 400 KB. Ambil QR statis dari aplikasi bank/mitra pembayaran Anda.</p>
+									<p class="text-[11px] text-gray-500">PNG/JPG, maksimal 400 KB. Ambil QR statis dari aplikasi bank/mitra pembayaran Anda.</p>
 									{#if imageError}
 										<p class="text-[11px] font-semibold text-rose-600">{imageError}</p>
 									{/if}
@@ -391,7 +391,7 @@
 					<div class="flex items-center gap-2">
 						<CreditCard class="h-4 w-4 text-emerald-600" />
 						<span class="font-bold text-gray-900 text-base">Transfer Bank</span>
-						<span class="text-[11px] text-gray-400">Rekening tujuan yang tampil di kasir</span>
+						<span class="text-[11px] text-gray-500">Rekening tujuan yang tampil di kasir</span>
 					</div>
 					<label class="flex items-center gap-2 cursor-pointer">
 						<input type="checkbox" bind:checked={transferEnabled} class="accent-emerald-600 h-4 w-4" />

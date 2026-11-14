@@ -124,7 +124,7 @@
 									<span class="font-medium">{formatRupiah(item.subtotal)}</span>
 								</div>
 								{#if item.notes}
-									<div class="text-[10px] text-gray-400 italic">catatan: {item.notes}</div>
+									<div class="text-[10px] text-gray-500 italic">catatan: {item.notes}</div>
 								{/if}
 							</div>
 						{/each}
@@ -148,7 +148,7 @@
 								<span>{formatRupiah(transaction.tax)}</span>
 							</div>
 						{:else}
-							<div class="flex justify-between text-gray-400 text-[10px]">
+							<div class="flex justify-between text-gray-500 text-[10px]">
 								<span>Pajak</span>
 								<span>Bebas Pajak (0%)</span>
 							</div>

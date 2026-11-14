@@ -606,7 +606,7 @@
 					<select
 						id="reportBranch"
 						bind:value={selectedBranchId}
-						class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-indigo-500"
+						class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-emerald-500"
 					>
 						<option value="all">Semua Cabang Toko</option>
 						{#each branches as b}
@@ -709,7 +709,7 @@
 				</span>
 			</div>
 			<p class="text-2xl font-black text-gray-900 mt-2 print:text-xl">{formatRupiah(grossProfit)}</p>
-			<p class="text-[11px] text-gray-400 mt-1">Omset dikurangi HPP Produk</p>
+			<p class="text-[11px] text-gray-500 mt-1">Omset dikurangi HPP Produk</p>
 		</div>
 
 		<!-- Total Pengeluaran Operasional -->
@@ -719,7 +719,7 @@
 				<TrendingDown class="h-4 w-4 text-rose-500 print:hidden" />
 			</div>
 			<p class="text-2xl font-bold text-rose-600 mt-2 print:text-xl">{formatRupiah(totalOperationalExpenses)}</p>
-			<p class="text-[11px] text-gray-400 mt-1">Total {filteredExpenses.length} catatan pengeluaran</p>
+			<p class="text-[11px] text-gray-500 mt-1">Total {filteredExpenses.length} catatan pengeluaran</p>
 		</div>
 
 		<!-- Laba Bersih Operasional (Net Profit) -->
@@ -764,7 +764,7 @@
 								</span>
 								<div class="text-right">
 									<span class="font-bold text-gray-900">{formatRupiah(pay.amount)}</span>
-									<span class="text-[11px] text-gray-400 ml-1">({pay.percentage}%)</span>
+									<span class="text-[11px] text-gray-500 ml-1">({pay.percentage}%)</span>
 								</div>
 							</div>
 							<div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -773,7 +773,7 @@
 									style="width: {pay.percentage}%"
 								></div>
 							</div>
-							<p class="text-[10px] text-gray-400 mt-1">{pay.count} kali transaksi</p>
+							<p class="text-[10px] text-gray-500 mt-1">{pay.count} kali transaksi</p>
 						</div>
 					{/each}
 				</div>
@@ -824,7 +824,7 @@
 				</div>
 			{/if}
 
-			<div class="mt-2 pt-2 border-t border-gray-100 flex justify-between text-[11px] text-gray-400">
+			<div class="mt-2 pt-2 border-t border-gray-100 flex justify-between text-[11px] text-gray-500">
 				<span>Grafik menunjukkan nominal akumulasi omset per tanggal</span>
 				<span class="font-medium text-emerald-700">Rata-rata: {dailyTrend.length > 0 ? formatRupiah(Math.round(totalRevenue / dailyTrend.length)) : 0} / hari</span>
 			</div>
@@ -914,14 +914,14 @@
 										style="width: {catPct}%"
 									></div>
 								</div>
-								<p class="text-[10px] text-gray-400 mt-1">{cat.count} item terjual</p>
+								<p class="text-[10px] text-gray-500 mt-1">{cat.count} item terjual</p>
 							</div>
 						{/each}
 					{/if}
 				</div>
 			</div>
 
-			<div class="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-400">
+			<div class="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500">
 				Kontribusi kategori terhadap portofolio penjualan
 			</div>
 		</div>
@@ -967,7 +967,7 @@
 								<td class="px-4 py-3 font-mono font-bold text-gray-900">{tx.invoice_no}</td>
 								<td class="px-4 py-3 text-gray-500">
 									{new Date(tx.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
-									<span class="text-[10px] text-gray-400">
+									<span class="text-[10px] text-gray-500">
 										{new Date(tx.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
 									</span>
 								</td>

@@ -261,7 +261,7 @@
 								<td class="px-5 py-3.5">
 									<div class="font-bold text-gray-900 font-mono">{tx.invoice_no}</div>
 									{#if tx.customer_name}
-										<div class="text-[11px] text-gray-400">Pelanggan: {tx.customer_name}</div>
+										<div class="text-[11px] text-gray-500">Pelanggan: {tx.customer_name}</div>
 									{/if}
 								</td>
 								<td class="px-5 py-3.5 text-gray-500">

@@ -262,7 +262,7 @@
 					<div class="flex items-center gap-2">
 						<Store class="h-4 w-4 text-emerald-600" />
 						<span class="font-bold text-gray-900 text-base">Identitas Usaha (Kantor Pusat)</span>
-						<span class="text-[11px] text-gray-400">Header utama struk, di bawahnya menampilkan nama cabang</span>
+						<span class="text-[11px] text-gray-500">Header utama struk, di bawahnya menampilkan nama cabang</span>
 					</div>
 
 					<div>
@@ -276,7 +276,7 @@
 							placeholder="Contoh: TOKO 89"
 							class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
 						/>
-						<p class="text-[11px] text-gray-400 mt-1.5">
+						<p class="text-[11px] text-gray-500 mt-1.5">
 							Struk menampilkan nama usaha ini di baris pertama, nama cabang di bawahnya, lalu alamat &amp; telepon cabang (diatur di menu Kelola Cabang). Jika dikosongkan, struk hanya menampilkan nama cabang.
 						</p>
 					</div>
@@ -323,7 +323,7 @@
 						placeholder="Contoh: PPN, PB1, Pajak Resto"
 						class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
 					/>
-					<p class="text-[11px] text-gray-400 mt-1.5">
+					<p class="text-[11px] text-gray-500 mt-1.5">
 						Label ini akan ditampilkan pada ringkasan keranjang kasir dan nota belanja pelanggan.
 					</p>
 				</div>
@@ -437,12 +437,12 @@
 			</div>
 
 			<!-- Informasi Hak Akses & Kebijakan -->
-			<div class="bg-indigo-50/50 rounded-2xl border border-indigo-100 p-5 space-y-3">
-				<div class="flex items-center gap-2 text-indigo-900 font-bold text-xs">
-					<ShieldCheck class="h-4 w-4 text-indigo-600" />
+			<div class="bg-emerald-50/50 rounded-2xl border border-emerald-100 p-5 space-y-3">
+				<div class="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+					<ShieldCheck class="h-4 w-4 text-emerald-600" />
 					<span>Kewenangan Administrator</span>
 				</div>
-				<p class="text-xs text-indigo-800/80 leading-relaxed">
+				<p class="text-xs text-emerald-800/80 leading-relaxed">
 					Pengaturan ini dikelola secara terpusat oleh Admin. Kasir di seluruh cabang toko (Jakarta, Bandung, Surabaya, dsb.) akan secara otomatis mengikuti konfigurasi pajak ini tanpa perlu mengubah pengaturan di masing-masing mesin kasir.
 				</p>
 			</div>

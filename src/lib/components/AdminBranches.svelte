@@ -248,13 +248,13 @@
 					type="text"
 					bind:value={searchQuery}
 					placeholder="Cari nama atau kode cabang..."
-					class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-indigo-500"
+					class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
 				/>
 			</div>
 
 			<button
 				onclick={openAddModal}
-				class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/20 active:scale-95 transition cursor-pointer"
+				class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
 			>
 				<Plus class="h-4 w-4" />
 				<span>Tambah Cabang</span>
@@ -268,12 +268,12 @@
 			<div class="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-5 flex flex-col gap-3">
 				<div class="flex items-start justify-between gap-2">
 					<div class="flex items-center gap-2.5">
-						<div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+						<div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
 							<Building2 class="h-5 w-5" />
 						</div>
 						<div>
 							<div class="font-bold text-gray-900 text-sm">{branch.name}</div>
-							<div class="text-[11px] text-gray-400 font-mono">{branch.code}</div>
+							<div class="text-[11px] text-gray-500 font-mono">{branch.code}</div>
 						</div>
 					</div>
 					<div class="flex items-center gap-1">
@@ -313,7 +313,7 @@
 				</div>
 
 				<div class="flex items-center gap-2 pt-2 border-t border-gray-100 text-[11px] font-semibold">
-					<span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700 border border-indigo-100">
+					<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700 border border-emerald-100">
 						<Users class="h-3 w-3" /> {countUsers(branch.id)} pengguna
 					</span>
 					<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700 border border-emerald-100">
@@ -351,7 +351,7 @@
 							type="text"
 							bind:value={formCode}
 							placeholder="Contoh: CB04"
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 font-mono uppercase focus:outline-hidden focus:border-indigo-500"
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 font-mono uppercase focus:outline-hidden focus:border-emerald-500"
 						/>
 					</div>
 
@@ -362,7 +362,7 @@
 							type="text"
 							bind:value={formName}
 							placeholder="Contoh: Cabang Yogyakarta"
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-indigo-500"
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
 						/>
 					</div>
 				</div>
@@ -374,7 +374,7 @@
 						type="text"
 						bind:value={formAddress}
 						placeholder="Contoh: Jl. Malioboro No. 10, Yogyakarta"
-						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-indigo-500"
+						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
 					/>
 				</div>
 
@@ -385,7 +385,7 @@
 						type="text"
 						bind:value={formPhone}
 						placeholder="Contoh: 0274-123456"
-						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-indigo-500"
+						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
 					/>
 				</div>
 
@@ -405,7 +405,7 @@
 					</button>
 					<button
 						onclick={saveBranch}
-						class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition"
+						class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition"
 					>
 						Simpan Cabang
 					</button>

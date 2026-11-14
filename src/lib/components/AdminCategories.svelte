@@ -296,7 +296,7 @@
 									<div class="flex items-center justify-end gap-1.5">
 										<button
 											onclick={() => openRenameModal(cat)}
-											class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+											class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
 											title="Ubah nama kategori"
 										>
 											<Pencil class="h-3.5 w-3.5" />
@@ -346,7 +346,7 @@
 							<span>{renameError}</span>
 						</div>
 					{/if}
-					<p class="text-[11px] text-gray-400 mt-2">
+					<p class="text-[11px] text-gray-500 mt-2">
 						Semua produk yang memakai nama lama akan otomatis diperbarui ke nama baru dan disinkronkan.
 					</p>
 				</div>
