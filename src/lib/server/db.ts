@@ -26,18 +26,15 @@ export function getD1(platform?: App.Platform | undefined): D1Database | null {
  * Flag per-isolate: verifikasi skema cukup sekali per isolate. Menjalankan
  * puluhan statement D1 di setiap request menghabiskan limit CPU Worker.
  */
-let schemaReady = false;
-
 /**
  * Memastikan skema tabel D1 sudah ada (DDL saja, tanpa data).
+ *
+ * Verifikasi dijalankan di setiap request, tetapi ringan: tabel dibuat dalam
+ * satu batch, ALTER hanya untuk kolom yang benar-benar hilang (dari PRAGMA),
+ * dan indeks satu batch. Verifikasi per request penting agar perubahan skema
+ * dari luar (mis. tabel dihapus/diubah lewat D1 Console) tetap pulih sendiri.
  */
 export async function ensureD1Seeded(d1: D1Database): Promise<void> {
-	if (schemaReady) return;
-
-	// Cache hanya dipakai jika seluruh langkah struktural sukses; jika ada
-	// yang gagal, verifikasi diulang pada request berikutnya agar skema rusak
-	// tetap mendapat kesempatan pulih.
-	let schemaOk = true;
 
 	// Semua tabel dibuat dengan IF NOT EXISTS: no-op untuk tabel yang sudah
 	// ada (bentuk apa pun) sehingga aman dijalankan dalam satu batch atomik.
@@ -169,7 +166,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		await d1.batch(tableStatements.map(ddl => d1.prepare(ddl)));
 	} catch (ddlErr) {
 		console.warn('Gagal menyiapkan tabel D1:', ddlErr);
-		schemaOk = false;
 	}
 
 	// Baca struktur tabel yang mungkin berbentuk lama sekali jalan, agar
@@ -182,7 +178,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			tableInfo.set(t, (info.results || []) as any[]);
 		} catch {
 			tableInfo.set(t, []);
-			schemaOk = false;
 		}
 	}
 	const hasColumn = (t: string, col: string) => tableInfo.get(t)?.some(c => String(c.name) === col) ?? false;
@@ -212,7 +207,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			await d1.batch(alterStatements.map(sql => d1.prepare(sql)));
 		} catch (alterErr) {
 			console.warn('Gagal migrasi kolom D1:', alterErr);
-			schemaOk = false;
 		}
 	}
 
@@ -257,7 +251,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			await d1.batch(transferAlterStatements.map(sql => d1.prepare(sql)));
 		} catch (alterErr) {
 			console.warn('Gagal migrasi kolom stock_transfers:', alterErr);
-			schemaOk = false;
 		}
 	}
 
@@ -276,10 +269,10 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		mapRow: (r: any) => any[]
 	) => {
 		try {
-			if (cols.length === 0) return true;
+			if (cols.length === 0) return;
 			const canonical = new Set(canonicalCols);
 			const hasLegacy = cols.some(c => c.notnull && !c.dflt_value && !canonical.has(String(c.name)));
-			if (!hasLegacy) return true;
+			if (!hasLegacy) return;
 			const rowsRes = await d1.prepare(`SELECT * FROM ${table}`).all();
 			await d1.prepare(`DROP TABLE ${table}`).run();
 			await d1.prepare(canonicalDdl).run();
@@ -291,14 +284,12 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				}
 			}
 			console.warn(`Tabel ${table} dibangun ulang karena ada kolom warisan NOT NULL di luar skema kanonik`);
-			return true;
 		} catch (rebuildErr) {
 			console.warn(`Gagal memulihkan tabel ${table}:`, rebuildErr);
-			return false;
 		}
 	};
 
-	if (!(await rebuildLegacyTable(
+	await rebuildLegacyTable(
 		'stock_transfers',
 		tableInfo.get('stock_transfers') || [],
 		`CREATE TABLE stock_transfers (
@@ -319,11 +310,9 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			r.received_by ?? null, r.received_by_name ?? null, r.received_at ?? null,
 			r.created_at || '', r.updated_at || ''
 		]
-	))) {
-		schemaOk = false;
-	}
+	);
 
-	if (!(await rebuildLegacyTable(
+	await rebuildLegacyTable(
 		'stock_transfer_items',
 		tableInfo.get('stock_transfer_items') || [],
 		`CREATE TABLE stock_transfer_items (
@@ -341,9 +330,7 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			r.created_at || '', r.price || 0, r.cost_price || 0,
 			r.category ?? null, r.unit ?? null, r.min_stock || 0
 		]
-	))) {
-		schemaOk = false;
-	}
+	);
 
 	// Indeks dibuat setelah migrasi kolom. Dijalankan sebagai satu batch;
 	// jika ada yang gagal (bentuk tabel lama), ulangi per-statement agar
@@ -356,14 +343,10 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				await d1.prepare(idx).run();
 			} catch (idxErr) {
 				console.warn('Gagal membuat indeks D1:', idxErr);
-				schemaOk = false;
 			}
 		}
 	}
 
 	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat
 	// oleh pengguna lewat alur Pengaturan Awal dan menu admin (data asli, bukan fiktif).
-	if (schemaOk) {
-		schemaReady = true;
-	}
 }
