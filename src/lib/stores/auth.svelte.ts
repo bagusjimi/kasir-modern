@@ -1,5 +1,6 @@
 import type { User, Branch } from '../types/index.js';
 import { db } from '../db/index.js';
+import { cartStore } from './cart.svelte.js';
 import { hashPin, verifyPin, isHashedPin } from '../auth/pin.js';
 import { syncEngine } from '../sync/index.js';
 
@@ -395,6 +396,9 @@ class AuthState {
 		}
 
 		this.clearSession();
+
+		// Pesanan kasir tidak dibawa ke sesi berikutnya
+		cartStore.reset();
 	}
 
 	setBranch(branch: Branch | null) {
