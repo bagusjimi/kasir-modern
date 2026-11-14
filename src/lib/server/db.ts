@@ -224,6 +224,83 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		}
 	}
 
+	// Pulihkan tabel berbentuk warisan yang punya kolom NOT NULL tanpa default
+	// di luar skema kanonik (mis. transfer_number dari percobaan versi awal).
+	// Constraint tersebut menolak semua INSERT baru, sedangkan ALTER hanya
+	// menambah kolom tanpa bisa menghapus constraint lama, sehingga satu-satunya
+	// jalan adalah membangun ulang tabel. Data lama yang masih bisa dipetakan
+	// ikut dipindahkan.
+	const rebuildLegacyTable = async (
+		table: string,
+		canonicalDdl: string,
+		canonicalCols: string[],
+		insertSql: string,
+		mapRow: (r: any) => any[]
+	) => {
+		try {
+			const info = await d1.prepare(`PRAGMA table_info(${table})`).all();
+			const cols = (info.results || []) as any[];
+			if (cols.length === 0) return;
+			const canonical = new Set(canonicalCols);
+			const hasLegacy = cols.some(c => c.notnull && !c.dflt_value && !canonical.has(String(c.name)));
+			if (!hasLegacy) return;
+			const rowsRes = await d1.prepare(`SELECT * FROM ${table}`).all();
+			await d1.prepare(`DROP TABLE ${table}`).run();
+			await d1.prepare(canonicalDdl).run();
+			for (const row of rowsRes.results || []) {
+				try {
+					await d1.prepare(insertSql).bind(...mapRow(row)).run();
+				} catch (rowErr) {
+					console.warn(`Gagal memindahkan baris lama ${table}:`, rowErr);
+				}
+			}
+			console.warn(`Tabel ${table} dibangun ulang karena ada kolom warisan NOT NULL di luar skema kanonik`);
+		} catch (rebuildErr) {
+			console.warn(`Gagal memulihkan tabel ${table}:`, rebuildErr);
+		}
+	};
+
+	await rebuildLegacyTable(
+		'stock_transfers',
+		`CREATE TABLE stock_transfers (
+			id TEXT PRIMARY KEY, transfer_no TEXT NOT NULL,
+			from_branch_id TEXT NOT NULL, from_branch_name TEXT,
+			to_branch_id TEXT NOT NULL, to_branch_name TEXT,
+			status TEXT NOT NULL DEFAULT 'dikirim', notes TEXT,
+			user_id TEXT NOT NULL, user_name TEXT NOT NULL,
+			received_by TEXT, received_by_name TEXT, received_at TEXT,
+			created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+		)`,
+		['id', 'transfer_no', 'from_branch_id', 'from_branch_name', 'to_branch_id', 'to_branch_name', 'status', 'notes', 'user_id', 'user_name', 'received_by', 'received_by_name', 'received_at', 'created_at', 'updated_at'],
+		`INSERT OR IGNORE INTO stock_transfers (id, transfer_no, from_branch_id, from_branch_name, to_branch_id, to_branch_name, status, notes, user_id, user_name, received_by, received_by_name, received_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(r: any) => [
+			r.id, r.transfer_no || r.transfer_number || '', r.from_branch_id || '',
+			r.from_branch_name ?? null, r.to_branch_id || '', r.to_branch_name ?? null,
+			r.status || 'dikirim', r.notes ?? null, r.user_id || '', r.user_name || '',
+			r.received_by ?? null, r.received_by_name ?? null, r.received_at ?? null,
+			r.created_at || '', r.updated_at || ''
+		]
+	);
+
+	await rebuildLegacyTable(
+		'stock_transfer_items',
+		`CREATE TABLE stock_transfer_items (
+			id TEXT PRIMARY KEY, transfer_id TEXT NOT NULL, product_id TEXT NOT NULL,
+			product_name TEXT NOT NULL, sku TEXT, quantity INTEGER NOT NULL,
+			quantity_received INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
+			price REAL NOT NULL DEFAULT 0, cost_price REAL NOT NULL DEFAULT 0,
+			category TEXT, unit TEXT, min_stock INTEGER NOT NULL DEFAULT 0
+		)`,
+		['id', 'transfer_id', 'product_id', 'product_name', 'sku', 'quantity', 'quantity_received', 'created_at', 'price', 'cost_price', 'category', 'unit', 'min_stock'],
+		`INSERT OR IGNORE INTO stock_transfer_items (id, transfer_id, product_id, product_name, sku, quantity, quantity_received, created_at, price, cost_price, category, unit, min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(r: any) => [
+			r.id, r.transfer_id || '', r.product_id || '', r.product_name || '',
+			r.sku ?? null, r.quantity || 0, r.quantity_received || 0,
+			r.created_at || '', r.price || 0, r.cost_price || 0,
+			r.category ?? null, r.unit ?? null, r.min_stock || 0
+		]
+	);
+
 	// Indeks transfer dibuat setelah migrasi kolom agar tidak menggagalkan
 	// batch CREATE TABLE di atas (d1.batch bersifat atomik).
 	for (const idx of [
