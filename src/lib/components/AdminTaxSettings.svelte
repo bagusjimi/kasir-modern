@@ -211,8 +211,8 @@
 					<Receipt class="h-6 w-6" />
 				</div>
 				<div>
-					<h1 class="text-2xl font-black text-gray-900 tracking-tight">Pengaturan Toko &amp; Pajak</h1>
-					<p class="text-xs text-gray-500">Atur identitas toko yang tampil di struk nota, serta apakah pajak diberlakukan pada kasir, persentase tarif, dan label pajak.</p>
+					<h1 class="text-2xl font-black text-gray-900 tracking-tight">Pengaturan Usaha &amp; Pajak</h1>
+					<p class="text-xs text-gray-500">Atur nama usaha (kantor pusat) yang tampil di header struk, serta apakah pajak diberlakukan pada kasir, persentase tarif, dan label pajak.</p>
 				</div>
 			</div>
 		</div>
@@ -261,52 +261,26 @@
 				<div class="space-y-4">
 					<div class="flex items-center gap-2">
 						<Store class="h-4 w-4 text-emerald-600" />
-						<span class="font-bold text-gray-900 text-base">Identitas Toko</span>
-						<span class="text-[11px] text-gray-400">Tampil di header struk nota kasir</span>
-					</div>
-
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div>
-							<label for="store-name-input" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-								Nama Toko
-							</label>
-							<input
-								id="store-name-input"
-								type="text"
-								bind:value={storeName}
-								placeholder="Contoh: Toko Sembako Berkah"
-								class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
-							/>
-						</div>
-						<div>
-							<label for="store-phone-input" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-								Telepon
-							</label>
-							<input
-								id="store-phone-input"
-								type="text"
-								bind:value={storePhone}
-								placeholder="Contoh: 0812-3456-7890"
-								class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
-							/>
-						</div>
+						<span class="font-bold text-gray-900 text-base">Identitas Usaha (Kantor Pusat)</span>
+						<span class="text-[11px] text-gray-400">Header utama struk, di bawahnya menampilkan nama cabang</span>
 					</div>
 
 					<div>
-						<label for="store-address-input" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-							Alamat (Kantor Pusat / Alamat Utama)
+						<label for="store-name-input" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+							Nama Usaha (Kantor Pusat)
 						</label>
 						<input
-							id="store-address-input"
+							id="store-name-input"
 							type="text"
-							bind:value={storeAddress}
-							placeholder="Contoh: Jl. Merdeka No. 10, Jakarta"
+							bind:value={storeName}
+							placeholder="Contoh: TOKO 89"
 							class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-gray-900"
 						/>
 						<p class="text-[11px] text-gray-400 mt-1.5">
-							Jika nama toko dikosongkan, struk akan menampilkan nama cabang tempat transaksi.
+							Struk menampilkan nama usaha ini di baris pertama, nama cabang di bawahnya, lalu alamat &amp; telepon cabang (diatur di menu Kelola Cabang). Jika dikosongkan, struk hanya menampilkan nama cabang.
 						</p>
 					</div>
+
 				</div>
 
 				<div class="pt-2 border-t border-gray-100"></div>

@@ -57,6 +57,7 @@
 
 	// Dokumen serah terima (surat jalan)
 	let storeSettings = $state<StoreSettings | null>(null);
+	let docFromBranch = $state<Branch | null>(null);
 	let isDocOpen = $state<boolean>(false);
 	let docTransfer = $state<StockTransfer | null>(null);
 
@@ -386,9 +387,14 @@
 		isDetailOpen = true;
 	}
 
-	function openDoc(trf: StockTransfer) {
+	async function openDoc(trf: StockTransfer) {
 		docTransfer = trf;
 		isDocOpen = true;
+		try {
+			docFromBranch = (await db.branches.get(trf.from_branch_id)) || null;
+		} catch {
+			docFromBranch = null;
+		}
 	}
 
 	function openReceiveForm() {
@@ -976,11 +982,14 @@
 				<!-- Kop Dokumen -->
 				<div class="text-center border-b-2 border-black pb-3">
 					<h2 class="text-base font-black uppercase tracking-wide">{storeSettings?.name?.trim() || docTransfer.from_branch_name || 'KASIR MODERN'}</h2>
-					{#if storeSettings?.address}
-						<p class="text-[10px]">{storeSettings.address}</p>
+					{#if storeSettings?.name?.trim() && docTransfer.from_branch_name}
+						<p class="text-xs font-bold">{docTransfer.from_branch_name}</p>
 					{/if}
-					{#if storeSettings?.phone}
-						<p class="text-[10px]">Telp. {storeSettings.phone}</p>
+					{#if docFromBranch?.address}
+						<p class="text-[10px]">{docFromBranch.address}</p>
+					{/if}
+					{#if docFromBranch?.phone}
+						<p class="text-[10px]">Telp. {docFromBranch.phone}</p>
 					{/if}
 					<p class="mt-2 font-bold uppercase text-sm">Surat Jalan / Dokumen Serah Terima Barang</p>
 				</div>

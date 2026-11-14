@@ -465,7 +465,7 @@
 					>
 						<div class="flex items-center gap-3">
 							<Receipt class="h-4 w-4 {activeTab === 'tax' ? 'text-emerald-400' : 'text-zinc-400'}" />
-							<span>Pengaturan Toko</span>
+							<span>Pengaturan Usaha</span>
 						</div>
 						{#if activeTab === 'tax'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
