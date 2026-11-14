@@ -576,7 +576,9 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			const scRes = await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
 			updatedStockCounts = scRes.results || [];
 
-			const trfRes = await d1.prepare('SELECT * FROM stock_transfers WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
+			// Catatan transfer bersifat privat per toko: pengirim melihat catatan keluarnya
+			// (belum 'diterima'), penerima hanya melihat catatan penerimaannya sendiri.
+			const trfRes = await d1.prepare("SELECT * FROM stock_transfers WHERE updated_at >= ? AND ((status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?)) ORDER BY created_at DESC LIMIT 100").bind(lastSyncedAt, session.branchId, session.branchId).all();
 			updatedTransfers = trfRes.results || [];
 
 			const branchDeltaRes = await d1.prepare('SELECT * FROM branches WHERE updated_at >= ?').bind(lastSyncedAt).all();
@@ -596,7 +598,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				d1.prepare('SELECT * FROM shifts ORDER BY opened_at DESC LIMIT 100'),
 				d1.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT 100'),
 				d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100'),
-				d1.prepare('SELECT * FROM stock_transfers ORDER BY created_at DESC LIMIT 100')
+				// Catatan transfer privat per toko (lihat komentar di blok delta pull)
+				d1.prepare("SELECT * FROM stock_transfers WHERE (status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?) ORDER BY created_at DESC LIMIT 100").bind(session.branchId, session.branchId)
 			]);
 
 			updatedProducts = prodRes.results || [];
