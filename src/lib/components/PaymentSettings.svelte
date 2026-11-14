@@ -13,10 +13,23 @@
 		RotateCcw,
 		Upload,
 		Trash2,
-		Wallet
+		Wallet,
+		Building2,
+		Store
 	} from 'lucide-svelte';
 
 	const MAX_IMAGE_BYTES = 400 * 1024; // Batas ukuran gambar QR (data URL)
+
+	const isAdmin = authState.user?.role === 'admin';
+
+	// Daftar cabang untuk picker admin; kasir terkunci pada tokonya sendiri
+	let branches = $state<{ id: string; name: string; code?: string }[]>([]);
+	let targetBranchId = $state<string>(
+		isAdmin ? '' : authState.branch?.id || authState.user?.branch_id || ''
+	);
+	let targetBranchName = $derived(
+		branches.find((b) => b.id === targetBranchId)?.name || authState.branch?.name || 'Toko'
+	);
 
 	let qrisEnabled = $state<boolean>(false);
 	let qrisImage = $state<string>('');
@@ -31,12 +44,20 @@
 	let imageError = $state<string | null>(null);
 	let notification = $state<{ type: 'success' | 'error'; message: string } | null>(null);
 
+	// Kunci lokal Dexie: kasir satu konteks cabang (key global lokal, dibersihkan purge saat ganti konteks),
+	// admin menyimpan cache per cabang karena mengelola banyak cabang sekaligus.
+	function localKey(): string {
+		return isAdmin ? `payment_settings:${targetBranchId}` : 'payment_settings';
+	}
+
 	async function loadPaymentSettings() {
+		if (!targetBranchId) return;
+		const branchId = targetBranchId;
 		isLoading = true;
 		imageError = null;
 		try {
 			// 1. Ambil dari lokal Dexie terlebih dahulu
-			const local = await db.app_settings.get('payment_settings');
+			const local = await db.app_settings.get(localKey());
 			if (local && local.value) {
 				applySettings(local.value as PaymentSettings);
 			}
@@ -44,13 +65,13 @@
 			// 2. Jika online, perbarui dari server
 			if (syncEngine.isOnline) {
 				try {
-					const res = await fetch('/api/settings');
+					const res = await fetch(`/api/settings?branch_id=${encodeURIComponent(branchId)}`);
 					if (res.ok) {
 						const result = (await res.json()) as { success: boolean; payment?: PaymentSettings };
 						if (result.success && result.payment) {
 							applySettings(result.payment);
 							await db.app_settings.put({
-								key: 'payment_settings',
+								key: localKey(),
 								value: result.payment
 							});
 						}
@@ -61,6 +82,18 @@
 			}
 		} finally {
 			isLoading = false;
+		}
+	}
+
+	async function loadBranches() {
+		if (!isAdmin) return;
+		try {
+			branches = (await db.branches.toArray()) as any;
+			if (branches.length > 0 && !branches.some((b) => b.id === targetBranchId)) {
+				targetBranchId = branches[0].id;
+			}
+		} catch (e) {
+			console.warn('Gagal memuat daftar cabang:', e);
 		}
 	}
 
@@ -134,20 +167,20 @@
 		};
 
 		try {
-			// 1. Simpan ke database lokal Dexie
-			await db.app_settings.put({ key: 'payment_settings', value: payment });
+			// 1. Simpan ke database lokal Dexie (cache per cabang)
+			await db.app_settings.put({ key: localKey(), value: payment });
 
 			// Catatan log aktivitas
 			if (authState.user) {
 				await db.activity_logs.add({
 					id: 'act-' + Date.now(),
-					branch_id: authState.user.branch_id || 'all',
-					branch_name: 'Pusat',
+					branch_id: targetBranchId,
+					branch_name: targetBranchName,
 					user_id: authState.user.id,
 					user_name: authState.user.name,
 					role: authState.user.role,
 					action: 'payment_settings_updated',
-					details: `Mengubah metode pembayaran: QRIS ${qrisEnabled ? 'aktif' : 'nonaktif'}, Transfer ${transferEnabled ? 'aktif' : 'nonaktif'}`,
+					details: `Mengubah metode pembayaran cabang ${targetBranchName}: QRIS ${qrisEnabled ? 'aktif' : 'nonaktif'}, Transfer ${transferEnabled ? 'aktif' : 'nonaktif'}`,
 					timestamp: new Date().toISOString(),
 					synced: false
 				});
@@ -159,7 +192,7 @@
 					const res = await fetch('/api/settings', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ payment })
+						body: JSON.stringify({ payment, branch_id: targetBranchId })
 					});
 					if (!res.ok) {
 						console.warn('Gagal menyimpan pengaturan pembayaran ke D1 Cloudflare');
@@ -190,7 +223,14 @@
 	}
 
 	onMount(() => {
-		loadPaymentSettings();
+		loadBranches();
+	});
+
+	// Muat ulang pengaturan setiap kali cabang tujuan berubah (picker admin)
+	$effect(() => {
+		if (targetBranchId) {
+			loadPaymentSettings();
+		}
 	});
 </script>
 
@@ -204,7 +244,7 @@
 				</div>
 				<div>
 					<h1 class="text-2xl font-black text-gray-900 tracking-tight">Metode Pembayaran</h1>
-					<p class="text-xs text-gray-500">Atur metode pembayaran non-tunai yang tersedia di kasir: QRIS statis dan transfer bank.</p>
+					<p class="text-xs text-gray-500">Atur QRIS statis dan transfer bank per toko — setiap toko memiliki QR dan rekeningnya sendiri.</p>
 				</div>
 			</div>
 		</div>
@@ -242,6 +282,34 @@
 			>
 				✕
 			</button>
+		</div>
+	{/if}
+
+	<!-- Pilihan Cabang: admin mengatur atas nama cabang mana pun, kasir terkunci pada tokonya -->
+	{#if isAdmin}
+		<div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm flex flex-wrap items-center gap-3">
+			<div class="flex items-center gap-2">
+				<Building2 class="h-4 w-4 text-emerald-600" />
+				<label for="payment-branch" class="text-xs font-bold text-gray-700 uppercase tracking-wider">Cabang Tujuan</label>
+			</div>
+			<select
+				id="payment-branch"
+				bind:value={targetBranchId}
+				class="px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800 bg-white focus:outline-hidden focus:border-emerald-500 min-w-56"
+			>
+				{#each branches as b (b.id)}
+					<option value={b.id}>{b.name}{b.code ? ` (${b.code})` : ''}</option>
+				{/each}
+			</select>
+			{#if branches.length === 0}
+				<span class="text-xs font-semibold text-amber-700">Belum ada cabang terdaftar.</span>
+			{/if}
+		</div>
+	{:else}
+		<div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm flex items-center gap-2">
+			<Store class="h-4 w-4 text-emerald-600" />
+			<span class="text-xs font-semibold text-gray-500">Mengatur pembayaran untuk toko:</span>
+			<span class="text-xs font-bold text-gray-900">{targetBranchName}</span>
 		</div>
 	{/if}
 
@@ -390,7 +458,7 @@
 				<ul class="text-xs text-gray-600 space-y-2 list-disc list-inside">
 					<li>Metode tunai selalu tersedia di kasir.</li>
 					<li>QRIS statis memerlukan konfirmasi manual kasir setelah dana masuk.</li>
-					<li>Pengaturan berlaku untuk semua cabang dan tersinkron ke perangkat kasir otomatis.</li>
+					<li>Pengaturan berlaku khusus untuk toko yang dipilih dan tersinkron ke perangkat kasir tokonya otomatis.</li>
 					<li>Transaksi QRIS/transfer tercatat sebagai non-tunai di laporan dan rekap shift.</li>
 				</ul>
 			</div>

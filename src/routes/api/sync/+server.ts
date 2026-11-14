@@ -712,12 +712,11 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			}
 		}
 
-		// Pengaturan pajak, identitas toko & metode pembayaran: first-sync selalu dikirim, delta hanya jika berubah
+		// Pengaturan pajak & identitas toko (global): first-sync selalu dikirim, delta hanya jika berubah
 		let taxSettings: any = null;
 		let storeSettings: any = null;
-		let paymentSettings: any = null;
 		const settingsRes = await d1
-			.prepare("SELECT key, value, updated_at FROM app_settings WHERE key IN ('tax_settings', 'store_settings', 'payment_settings')")
+			.prepare("SELECT key, value, updated_at FROM app_settings WHERE key IN ('tax_settings', 'store_settings')")
 			.all();
 		for (const row of settingsRes.results || []) {
 			const r = row as { key: string; value: string; updated_at: string };
@@ -726,7 +725,22 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			try {
 				if (r.key === 'tax_settings') taxSettings = JSON.parse(r.value);
 				if (r.key === 'store_settings') storeSettings = JSON.parse(r.value);
-				if (r.key === 'payment_settings') paymentSettings = JSON.parse(r.value);
+			} catch {
+				// Nilai JSON rusak: lewati
+			}
+		}
+
+		// Pengaturan pembayaran per cabang: hanya sesi non-admin (kasir menerima pengaturan tokonya sendiri)
+		let paymentSettings: any = null;
+		if (session.branchId && session.branchId !== 'all') {
+			try {
+				const payRow = await d1
+					.prepare('SELECT value, updated_at FROM app_settings WHERE key = ?')
+					.bind('payment_settings:' + session.branchId)
+					.first<{ value: string; updated_at: string }>();
+				if (payRow && payRow.value && (!lastSyncedAt || (payRow.updated_at && payRow.updated_at >= lastSyncedAt))) {
+					paymentSettings = JSON.parse(payRow.value);
+				}
 			} catch {
 				// Nilai JSON rusak: lewati
 			}
