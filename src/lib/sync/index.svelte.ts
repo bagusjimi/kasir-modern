@@ -19,6 +19,8 @@ interface SyncApiResponse {
 		purchases?: any[];
 		stock_counts?: any[];
 		stock_transfers?: any[];
+		announcements?: any[];
+		announcement_ids?: string[] | null;
 		tax_settings?: any;
 		store_settings?: any;
 		payment_settings?: any;
@@ -351,6 +353,24 @@ export class SyncEngine {
 							synced: true
 						}));
 						await db.stock_transfers.bulkPut(formattedTransfers);
+					}
+					if (result.serverUpdates.announcements && result.serverUpdates.announcements.length > 0) {
+						const formattedAnnouncements = result.serverUpdates.announcements.map(a => ({
+							...a,
+							synced: true
+						}));
+						await db.announcements.bulkPut(formattedAnnouncements);
+					}
+
+					// Rekonsiliasi pengumuman dengan server: hapus salinan lokal yang sudah
+					// dinonaktifkan atau dihapus permanen oleh admin. Berjalan di setiap
+					// sinkronisasi karena pull delta tidak mengirim sinyal penghapusan.
+					if (Array.isArray(result.serverUpdates.announcement_ids)) {
+						const validIds = new Set(result.serverUpdates.announcement_ids);
+						const staleIds = (await db.announcements.toArray())
+							.map(a => a.id)
+							.filter(id => !validIds.has(id));
+						if (staleIds.length > 0) await db.announcements.bulkDelete(staleIds);
 					}
 				}
 

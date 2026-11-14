@@ -133,6 +133,13 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			received_by TEXT, received_by_name TEXT, received_at TEXT,
 			created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS announcements (
+			id TEXT PRIMARY KEY, branch_id TEXT NOT NULL DEFAULT 'all',
+			title TEXT NOT NULL, body TEXT NOT NULL,
+			created_by TEXT, created_by_name TEXT,
+			is_active INTEGER NOT NULL DEFAULT 1,
+			created_at TEXT, updated_at TEXT
+		)`,
 		`CREATE TABLE IF NOT EXISTS stock_transfer_items (
 			id TEXT PRIMARY KEY, transfer_id TEXT NOT NULL, product_id TEXT NOT NULL,
 			product_name TEXT NOT NULL, sku TEXT, quantity INTEGER NOT NULL,
@@ -159,7 +166,9 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_from ON stock_transfers(from_branch_id)',
 		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_to ON stock_transfers(to_branch_id)',
 		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_updated ON stock_transfers(updated_at)',
-		'CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)'
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)',
+		'CREATE INDEX IF NOT EXISTS idx_announcements_branch ON announcements(branch_id)',
+		'CREATE INDEX IF NOT EXISTS idx_announcements_created ON announcements(created_at)'
 	];
 
 	try {

@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
+	import { announcementStore } from '../stores/announcements.svelte.js';
 	import InstallPrompt from './InstallPrompt.svelte';
 	import {
 		Store,
@@ -28,7 +30,8 @@
 		LayoutDashboard,
 		Tags,
 		ArrowLeftRight,
-		Wallet
+		Wallet,
+		Megaphone
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -41,6 +44,19 @@
 	// State untuk membuka/menutup drawer menu di tampilan layar seluler (mobile)
 	let isMobileOpen = $state<boolean>(false);
 	let syncMessage = $state<string | null>(null);
+
+	onMount(() => {
+		refreshAnnouncements();
+		// Muat ulang daftar pengumuman secara berkala agar badge info internal tetap akurat
+		const timer = setInterval(() => {
+			refreshAnnouncements();
+		}, 30000);
+		return () => clearInterval(timer);
+	});
+
+	async function refreshAnnouncements() {
+		await announcementStore.load(authState.user?.id);
+	}
 
 	async function handleSyncNow() {
 		const res = await syncEngine.triggerSync();
@@ -332,6 +348,22 @@
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>
+
+					<!-- Info Internal dari Admin Pusat -->
+					<button
+						onclick={() => selectTab('announcements')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'announcements' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Megaphone class="h-4 w-4 {activeTab === 'announcements' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Info Internal</span>
+						</div>
+						{#if announcementStore.unreadCount > 0 && activeTab !== 'announcements'}
+							<span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">
+								{announcementStore.unreadCount}
+							</span>
+						{/if}
+					</button>
 				{:else if authState.user?.role === 'admin'}
 					<!-- Beranda Admin -->
 					<button
@@ -469,6 +501,20 @@
 							<span>Pengaturan Usaha</span>
 						</div>
 						{#if activeTab === 'tax'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
+					<!-- Info Internal (Admin) -->
+					<button
+						onclick={() => selectTab('announcements')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'announcements' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Megaphone class="h-4 w-4 {activeTab === 'announcements' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Info Internal</span>
+						</div>
+						{#if activeTab === 'announcements'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>

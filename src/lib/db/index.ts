@@ -14,7 +14,8 @@ import type {
 	Shift,
 	Purchase,
 	StockCount,
-	StockTransfer
+	StockTransfer,
+	Announcement
 } from '../types/index.js';
 
 export interface SettingItem {
@@ -38,6 +39,7 @@ export class KasirDatabase extends Dexie {
 	purchases!: Table<Purchase, string>;
 	stock_counts!: Table<StockCount, string>;
 	stock_transfers!: Table<StockTransfer, string>;
+	announcements!: Table<Announcement, string>;
 	app_settings!: Table<SettingItem, string>;
 
 	constructor() {
@@ -72,6 +74,10 @@ export class KasirDatabase extends Dexie {
 
 		this.version(5).stores({
 			stock_transfers: 'id, transfer_no, from_branch_id, to_branch_id, status, updated_at'
+		});
+
+		this.version(6).stores({
+			announcements: 'id, branch_id, created_at'
 		});
 	}
 }
