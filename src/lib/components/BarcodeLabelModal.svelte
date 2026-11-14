@@ -11,18 +11,41 @@
 
 	let { open, products, onClose }: Props = $props();
 
-	type LabelSize = 'small' | 'medium' | 'large';
+	type LabelSize = 'small' | 'smallroll' | 'medium' | 'large';
 
 	const SIZE_PRESETS: Record<LabelSize, { label: string; w: number; h: number; barcodeH: number; nameFont: number; priceFont: number }> = {
-		small: { label: 'Kecil (40\u00d725 mm)', w: 40, h: 25, barcodeH: 7, nameFont: 7, priceFont: 8 },
-		medium: { label: 'Sedang (50\u00d730 mm)', w: 50, h: 30, barcodeH: 9, nameFont: 8, priceFont: 9 },
-		large: { label: 'Besar (60\u00d740 mm)', w: 60, h: 40, barcodeH: 12, nameFont: 9, priceFont: 11 }
+		small: { label: 'Kecil (40×25 mm)', w: 40, h: 25, barcodeH: 7, nameFont: 7, priceFont: 8 },
+		smallroll: { label: 'Kecil Rol (30×20 mm)', w: 30, h: 20, barcodeH: 6, nameFont: 6, priceFont: 7 },
+		medium: { label: 'Sedang (50×30 mm)', w: 50, h: 30, barcodeH: 9, nameFont: 8, priceFont: 9 },
+		large: { label: 'Besar (60×40 mm)', w: 60, h: 40, barcodeH: 12, nameFont: 9, priceFont: 11 }
 	};
 
+	type LayoutMode = 'auto' | 'roll' | 'two';
+
+	const LAYOUT_OPTIONS: { value: LayoutMode; label: string }[] = [
+		{ value: 'auto', label: 'Otomatis — lembar A4' },
+		{ value: 'roll', label: 'Rol — 1 label per baris' },
+		{ value: 'two', label: '2 label per baris' }
+	];
+
 	let labelSize = $state<LabelSize>('medium');
+	let layout = $state<LayoutMode>('auto');
 	let qtyMap = $state<Record<string, number>>({});
 
 	const size = $derived(SIZE_PRESETS[labelSize]);
+
+	// Gaya kontainer label, dipakai bersama oleh pratinjau di layar dan hasil
+	// cetak (gaya inline menimpa aturan cetak di app.css) agar pratinjau
+	// selalu sama persis dengan hasil cetak.
+	const containerStyle = $derived.by<string>(() => {
+		if (layout === 'roll') {
+			return `display:flex; flex-direction:column; align-items:center; gap:2mm; padding:2mm; width:${size.w + 4}mm;`;
+		}
+		if (layout === 'two') {
+			return `display:grid; grid-template-columns:repeat(2, ${size.w}mm); justify-content:center; gap:3mm; padding:8mm;`;
+		}
+		return 'display:flex; flex-wrap:wrap; gap:3mm; padding:8mm;';
+	});
 
 	interface LabelItem {
 		key: string;
@@ -44,6 +67,7 @@
 		if (open) {
 			qtyMap = {};
 			labelSize = 'medium';
+			layout = 'auto';
 		}
 	});
 
@@ -116,6 +140,18 @@
 								{/each}
 							</select>
 						</div>
+						<div>
+							<label for="labelLayout" class="block text-xs font-semibold text-gray-700 mb-1">Tata Letak</label>
+							<select
+								id="labelLayout"
+								bind:value={layout}
+								class="px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
+							>
+								{#each LAYOUT_OPTIONS as opt}
+									<option value={opt.value}>{opt.label}</option>
+								{/each}
+							</select>
+						</div>
 						<div class="flex items-end gap-2">
 							<div>
 								<label for="allQty" class="block text-xs font-semibold text-gray-700 mb-1">Jumlah Semua</label>
@@ -161,9 +197,9 @@
 					</div>
 
 					<div>
-						<p class="text-xs font-semibold text-gray-700 mb-2">Pratinjau Lembar Cetak (A4)</p>
+						<p class="text-xs font-semibold text-gray-700 mb-2">Pratinjau {layout === 'roll' ? 'Rol Label' : 'Lembar Cetak (A4)'}</p>
 						<div class="rounded-xl border border-gray-200 bg-gray-50 p-4 overflow-x-auto">
-							<div id="barcode-labels">
+							<div id="barcode-labels" style={containerStyle}>
 								{#each labelItems as item (item.key)}
 									<div
 										class="barcode-label"
