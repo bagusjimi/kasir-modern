@@ -572,6 +572,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		// 8. Tarik Pembaruan dari D1 Server (Pull delta changes)
 		let updatedProducts: any[] = [];
 		let updatedUsers: any[] = [];
+		let updatedTransactions: any[] = [];
 		let updatedExpenses: any[] = [];
 		let updatedMovements: any[] = [];
 		let updatedShifts: any[] = [];
@@ -626,6 +627,13 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				: await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? AND branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt, branchId).all();
 			updatedStockCounts = scRes.results || [];
 
+			// Transaksi ikut ditarik agar riwayat per cabang tersedia di semua
+			// perangkat cabang tersebut tanpa harus membuka tab laporan lebih dulu.
+			const txRes = isAdmin
+				? await d1.prepare('SELECT * FROM transactions WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 200').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM transactions WHERE updated_at >= ? AND branch_id = ? ORDER BY created_at DESC LIMIT 200').bind(lastSyncedAt, branchId).all();
+			updatedTransactions = txRes.results || [];
+
 			// Catatan transfer bersifat privat per toko: pengirim melihat catatan keluarnya
 			// (belum 'diterima'), penerima hanya melihat catatan penerimaannya sendiri.
 			// Admin pusat (semua cabang) menerima semua catatan untuk dipantau (baca-saja).
@@ -648,7 +656,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			// Jika first sync, kirimkan master data (difilter per cabang untuk non-admin)
 			const isAdmin = session.branchId === 'all';
 			const branchId = session.branchId;
-			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([
+			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes, txRes] = await d1.batch([
 				isAdmin
 					? d1.prepare('SELECT * FROM products WHERE is_active = 1')
 					: d1.prepare('SELECT * FROM products WHERE is_active = 1 AND branch_id = ?').bind(branchId),
@@ -671,7 +679,10 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					: d1.prepare('SELECT * FROM purchases WHERE branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(branchId),
 				isAdmin
 					? d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100')
-					: d1.prepare('SELECT * FROM stock_counts WHERE branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(branchId)
+					: d1.prepare('SELECT * FROM stock_counts WHERE branch_id = ? ORDER BY created_at DESC LIMIT 100').bind(branchId),
+				isAdmin
+					? d1.prepare('SELECT * FROM transactions ORDER BY created_at DESC LIMIT 200')
+					: d1.prepare('SELECT * FROM transactions WHERE branch_id = ? ORDER BY created_at DESC LIMIT 200').bind(branchId)
 			]);
 
 			updatedProducts = prodRes.results || [];
@@ -686,6 +697,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			updatedShifts = shiftRes.results || [];
 			updatedPurchases = poRes.results || [];
 			updatedStockCounts = scRes.results || [];
+			updatedTransactions = txRes.results || [];
 
 			// Catatan transfer privat per toko (lihat komentar di blok delta pull);
 			// admin pusat menerima semua catatan untuk dipantau (baca-saja).
@@ -716,6 +728,20 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			} catch {
 				// Nilai JSON rusak: lewati
 			}
+		}
+
+		// Lampirkan item untuk transaksi yang ditarik dari server
+		if (updatedTransactions.length > 0) {
+			const txIds = updatedTransactions.map((t: any) => t.id);
+			const txItemsRes = await d1
+				.prepare(`SELECT * FROM transaction_items WHERE transaction_id IN (${txIds.map(() => '?').join(',')})`)
+				.bind(...txIds)
+				.all();
+			const itemsByTx: Record<string, any[]> = {};
+			for (const it of txItemsRes.results || []) {
+				(itemsByTx[(it as any).transaction_id] ||= []).push(it);
+			}
+			updatedTransactions = updatedTransactions.map((t: any) => ({ ...t, items: itemsByTx[t.id] || [] }));
 		}
 
 		// Lampirkan item untuk pembelian dan opname yang ditarik dari server
@@ -767,6 +793,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			serverUpdates: {
 				products: updatedProducts,
 				users: updatedUsers,
+				transactions: updatedTransactions,
 				branches,
 				categories,
 				expenses: updatedExpenses,
