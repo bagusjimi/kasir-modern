@@ -97,7 +97,7 @@
 		// Kasir hanya melihat produk aktif yang berlaku untuk semua cabang atau cabang aktifnya
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		products = allProducts.filter(
-			p => p.is_active && (p.branch_id === 'all' || p.branch_id === branchId)
+			p => p.is_active && p.branch_id === branchId
 		);
 	}
 

@@ -99,7 +99,7 @@
 		const allProducts = await db.products.toArray();
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 		products = allProducts.filter(
-			p => p.branch_id === 'all' || p.branch_id === branchId
+			p => p.branch_id === branchId
 		);
 	}
 
@@ -288,16 +288,16 @@
 
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 
-		// SKU dipakai sebagai barcode untuk scan-to-cart. Uniknya cukup per cakupan
-		// tampil: toko mengelola katalognya sendiri, jadi SKU sama antar cabang tidak
-		// bentrok (scan hanya mencari produk yang tampil di cabang masing-masing).
+		// SKU dipakai sebagai barcode untuk scan-to-cart. Setiap produk milik satu
+		// toko, jadi SKU cukup unik dalam cabang sendiri — SKU sama antar cabang
+		// tidak bentrok karena scan hanya mencari produk cabang masing-masing.
 		const trimmedSku = formSku.trim();
 		if (trimmedSku) {
 			const allProducts = await db.products.toArray();
 			const duplicate = allProducts.find(
 				p =>
 					p.id !== formId &&
-					(branchId === 'all' || p.branch_id === 'all' || p.branch_id === branchId) &&
+					p.branch_id === branchId &&
 					p.sku.toLowerCase() === trimmedSku.toLowerCase()
 			);
 			if (duplicate) {
