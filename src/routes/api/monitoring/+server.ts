@@ -18,6 +18,21 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	try {
 		const branchId = url.searchParams.get('branch_id');
 
+		// Filter periode bebas (YYYY-MM-DD); kosong = semua periode
+		const startDate = url.searchParams.get('start_date') || '';
+		const endDate = url.searchParams.get('end_date') || '';
+		const txWhere: string[] = ["status = 'completed'"];
+		const txParams: any[] = [];
+		if (/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+			txWhere.push('date(created_at) >= ?');
+			txParams.push(startDate);
+		}
+		if (/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+			txWhere.push('date(created_at) <= ?');
+			txParams.push(endDate);
+		}
+		const txWhereSql = txWhere.join(' AND ');
+
 		// 1. Ambil summary per cabang
 		const branchSummaries = await d1.prepare(`
 			SELECT
@@ -27,9 +42,9 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 				COALESCE(SUM(total), 0) as total_revenue,
 				MAX(created_at) as last_activity
 			FROM transactions
-			WHERE status = 'completed'
+			WHERE ${txWhereSql}
 			GROUP BY branch_id
-		`).all();
+		`).bind(...txParams).all();
 
 		// 2. Ambil total statistik global
 		const globalStats = await d1.prepare(`
@@ -37,12 +52,21 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 				COUNT(*) as total_transactions,
 				COALESCE(SUM(total), 0) as total_revenue
 			FROM transactions
-			WHERE status = 'completed'
-		`).first<{ total_transactions: number; total_revenue: number }>();
+			WHERE ${txWhereSql}
+		`).bind(...txParams).first<{ total_transactions: number; total_revenue: number }>();
 
-		// 3. Ambil log aktivitas terbaru
+		// 3. Ambil log aktivitas terbaru (ikut periode)
 		let logsQuery = 'SELECT * FROM activity_logs WHERE 1=1';
 		const logParams: any[] = [];
+
+		if (startDate) {
+			logsQuery += ' AND date(timestamp) >= ?';
+			logParams.push(startDate);
+		}
+		if (endDate) {
+			logsQuery += ' AND date(timestamp) <= ?';
+			logParams.push(endDate);
+		}
 
 		if (branchId && branchId !== 'all') {
 			logsQuery += ' AND (branch_id = ? OR branch_id = "all")';

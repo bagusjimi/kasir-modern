@@ -10,13 +10,15 @@
 		AlertTriangle,
 		Building2,
 		RefreshCw,
-		WifiOff
+		WifiOff,
+		Users
 	} from 'lucide-svelte';
 
 	interface DashboardData {
 		today: { tx_count: number; total_sales: number; gross_profit: number; items_sold: number };
 		trend: { day: string; tx_count: number; total_sales: number }[];
 		branches: { branch_id: string; branch_name: string; tx_count: number; total_sales: number }[];
+		cashiers: { cashier_id: string; cashier_name: string; branch_name: string; tx_count: number; total_sales: number; total_discount: number }[];
 		low_stock: { id: string; name: string; sku: string; stock: number; min_stock: number; branch_id: string }[];
 		counts: { active_products: number; categories: number };
 	}
@@ -218,6 +220,44 @@
 										<td class="py-2.5 pr-4 font-bold text-gray-900">{b.branch_name}</td>
 										<td class="py-2.5 pr-4">{b.tx_count}</td>
 										<td class="py-2.5 text-right font-bold text-emerald-600">{formatRupiah(b.total_sales)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Kinerja Kasir Hari Ini -->
+			<div class="lg:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
+				<div class="flex items-center gap-2 mb-4">
+					<Users class="h-4 w-4 text-emerald-600" />
+					<h2 class="text-sm font-bold text-gray-900">Kinerja Kasir Hari Ini</h2>
+				</div>
+				{#if data.cashiers.length === 0}
+					<p class="text-xs text-gray-400 py-6 text-center">Belum ada transaksi hari ini untuk dievaluasi.</p>
+				{:else}
+					<div class="overflow-x-auto">
+						<table class="w-full text-left text-xs">
+							<thead class="text-gray-500 font-semibold border-b border-gray-100">
+								<tr>
+									<th class="py-2 pr-4">Kasir</th>
+									<th class="py-2 pr-4">Cabang</th>
+									<th class="py-2 pr-4">Nota</th>
+									<th class="py-2 pr-4">Diskon</th>
+									<th class="py-2 pr-4">Rata-rata/Nota</th>
+									<th class="py-2 text-right">Omzet</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-gray-100 font-medium text-gray-700">
+								{#each data.cashiers as c (c.cashier_id)}
+									<tr>
+										<td class="py-2.5 pr-4 font-bold text-gray-900">{c.cashier_name}</td>
+										<td class="py-2.5 pr-4 text-gray-500">{c.branch_name}</td>
+										<td class="py-2.5 pr-4">{c.tx_count}</td>
+										<td class="py-2.5 pr-4 {c.total_discount > 0 ? 'text-rose-600' : 'text-gray-400'}">{c.total_discount > 0 ? formatRupiah(c.total_discount) : '-'}</td>
+										<td class="py-2.5 pr-4">{formatRupiah(Math.round(c.total_sales / c.tx_count))}</td>
+										<td class="py-2.5 text-right font-bold text-emerald-600">{formatRupiah(c.total_sales)}</td>
 									</tr>
 								{/each}
 							</tbody>

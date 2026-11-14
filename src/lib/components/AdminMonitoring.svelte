@@ -11,7 +11,8 @@
 		Radio,
 		DollarSign,
 		TrendingUp,
-		Package
+		Package,
+		Percent
 	} from 'lucide-svelte';
 
 	let activityLogs = $state<ActivityLog[]>([]);
@@ -19,6 +20,10 @@
 	let selectedBranch = $state<string>('all');
 	let isRefreshing = $state<boolean>(false);
 	let autoRefreshTimer: number | null = null;
+
+	// Filter periode bebas (YYYY-MM-DD); kosong = semua periode
+	let startDate = $state<string>('');
+	let endDate = $state<string>('');
 
 	// Statistik ringkasan cabang
 	let branchStats = $state<{
@@ -53,7 +58,11 @@
 		let loadedFromServer = false;
 		if (navigator.onLine) {
 			try {
-				const res = await fetch(`/api/monitoring?branch_id=${selectedBranch}`);
+				const periodParams = new URLSearchParams();
+				periodParams.set('branch_id', selectedBranch);
+				if (startDate) periodParams.set('start_date', startDate);
+				if (endDate) periodParams.set('end_date', endDate);
+				const res = await fetch(`/api/monitoring?${periodParams.toString()}`);
 				if (res.ok) {
 					const data = await res.json() as any;
 					if (data.success) {
@@ -82,16 +91,16 @@
 
 		// Fallback ke IndexedDB lokal jika offline atau server belum merespon
 		if (!loadedFromServer) {
-			const allLogs = await db.activity_logs
+			const allLogs = (await db.activity_logs
 				.reverse()
-				.sortBy('timestamp');
+				.sortBy('timestamp')).filter(l => inPeriod(l.timestamp));
 			activityLogs = allLogs;
 
 			const allTx = await db.transactions.toArray();
 			const statsMap: typeof branchStats = {};
 
 			for (const b of branches) {
-				const bTx = allTx.filter(t => t.branch_id === b.id && t.status === 'completed');
+				const bTx = allTx.filter(t => t.branch_id === b.id && t.status === 'completed' && inPeriod(t.created_at));
 				const totalRev = bTx.reduce((sum, t) => sum + t.total, 0);
 				const lastTx = bTx.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
 
@@ -105,6 +114,31 @@
 		}
 
 		if (showLoading) isRefreshing = false;
+	}
+
+	// Timestamp ISO 'YYYY-MM-DD...' dibandingkan langsung dengan rentang tanggal
+	function inPeriod(iso: string): boolean {
+		const day = (iso || '').slice(0, 10);
+		if (!day) return true;
+		if (startDate && day < startDate) return false;
+		if (endDate && day > endDate) return false;
+		return true;
+	}
+
+	function setPeriodPreset(days: number | null) {
+		const today = new Date().toISOString().slice(0, 10);
+		if (days === null) {
+			startDate = '';
+			endDate = '';
+		} else if (days === 0) {
+			startDate = today;
+			endDate = today;
+		} else {
+			const start = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+			startDate = start;
+			endDate = today;
+		}
+		loadData(true);
 	}
 
 	let filteredLogs = $derived(
@@ -145,7 +179,42 @@
 			</p>
 		</div>
 
-		<div class="flex items-center gap-3">
+		<div class="flex flex-wrap items-center gap-2">
+			<div class="flex items-center gap-1.5">
+				<input
+					type="date"
+					bind:value={startDate}
+					onchange={() => loadData(true)}
+					class="px-2.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-indigo-500"
+				/>
+				<span class="text-xs text-gray-400 font-semibold">s/d</span>
+				<input
+					type="date"
+					bind:value={endDate}
+					onchange={() => loadData(true)}
+					class="px-2.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-indigo-500"
+				/>
+			</div>
+
+			<div class="flex items-center gap-1">
+				<button
+					onclick={() => setPeriodPreset(0)}
+					class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
+				>Hari Ini</button>
+				<button
+					onclick={() => setPeriodPreset(7)}
+					class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
+				>7 Hari</button>
+				<button
+					onclick={() => setPeriodPreset(30)}
+					class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
+				>30 Hari</button>
+				<button
+					onclick={() => setPeriodPreset(null)}
+					class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
+				>Semua</button>
+			</div>
+
 			<select
 				bind:value={selectedBranch}
 				class="px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-indigo-500"
@@ -253,6 +322,8 @@
 									<ShoppingBag class="h-4 w-4 text-emerald-600" />
 								{:else if log.action === 'login' || log.action === 'logout'}
 									<UserCheck class="h-4 w-4 text-indigo-600" />
+								{:else if log.action === 'discount_applied'}
+									<Percent class="h-4 w-4 text-rose-600" />
 								{:else if log.action.includes('product')}
 									<Package class="h-4 w-4 text-amber-600" />
 								{:else}
