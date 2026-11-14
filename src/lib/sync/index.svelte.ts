@@ -20,6 +20,7 @@ interface SyncApiResponse {
 		stock_counts?: any[];
 		stock_transfers?: any[];
 		announcements?: any[];
+		announcement_ids?: string[] | null;
 		tax_settings?: any;
 		store_settings?: any;
 		payment_settings?: any;
@@ -368,7 +369,15 @@ export class SyncEngine {
 								.map(a => a.id);
 							if (inactiveIds.length > 0) await db.announcements.bulkDelete(inactiveIds);
 						}
-					}
+						// Rekonsiliasi daftar ID dari server: hapus salinan lokal pengumuman
+						// yang sudah dihapus permanen di admin (tidak terdeteksi oleh pull delta).
+						if (Array.isArray(result.serverUpdates.announcement_ids)) {
+							const validIds = new Set(result.serverUpdates.announcement_ids);
+							const staleIds = (await db.announcements.toArray())
+								.map(a => a.id)
+								.filter(id => !validIds.has(id));
+							if (staleIds.length > 0) await db.announcements.bulkDelete(staleIds);
+						}					}
 				}
 
 				// Beri tahu perangkat jika ada perubahan produknya yang kalah versi

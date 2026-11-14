@@ -800,6 +800,20 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			}
 		}
 
+		// Daftar ID pengumuman yang berlaku untuk sesi ini. Dikirim pada setiap
+		// sinkronisasi agar perangkat dapat menghapus salinan lokal pengumuman yang
+		// sudah dihapus permanen di server (pull delta tidak mengirim penghapusan).
+		let announcementIds: string[] | null = null;
+		try {
+			const isAdminSession = session.branchId === 'all';
+			const idsRes = isAdminSession
+				? await d1.prepare('SELECT id FROM announcements').all()
+				: await d1.prepare("SELECT id FROM announcements WHERE is_active = 1 AND (branch_id = ? OR branch_id = 'all')").bind(session.branchId).all();
+			announcementIds = (idsRes.results || []).map((r: any) => String(r.id));
+		} catch (annIdsErr) {
+			console.warn('Gagal membaca daftar ID announcements:', annIdsErr);
+		}
+
 		// Lampirkan item untuk transaksi yang ditarik dari server
 		if (updatedTransactions.length > 0) {
 			const txIds = updatedTransactions.map((t: any) => t.id);
@@ -873,6 +887,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				stock_counts: updatedStockCounts,
 				stock_transfers: updatedTransfers,
 				announcements: updatedAnnouncements,
+				announcement_ids: announcementIds,
 				...(taxSettings ? { tax_settings: taxSettings } : {}),
 				...(storeSettings ? { store_settings: storeSettings } : {}),
 				...(paymentSettings ? { payment_settings: paymentSettings } : {})
