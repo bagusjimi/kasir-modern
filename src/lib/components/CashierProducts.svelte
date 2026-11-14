@@ -286,21 +286,27 @@
 			return;
 		}
 
-		// SKU dipakai sebagai barcode untuk scan-to-cart, jadi harus unik
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
+
+		// SKU dipakai sebagai barcode untuk scan-to-cart. Uniknya cukup per cakupan
+		// tampil: toko mengelola katalognya sendiri, jadi SKU sama antar cabang tidak
+		// bentrok (scan hanya mencari produk yang tampil di cabang masing-masing).
 		const trimmedSku = formSku.trim();
 		if (trimmedSku) {
 			const allProducts = await db.products.toArray();
 			const duplicate = allProducts.find(
-				p => p.id !== formId && p.sku.toLowerCase() === trimmedSku.toLowerCase()
+				p =>
+					p.id !== formId &&
+					(branchId === 'all' || p.branch_id === 'all' || p.branch_id === branchId) &&
+					p.sku.toLowerCase() === trimmedSku.toLowerCase()
 			);
 			if (duplicate) {
-				formError = `SKU / barcode "${trimmedSku}" sudah dipakai produk "${duplicate.name}"`;
+				formError = `SKU / barcode "${trimmedSku}" sudah dipakai produk "${duplicate.name}" di toko ini`;
 				return;
 			}
 		}
 
 		const now = new Date().toISOString();
-		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 
 		await registerCategory(formCategory);
 
