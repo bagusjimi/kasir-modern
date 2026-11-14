@@ -18,13 +18,21 @@
 		AlertCircle,
 		ShoppingBag,
 		ArrowRight,
-		Clock
+		Clock,
+		Barcode
 	} from 'lucide-svelte';
 
 	let products = $state<Product[]>([]);
 	let categories = $state<Category[]>([]);
 	let selectedCategory = $state<string>('all');
 	let searchQuery = $state<string>('');
+
+	// Scan barcode / SKU ke keranjang (alat pemindai tipe keyboard wedge mengetik lalu Enter)
+	let scanQuery = $state<string>('');
+	let scanFeedback = $state<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
+	let scanSuggestions = $state<Product[]>([]);
+	let scanInput: HTMLInputElement | undefined = $state();
+	let scanTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	// Keranjang Belanja & Pengaturan Pajak
 	let cart = $state<CartItem[]>([]);
@@ -59,6 +67,7 @@
 		await loadProductsAndCategories();
 		await loadTaxSettings();
 		await loadOpenShift();
+		scanInput?.focus();
 	});
 
 	// Muat ulang pengaturan pajak setiap kali sinkronisasi selesai,
@@ -110,6 +119,62 @@
 	let taxAmount = $derived(Math.round(Math.max(0, subtotal - discount) * taxRate));
 	let totalAmount = $derived(Math.max(0, subtotal - discount + taxAmount));
 	let changeAmount = $derived(Math.max(0, amountPaid - totalAmount));
+
+	function showScanFeedback(type: 'success' | 'error' | 'warning', message: string) {
+		scanFeedback = { type, message };
+		clearTimeout(scanTimeout);
+		scanTimeout = setTimeout(() => (scanFeedback = null), 2500);
+	}
+
+	function addScannedProduct(product: Product) {
+		if (product.stock <= 0) {
+			scanSuggestions = [];
+			scanQuery = '';
+			showScanFeedback('error', `Stok "${product.name}" habis`);
+			return;
+		}
+		addToCart(product);
+		scanQuery = '';
+		scanSuggestions = [];
+		showScanFeedback('success', `${product.name} masuk keranjang`);
+		scanInput?.focus();
+	}
+
+	function pickSuggestion(product: Product) {
+		addScannedProduct(product);
+	}
+
+	function handleScan(event: KeyboardEvent) {
+		if (event.key !== 'Enter') return;
+		const query = scanQuery.trim();
+		if (!query) return;
+
+		const lower = query.toLowerCase();
+		// Prioritas pencocokan: barcode persis, lalu SKU persis
+		let match = products.find(p => p.barcode && p.barcode === query);
+		if (!match) match = products.find(p => p.sku.toLowerCase() === lower);
+
+		if (match) {
+			addScannedProduct(match);
+			return;
+		}
+
+		// Fallback: cocokkan nama produk yang mengandung query
+		const nameMatches = products.filter(p => p.name.toLowerCase().includes(lower));
+		if (nameMatches.length === 1) {
+			addScannedProduct(nameMatches[0]);
+			return;
+		}
+		if (nameMatches.length > 1) {
+			scanSuggestions = nameMatches.slice(0, 6);
+			showScanFeedback('warning', `${nameMatches.length} produk cocok — pilih salah satu di bawah`);
+			return;
+		}
+
+		scanSuggestions = [];
+		scanQuery = '';
+		showScanFeedback('error', `Produk dengan kode "${query}" tidak ditemukan`);
+	}
 
 	function addToCart(product: Product) {
 		if (product.stock <= 0) return;
@@ -307,6 +372,43 @@
 	<div class="lg:col-span-7 xl:col-span-8 flex flex-col h-full bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
 		<!-- Search & Filter Bar -->
 		<div class="p-4 border-b border-gray-100 space-y-3">
+			<!-- Input Scan Barcode / SKU -->
+			<div class="relative">
+				<Barcode class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
+				<input
+					type="text"
+					bind:this={scanInput}
+					bind:value={scanQuery}
+					onkeydown={handleScan}
+					placeholder="Scan barcode / ketik SKU lalu Enter..."
+					class="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm font-mono transition outline-hidden"
+				/>
+				{#if scanFeedback}
+					<div class="absolute left-0 right-0 top-full mt-1.5 z-20 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold shadow-lg {scanFeedback.type === 'success' ? 'bg-emerald-600 border-emerald-600 text-white' : scanFeedback.type === 'error' ? 'bg-rose-600 border-rose-600 text-white' : 'bg-amber-500 border-amber-500 text-white'}">
+						{#if scanFeedback.type === 'success'}
+							<CheckCircle class="h-4 w-4 shrink-0" />
+						{:else}
+							<AlertCircle class="h-4 w-4 shrink-0" />
+						{/if}
+						{scanFeedback.message}
+					</div>
+				{/if}
+				{#if scanSuggestions.length > 0}
+					<div class="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+						<p class="px-3 py-2 text-[11px] font-semibold text-gray-400 bg-gray-50">Beberapa produk cocok — pilih salah satu:</p>
+						{#each scanSuggestions as sugg (sugg.id)}
+							<button
+								onclick={() => pickSuggestion(sugg)}
+								class="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-emerald-50 transition text-left"
+							>
+								<span class="font-semibold text-gray-800">{sugg.name}</span>
+								<span class="text-xs text-gray-400 font-mono">{sugg.sku}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
 			<div class="relative">
 				<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
 				<input

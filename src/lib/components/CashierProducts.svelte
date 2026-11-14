@@ -14,7 +14,8 @@
 		AlertCircle,
 		CheckCircle2,
 		History,
-		X
+		X,
+		Barcode
 	} from 'lucide-svelte';
 
 	let products = $state<Product[]>([]);
@@ -29,6 +30,7 @@
 	let formCategory = $state<string>('');
 	let newCategoryName = $state<string>('');
 	let formSku = $state<string>('');
+	let skuInput: HTMLInputElement | undefined = $state();
 	let formPrice = $state<number>(0);
 	let formCostPrice = $state<number>(0);
 	let formStock = $state<number>(0);
@@ -334,6 +336,19 @@
 			return;
 		}
 
+		// SKU dipakai sebagai barcode untuk scan-to-cart, jadi harus unik
+		const trimmedSku = formSku.trim();
+		if (trimmedSku) {
+			const allProducts = await db.products.toArray();
+			const duplicate = allProducts.find(
+				p => p.id !== formId && p.sku.toLowerCase() === trimmedSku.toLowerCase()
+			);
+			if (duplicate) {
+				formError = `SKU / barcode "${trimmedSku}" sudah dipakai produk "${duplicate.name}"`;
+				return;
+			}
+		}
+
 		const now = new Date().toISOString();
 		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
 
@@ -633,13 +648,27 @@
 						{/if}
 					</div>
 					<div>
-						<label for="formSku" class="block font-semibold text-gray-700 mb-1">SKU / Kode</label>
-						<input
-							id="formSku"
-							type="text"
-							bind:value={formSku}
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
-						/>
+						<label for="formSku" class="block font-semibold text-gray-700 mb-1">SKU / Kode (Barcode)</label>
+						<div class="relative">
+							<input
+								id="formSku"
+								type="text"
+								bind:this={skuInput}
+								bind:value={formSku}
+								placeholder="Klik di sini lalu scan barcode..."
+								class="w-full px-3 py-2 pr-16 rounded-xl border border-gray-200 font-mono focus:outline-hidden focus:border-emerald-500"
+							/>
+							<button
+								type="button"
+								onclick={() => skuInput?.focus()}
+								title="Fokuskan field untuk scan barcode"
+								class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-100 transition"
+							>
+								<Barcode class="h-3.5 w-3.5" />
+								Scan
+							</button>
+						</div>
+						<p class="text-[11px] text-gray-400 mt-1">Isi dengan isi barcode (Code 128 / EAN-13). Klik field lalu scan dengan alat pemindai.</p>
 					</div>
 				</div>
 
