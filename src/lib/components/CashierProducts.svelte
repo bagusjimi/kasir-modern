@@ -18,6 +18,7 @@
 		X,
 		Barcode
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	let products = $state<Product[]>([]);
 	let categories = $state<Category[]>([]);
@@ -114,6 +115,19 @@
 			p.sku.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
+
+	// Paginasi tabel produk
+	let currentPage = $state(1);
+	let perPage = $state(25);
+	let pagedProducts = $derived(
+		filteredProducts.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat pencarian berubah
+	$effect(() => {
+		searchQuery;
+		currentPage = 1;
+	});
 
 	function openAddModal() {
 		isEditing = false;
@@ -526,11 +540,11 @@
 							</td>
 						</tr>
 					{:else}
-						{#each filteredProducts as prod}
+						{#each pagedProducts as prod}
 							<tr class="hover:bg-gray-50/60 transition">
 								<td class="px-5 py-3.5">
 									<div class="font-bold text-gray-900">{prod.name}</div>
-									<div class="text-[11px] text-gray-400 font-mono">{prod.sku}</div>
+									<div class="text-[11px] text-gray-500 font-mono">{prod.sku}</div>
 								</td>
 								<td class="px-5 py-3.5">
 									<span class="bg-gray-100 text-gray-700 px-2.5 py-0.5 rounded-md font-semibold text-[11px]">
@@ -590,6 +604,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredProducts.length} label="produk" />
 	</div>
 </div>
 
@@ -665,7 +680,7 @@
 								Scan
 							</button>
 						</div>
-						<p class="text-[11px] text-gray-400 mt-1">Isi dengan isi barcode (Code 128 / EAN-13). Klik field lalu scan dengan alat pemindai.</p>
+						<p class="text-[11px] text-gray-500 mt-1">Isi dengan isi barcode (Code 128 / EAN-13). Klik field lalu scan dengan alat pemindai.</p>
 					</div>
 				</div>
 
@@ -721,7 +736,7 @@
 						/>
 					</div>
 				</div>
-				<p class="text-[11px] text-gray-400 -mt-1">Stok minimum &gt; 0 akan memunculkan peringatan stok menipis di beranda admin saat stok mencapai batas.</p>
+				<p class="text-[11px] text-gray-500 -mt-1">Stok minimum &gt; 0 akan memunculkan peringatan stok menipis di beranda admin saat stok mencapai batas.</p>
 
 				{#if formError}
 					<div class="flex items-center gap-1.5 p-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-medium">
@@ -770,7 +785,7 @@
 				<div class="rounded-xl bg-gray-50 p-3 border border-gray-100 flex items-center justify-between">
 					<div>
 						<p class="font-bold text-gray-900 text-sm">{restockProduct.name}</p>
-						<p class="text-[11px] text-gray-400 font-mono mt-0.5">{restockProduct.sku} • {restockProduct.category}</p>
+						<p class="text-[11px] text-gray-500 font-mono mt-0.5">{restockProduct.sku} • {restockProduct.category}</p>
 					</div>
 					<div class="text-right">
 						<span class="text-[10px] text-gray-500 block">Stok Sekarang</span>
@@ -864,7 +879,7 @@
 					</div>
 					<div>
 						<h3 class="text-base font-bold text-gray-900">Riwayat Pergerakan Stok</h3>
-						<p class="text-[11px] text-gray-400">{historyProduct.name} • {historyProduct.sku}</p>
+						<p class="text-[11px] text-gray-500">{historyProduct.name} • {historyProduct.sku}</p>
 					</div>
 				</div>
 				<button onclick={() => isHistoryModalOpen = false} class="text-gray-400 hover:text-gray-600 cursor-pointer">
@@ -891,7 +906,7 @@
 									<p class="text-[11px] text-gray-500 mt-0.5">{mv.reason}</p>
 								{/if}
 							</div>
-							<div class="text-right text-[11px] text-gray-400">
+							<div class="text-right text-[11px] text-gray-500">
 								<div>{new Date(mv.created_at).toLocaleString('id-ID')}</div>
 								<div>{mv.user_name}</div>
 							</div>

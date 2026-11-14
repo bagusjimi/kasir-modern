@@ -5,6 +5,7 @@
 	import { syncEngine } from '../sync/index.js';
 	import type { Transaction, TransactionAdjustmentType } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
+	import Pagination from './Pagination.svelte';
 	import {
 		Search,
 		Receipt,
@@ -23,6 +24,10 @@
 	let searchQuery = $state<string>('');
 	let selectedDate = $state<string>(new Date().toISOString().slice(0, 10));
 	let selectedTx = $state<Transaction | null>(null);
+
+	// Paginasi tabel riwayat
+	let currentPage = $state(1);
+	let perPage = $state(25);
 
 	// Modal Pembatalan / Retur
 	let isAdjustModalOpen = $state<boolean>(false);
@@ -56,6 +61,17 @@
 			return dateMatch && searchMatch;
 		})
 	);
+
+	let pagedTransactions = $derived(
+		filteredTransactions.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat filter berubah
+	$effect(() => {
+		searchQuery;
+		selectedDate;
+		currentPage = 1;
+	});
 
 	let dailyTotal = $derived(
 		filteredTransactions.reduce((sum, tx) => sum + (tx.status === 'completed' ? tx.total : 0), 0)
@@ -256,12 +272,12 @@
 							</td>
 						</tr>
 					{:else}
-						{#each filteredTransactions as tx}
+						{#each pagedTransactions as tx}
 							<tr class="hover:bg-gray-50/60 transition">
 								<td class="px-5 py-3.5">
 									<div class="font-bold text-gray-900 font-mono">{tx.invoice_no}</div>
 									{#if tx.customer_name}
-										<div class="text-[11px] text-gray-400">Pelanggan: {tx.customer_name}</div>
+										<div class="text-[11px] text-gray-500">Pelanggan: {tx.customer_name}</div>
 									{/if}
 								</td>
 								<td class="px-5 py-3.5 text-gray-500">
@@ -332,6 +348,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredTransactions.length} label="transaksi" />
 	</div>
 </div>
 

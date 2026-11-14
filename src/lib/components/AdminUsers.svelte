@@ -17,10 +17,15 @@
 		AlertCircle,
 		X
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	let users = $state<User[]>([]);
 	let branches = $state<Branch[]>([]);
 	let searchQuery = $state<string>('');
+
+	// Paginasi tabel pengguna
+	let currentPage = $state(1);
+	let perPage = $state(25);
 
 	// Modal State
 	let isModalOpen = $state<boolean>(false);
@@ -50,6 +55,16 @@
 			u.username.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
+
+	let pagedUsers = $derived(
+		filteredUsers.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat pencarian berubah
+	$effect(() => {
+		searchQuery;
+		currentPage = 1;
+	});
 
 	function openAddModal() {
 		isEditing = false;
@@ -256,13 +271,13 @@
 					type="text"
 					bind:value={searchQuery}
 					placeholder="Cari nama atau username..."
-					class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-indigo-500"
+					class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
 				/>
 			</div>
 
 			<button
 				onclick={openAddModal}
-				class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/20 active:scale-95 transition cursor-pointer"
+				class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
 			>
 				<UserPlus class="h-4 w-4" />
 				<span>Tambah Pengguna</span>
@@ -285,15 +300,15 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-gray-100 font-medium text-gray-700">
-					{#each filteredUsers as user}
+					{#each pagedUsers as user}
 						<tr class="hover:bg-gray-50/60 transition">
 							<td class="px-5 py-3.5">
 								<div class="font-bold text-gray-900">{user.name}</div>
-								<div class="text-[11px] text-gray-400 font-mono">@{user.username}</div>
+								<div class="text-[11px] text-gray-500 font-mono">@{user.username}</div>
 							</td>
 							<td class="px-5 py-3.5">
 								{#if user.role === 'admin'}
-									<span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700 border border-indigo-200">
+									<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
 										<ShieldCheck class="h-3 w-3" /> Admin
 									</span>
 								{:else}
@@ -341,6 +356,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page={currentPage} bind:perPage totalItems={filteredUsers.length} label="pengguna" />
 	</div>
 </div>
 
@@ -366,7 +382,7 @@
 						bind:value={formUsername}
 						placeholder="Contoh: kasir_jaksel"
 						disabled={isEditing}
-						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
 					/>
 				</div>
 
@@ -377,7 +393,7 @@
 						type="text"
 						bind:value={formName}
 						placeholder="Contoh: Siti Rahmawati"
-						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-indigo-500"
+						class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
 					/>
 				</div>
 
@@ -387,7 +403,7 @@
 						<select
 							id="formRole"
 							bind:value={formRole}
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-indigo-500 font-semibold"
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500 font-semibold"
 						>
 							<option value="cashier">Kasir Cabang</option>
 							<option value="admin">Administrator</option>
@@ -401,7 +417,7 @@
 							type="text"
 							bind:value={formPin}
 							placeholder="4-6 digit angka"
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 font-mono tracking-widest focus:outline-hidden focus:border-indigo-500"
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 font-mono tracking-widest focus:outline-hidden focus:border-emerald-500"
 						/>
 					</div>
 				</div>
@@ -412,7 +428,7 @@
 						<select
 							id="formBranchId"
 							bind:value={formBranchId}
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-indigo-500"
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
 						>
 							{#each branches as b}
 								<option value={b.id}>{b.name} ({b.code})</option>
@@ -427,7 +443,7 @@
 							id="formActive"
 							type="checkbox"
 							bind:checked={formActive}
-							class="rounded text-indigo-600 focus:ring-indigo-500"
+							class="rounded text-emerald-600 focus:ring-emerald-500"
 						/>
 						<label for="formActive" class="text-xs font-semibold text-gray-700 cursor-pointer">
 							Akun Aktif (Dapat masuk ke aplikasi)
@@ -451,7 +467,7 @@
 					</button>
 					<button
 						onclick={saveUser}
-						class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition"
+						class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition"
 					>
 						Simpan Data
 					</button>

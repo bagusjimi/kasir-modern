@@ -29,6 +29,7 @@
 	// Scan barcode / SKU ke keranjang (alat pemindai tipe keyboard wedge mengetik lalu Enter)
 	let scanFeedback = $state<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
 	let scanSuggestions = $state<Product[]>([]);
+	let activeSuggestion = $state<number>(-1);
 	let scanInput: HTMLInputElement | undefined = $state();
 	let scanTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -148,6 +149,7 @@
 	function addScannedProduct(product: Product) {
 		if (product.stock <= 0) {
 			scanSuggestions = [];
+			activeSuggestion = -1;
 			searchQuery = '';
 			showScanFeedback('error', `Stok "${product.name}" habis`);
 			return;
@@ -155,6 +157,7 @@
 		addToCart(product);
 		searchQuery = '';
 		scanSuggestions = [];
+		activeSuggestion = -1;
 		showScanFeedback('success', `${product.name} masuk keranjang`);
 		scanInput?.focus();
 	}
@@ -164,9 +167,30 @@
 	}
 
 	function handleScan(event: KeyboardEvent) {
+		// Navigasi keyboard pada daftar saran: panah untuk memilih, Enter untuk mengambil
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			if (scanSuggestions.length === 0) return;
+			event.preventDefault();
+			const dir = event.key === 'ArrowDown' ? 1 : -1;
+			activeSuggestion = (activeSuggestion + dir + scanSuggestions.length) % scanSuggestions.length;
+			return;
+		}
+		if (event.key === 'Escape') {
+			scanSuggestions = [];
+			activeSuggestion = -1;
+			searchQuery = '';
+			return;
+		}
 		if (event.key !== 'Enter') return;
 		const query = searchQuery.trim();
 		if (!query) return;
+
+		// Jika daftar saran terbuka, Enter mengambil saran yang aktif
+		if (scanSuggestions.length > 0) {
+			const pick = scanSuggestions[activeSuggestion >= 0 ? activeSuggestion : 0];
+			if (pick) addScannedProduct(pick);
+			return;
+		}
 
 		const lower = query.toLowerCase();
 		// Prioritas pencocokan: barcode persis, lalu SKU persis
@@ -186,11 +210,13 @@
 		}
 		if (nameMatches.length > 1) {
 			scanSuggestions = nameMatches.slice(0, 6);
+			activeSuggestion = -1;
 			showScanFeedback('warning', `${nameMatches.length} produk cocok — pilih salah satu di bawah`);
 			return;
 		}
 
 		scanSuggestions = [];
+		activeSuggestion = -1;
 		showScanFeedback('error', `Produk dengan kode "${query}" tidak ditemukan`);
 	}
 
@@ -441,11 +467,11 @@
 				{/if}
 				{#if scanSuggestions.length > 0}
 					<div class="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-						<p class="px-3 py-2 text-[11px] font-semibold text-gray-400 bg-gray-50">Beberapa produk cocok — pilih salah satu:</p>
-						{#each scanSuggestions as sugg (sugg.id)}
+						<p class="px-3 py-2 text-[11px] font-semibold text-gray-500 bg-gray-50">Beberapa produk cocok — panah ↑↓ untuk memilih, Enter untuk mengambil:</p>
+						{#each scanSuggestions as sugg, i (sugg.id)}
 							<button
 								onclick={() => pickSuggestion(sugg)}
-								class="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-emerald-50 transition text-left"
+								class="w-full flex items-center justify-between px-3 py-2.5 text-sm transition text-left {i === activeSuggestion ? 'bg-emerald-100 font-semibold' : 'hover:bg-emerald-50'}"
 							>
 								<span class="font-semibold text-gray-800">{sugg.name}</span>
 								<span class="text-xs text-gray-400 font-mono">{sugg.sku}</span>
@@ -503,7 +529,7 @@
 								<h3 class="font-bold text-gray-800 text-sm line-clamp-2 group-hover:text-emerald-600 transition">
 									{product.name}
 								</h3>
-								<p class="text-[11px] text-gray-400 mt-0.5">{product.sku}</p>
+								<p class="text-[11px] text-gray-500 mt-0.5">{product.sku}</p>
 							</div>
 
 							<div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-2">

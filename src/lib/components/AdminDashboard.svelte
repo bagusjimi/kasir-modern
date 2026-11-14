@@ -125,7 +125,7 @@
 			<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
 				<div class="flex items-center justify-between">
 					<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Transaksi</span>
-					<ShoppingCart class="h-4 w-4 text-indigo-500" />
+					<ShoppingCart class="h-4 w-4 text-emerald-500" />
 				</div>
 				<p class="mt-2 text-xl font-black text-gray-900">{data.today.tx_count}</p>
 			</div>
@@ -183,7 +183,7 @@
 							<li class="flex items-center justify-between gap-2 text-xs">
 								<div class="min-w-0">
 									<p class="font-bold text-gray-800 truncate">{p.name}</p>
-									<p class="text-[10px] text-gray-400 font-mono">{p.sku}</p>
+									<p class="text-[10px] text-gray-500 font-mono">{p.sku}</p>
 								</div>
 								<span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">
 									{p.stock} / min {p.min_stock}
@@ -199,7 +199,7 @@
 			<!-- Rekap per Cabang -->
 			<div class="lg:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
 				<div class="flex items-center gap-2 mb-4">
-					<Building2 class="h-4 w-4 text-indigo-500" />
+					<Building2 class="h-4 w-4 text-emerald-500" />
 					<h2 class="text-sm font-bold text-gray-900">Penjualan per Cabang Hari Ini</h2>
 				</div>
 				{#if data.branches.length === 0}
@@ -277,7 +277,7 @@
 					<span class="text-gray-500 font-medium">Kategori</span>
 					<span class="font-black text-gray-900 text-base">{data.counts.categories}</span>
 				</div>
-				<p class="text-[11px] text-gray-400 leading-relaxed pt-2 border-t border-gray-100">
+				<p class="text-[11px] text-gray-500 leading-relaxed pt-2 border-t border-gray-100">
 					Data diambil langsung dari server saat halaman dibuka. Gunakan tombol Segarkan untuk memuat data terbaru.
 				</p>
 			</div>

@@ -353,7 +353,7 @@
 						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'users' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
 					>
 						<div class="flex items-center gap-3">
-							<Users class="h-4 w-4 {activeTab === 'users' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<Users class="h-4 w-4 {activeTab === 'users' ? 'text-emerald-400' : 'text-zinc-400'}" />
 							<span>Kelola Pengguna</span>
 						</div>
 						{#if activeTab === 'users'}
@@ -367,7 +367,7 @@
 						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'branches' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
 					>
 						<div class="flex items-center gap-3">
-							<Building2 class="h-4 w-4 {activeTab === 'branches' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<Building2 class="h-4 w-4 {activeTab === 'branches' ? 'text-emerald-400' : 'text-zinc-400'}" />
 							<span>Kelola Cabang</span>
 						</div>
 						{#if activeTab === 'branches'}
@@ -381,7 +381,7 @@
 						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'categories' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
 					>
 						<div class="flex items-center gap-3">
-							<Tags class="h-4 w-4 {activeTab === 'categories' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<Tags class="h-4 w-4 {activeTab === 'categories' ? 'text-emerald-400' : 'text-zinc-400'}" />
 							<span>Kategori</span>
 						</div>
 						{#if activeTab === 'categories'}
@@ -395,7 +395,7 @@
 						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'transfers' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
 					>
 						<div class="flex items-center gap-3">
-							<ArrowLeftRight class="h-4 w-4 {activeTab === 'transfers' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<ArrowLeftRight class="h-4 w-4 {activeTab === 'transfers' ? 'text-emerald-400' : 'text-zinc-400'}" />
 							<span>Transfer Stok</span>
 						</div>
 						{#if activeTab === 'transfers'}
@@ -409,7 +409,7 @@
 						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'monitoring' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
 					>
 						<div class="flex items-center gap-3">
-							<Activity class="h-4 w-4 {activeTab === 'monitoring' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<Activity class="h-4 w-4 {activeTab === 'monitoring' ? 'text-emerald-400' : 'text-zinc-400'}" />
 							<span>Monitoring Kasir</span>
 						</div>
 						{#if activeTab === 'monitoring'}
@@ -437,7 +437,7 @@
 						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'reports' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
 					>
 						<div class="flex items-center gap-3">
-							<BarChart3 class="h-4 w-4 {activeTab === 'reports' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<BarChart3 class="h-4 w-4 {activeTab === 'reports' ? 'text-emerald-400' : 'text-zinc-400'}" />
 							<span>Laporan Komprehensif</span>
 						</div>
 						{#if activeTab === 'reports'}
@@ -451,7 +451,7 @@
 						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'payment' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
 					>
 						<div class="flex items-center gap-3">
-							<Wallet class="h-4 w-4 {activeTab === 'payment' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<Wallet class="h-4 w-4 {activeTab === 'payment' ? 'text-emerald-400' : 'text-zinc-400'}" />
 							<span>Metode Pembayaran</span>
 						</div>
 						{#if activeTab === 'payment'}

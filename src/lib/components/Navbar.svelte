@@ -49,7 +49,7 @@
 				<div class="flex items-center gap-2">
 					<h1 class="text-lg font-bold text-gray-900 tracking-tight">Kasir Modern</h1>
 					{#if authState.user?.role === 'admin'}
-						<span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-200">
+						<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
 							<ShieldCheck class="h-3 w-3" /> Admin
 						</span>
 					{:else}
@@ -106,14 +106,14 @@
 			{:else if authState.user?.role === 'admin'}
 				<button
 					onclick={() => onTabChange('users')}
-					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'users' ? 'bg-white text-indigo-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'users' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
 				>
 					<Users class="h-4 w-4" />
 					<span>Kelola Pengguna</span>
 				</button>
 				<button
 					onclick={() => onTabChange('monitoring')}
-					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'monitoring' ? 'bg-white text-indigo-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'monitoring' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
 				>
 					<Activity class="h-4 w-4" />
 					<span>Monitoring Aktivitas</span>
@@ -127,7 +127,7 @@
 				</button>
 				<button
 					onclick={() => onTabChange('reports')}
-					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'reports' ? 'bg-white text-indigo-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
+					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'reports' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
 				>
 					<BarChart3 class="h-4 w-4" />
 					<span>Laporan</span>
@@ -225,14 +225,14 @@
 		{:else if authState.user?.role === 'admin'}
 			<button
 				onclick={() => onTabChange('users')}
-				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'users' ? 'bg-white text-indigo-600 font-bold shadow-xs' : 'text-gray-600'}"
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'users' ? 'bg-white text-emerald-600 font-bold shadow-xs' : 'text-gray-600'}"
 			>
 				<Users class="h-3.5 w-3.5" />
 				<span>User</span>
 			</button>
 			<button
 				onclick={() => onTabChange('monitoring')}
-				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'monitoring' ? 'bg-white text-indigo-600 font-bold shadow-xs' : 'text-gray-600'}"
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'monitoring' ? 'bg-white text-emerald-600 font-bold shadow-xs' : 'text-gray-600'}"
 			>
 				<Activity class="h-3.5 w-3.5" />
 				<span>Aktivitas</span>
@@ -246,7 +246,7 @@
 			</button>
 			<button
 				onclick={() => onTabChange('reports')}
-				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'reports' ? 'bg-white text-indigo-600 font-bold shadow-xs' : 'text-gray-600'}"
+				class="flex flex-1 items-center justify-center gap-1 py-1 rounded-lg {activeTab === 'reports' ? 'bg-white text-emerald-600 font-bold shadow-xs' : 'text-gray-600'}"
 			>
 				<BarChart3 class="h-3.5 w-3.5" />
 				<span>Laporan</span>

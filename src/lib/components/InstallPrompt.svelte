@@ -103,7 +103,7 @@
 				<li><span>Pilih <strong>Add to Home Screen</strong>.</span></li>
 				<li><span>Tekan <strong>Add</strong>. Aplikasi muncul di layar utama seperti aplikasi biasa.</span></li>
 			</ol>
-			<p class="text-[11px] text-gray-400">Gunakan Safari, bukan Chrome, agar opsi ini tersedia.</p>
+			<p class="text-[11px] text-gray-500">Gunakan Safari, bukan Chrome, agar opsi ini tersedia.</p>
 		</div>
 	</div>
 {/if}

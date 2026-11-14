@@ -25,6 +25,7 @@
 		PieChart,
 		RefreshCw
 	} from 'lucide-svelte';
+	import Pagination from './Pagination.svelte';
 
 	export const EXPENSE_CATEGORIES: { id: ExpenseCategory; label: string; iconBg: string; description: string }[] = [
 		{ id: 'listrik_air_internet', label: 'Listrik, Air & Internet', iconBg: 'bg-amber-100 text-amber-700', description: 'Tagihan PLN, PDAM, WiFi minimarket' },
@@ -150,6 +151,10 @@
 		}
 	}
 
+	// Paginasi tabel pengeluaran
+	let currentPage = $state(1);
+	let perPage = $state(25);
+
 	// Filter pengeluaran yang tampil
 	let filteredExpenses = $derived(
 		expenses.filter(item => {
@@ -178,6 +183,20 @@
 			return true;
 		})
 	);
+
+	let pagedExpenses = $derived(
+		filteredExpenses.slice((currentPage - 1) * perPage, currentPage * perPage)
+	);
+
+	// Ganti halaman ke 1 saat filter berubah
+	$effect(() => {
+		searchQuery;
+		selectedBranchFilter;
+		selectedCategoryFilter;
+		filterStartDate;
+		filterEndDate;
+		currentPage = 1;
+	});
 
 	// Metrik Pengeluaran Terfilter
 	let totalExpenseAmount = $derived(
@@ -477,7 +496,7 @@
 				<ReceiptText class="h-5 w-5 text-gray-400" />
 			</div>
 			<p class="text-2xl font-black text-gray-900 mt-2">{totalExpenseCount} Catatan</p>
-			<p class="text-[11px] text-gray-400 mt-1">Rata-rata: {formatRupiah(averageExpenseAmount)} per entri</p>
+			<p class="text-[11px] text-gray-500 mt-1">Rata-rata: {formatRupiah(averageExpenseAmount)} per entri</p>
 		</div>
 
 		<!-- Kategori Terbesar -->
@@ -494,7 +513,7 @@
 			{:else}
 				<p class="text-sm font-semibold text-gray-400 mt-2">Belum ada data biaya</p>
 			{/if}
-			<p class="text-[11px] text-gray-400 mt-1">Beban tertinggi dalam periode terpilih</p>
+			<p class="text-[11px] text-gray-500 mt-1">Beban tertinggi dalam periode terpilih</p>
 		</div>
 	</div>
 
@@ -543,7 +562,7 @@
 					<select
 						id="filterBranch"
 						bind:value={selectedBranchFilter}
-						class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 focus:outline-hidden focus:border-indigo-500"
+						class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 focus:outline-hidden focus:border-emerald-500"
 					>
 						<option value="all">Semua Cabang</option>
 						{#each branches as b}
@@ -616,7 +635,7 @@
 								</td>
 							</tr>
 						{:else}
-							{#each filteredExpenses as item}
+							{#each pagedExpenses as item}
 								{@const catMeta = getCategoryMeta(item.category)}
 								<tr class="hover:bg-gray-50/70 transition">
 									<td class="px-4 py-3">
@@ -633,7 +652,7 @@
 									<td class="px-4 py-3 max-w-[220px]">
 										<p class="font-bold text-gray-900 leading-tight">{item.description}</p>
 										{#if item.receipt_number}
-											<p class="text-[10px] text-gray-400 mt-0.5">No. Bukti: <span class="font-mono">{item.receipt_number}</span></p>
+											<p class="text-[10px] text-gray-500 mt-0.5">No. Bukti: <span class="font-mono">{item.receipt_number}</span></p>
 										{/if}
 									</td>
 									<td class="px-4 py-3">
@@ -641,7 +660,7 @@
 											<Building2 class="h-3 w-3 text-gray-400" />
 											{item.branch_name || 'Semua Cabang'}
 										</p>
-										<p class="text-gray-400 text-[10px] mt-0.5">
+										<p class="text-gray-500 text-[10px] mt-0.5">
 											{item.recipient ? `Penerima: ${item.recipient}` : `Dicatat: ${item.user_name}`}
 										</p>
 									</td>
@@ -657,7 +676,7 @@
 										<div class="flex items-center justify-center gap-1">
 											<button
 												onclick={() => openEditModal(item)}
-												class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+												class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
 												title="Ubah Pengeluaran"
 											>
 												<Edit3 class="h-3.5 w-3.5" />
@@ -677,6 +696,7 @@
 					</tbody>
 				</table>
 			</div>
+			<Pagination bind:page={currentPage} bind:perPage totalItems={filteredExpenses.length} label="pengeluaran" />
 		</div>
 
 		<!-- Breakdown Beban Kategori (4 Kolom) -->
@@ -707,14 +727,14 @@
 										style="width: {pct}%"
 									></div>
 								</div>
-								<p class="text-[10px] text-gray-400 mt-1">{cat.count} kali pengeluaran</p>
+								<p class="text-[10px] text-gray-500 mt-1">{cat.count} kali pengeluaran</p>
 							</div>
 						{/each}
 					{/if}
 				</div>
 			</div>
 
-			<div class="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-400">
+			<div class="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500">
 				Pengeluaran ini mengurangi laba kotor toko dalam penghitungan laba bersih operasional.
 			</div>
 		</div>
@@ -779,7 +799,7 @@
 								id="formExpBranch"
 								bind:value={formBranchId}
 								required
-								class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-800 focus:outline-hidden focus:border-indigo-500"
+								class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-800 focus:outline-hidden focus:border-emerald-500"
 							>
 								{#each branches as b}
 									<option value={b.id}>{b.name}</option>
