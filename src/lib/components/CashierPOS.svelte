@@ -2,9 +2,10 @@
 	import { onMount } from 'svelte';
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
+	import { cartStore } from '../stores/cart.svelte.js';
 	import { syncEngine } from '../sync/index.js';
 	import { getOpenShift } from '../shift/index.js';
-	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings, PaymentSettings, Shift } from '../types/index.js';
+	import type { Product, Category, Transaction, TransactionItem, PaymentMethod, TaxSettings, PaymentSettings, Shift } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
 		Plus,
@@ -33,9 +34,7 @@
 	let scanInput: HTMLInputElement | undefined = $state();
 	let scanTimeout: ReturnType<typeof setTimeout> | undefined;
 
-	// Keranjang Belanja & Pengaturan Pajak
-	let cart = $state<CartItem[]>([]);
-	let discount = $state<number>(0);
+	// Keranjang tersimpan di cartStore (persisten antar menu & muat ulang halaman)
 	let taxSettings = $state<TaxSettings>({
 		enabled: true,
 		rate: 11,
@@ -68,6 +67,7 @@
 	let openShift = $state<Shift | null>(null);
 
 	onMount(async () => {
+		cartStore.init(authState.branch?.id || authState.user?.branch_id || 'all');
 		await loadProductsAndCategories();
 		await loadTaxSettings();
 		await loadPaymentSettings();
@@ -135,9 +135,9 @@
 		})
 	);
 
-	let subtotal = $derived(cart.reduce((sum, item) => sum + item.subtotal, 0));
-	let taxAmount = $derived(Math.round(Math.max(0, subtotal - discount) * taxRate));
-	let totalAmount = $derived(Math.max(0, subtotal - discount + taxAmount));
+	let subtotal = $derived(cartStore.items.reduce((sum, item) => sum + item.subtotal, 0));
+	let taxAmount = $derived(Math.round(Math.max(0, subtotal - cartStore.discount) * taxRate));
+	let totalAmount = $derived(Math.max(0, subtotal - cartStore.discount + taxAmount));
 	let changeAmount = $derived(Math.max(0, amountPaid - totalAmount));
 
 	function showScanFeedback(type: 'success' | 'error' | 'warning', message: string) {
@@ -221,54 +221,19 @@
 	}
 
 	function addToCart(product: Product) {
-		if (product.stock <= 0) return;
-
-		const existing = cart.find(item => item.product.id === product.id);
-		if (existing) {
-			if (existing.quantity >= product.stock) {
-				alert(`Stok produk "${product.name}" hanya tersisa ${product.stock}`);
-				return;
-			}
-			existing.quantity += 1;
-			existing.subtotal = existing.quantity * product.price;
-			cart = [...cart];
-		} else {
-			cart = [
-				...cart,
-				{
-					product,
-					quantity: 1,
-					subtotal: product.price
-				}
-			];
-		}
+		cartStore.add(product);
 	}
 
 	function updateQuantity(productId: string, delta: number) {
-		const idx = cart.findIndex(item => item.product.id === productId);
-		if (idx === -1) return;
-
-		const item = cart[idx];
-		const newQty = item.quantity + delta;
-
-		if (newQty <= 0) {
-			cart = cart.filter(i => i.product.id !== productId);
-		} else if (newQty > item.product.stock) {
-			alert(`Stok tidak mencukupi (sisa ${item.product.stock})`);
-		} else {
-			item.quantity = newQty;
-			item.subtotal = newQty * item.product.price;
-			cart = [...cart];
-		}
+		cartStore.updateQuantity(productId, delta);
 	}
 
 	function clearCart() {
-		cart = [];
-		discount = 0;
+		cartStore.clear();
 	}
 
 	function openPayment() {
-		if (cart.length === 0) return;
+		if (cartStore.items.length === 0) return;
 		if (!openShift) {
 			paymentError = 'Belum ada shift aktif. Buka shift terlebih dahulu di menu Shift Kasir.';
 			return;
@@ -306,7 +271,7 @@
 
 		const txId = 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
 
-		const items: TransactionItem[] = cart.map(item => ({
+		const items: TransactionItem[] = cartStore.items.map(item => ({
 			id: 'txi-' + Math.random().toString(36).substring(2, 9),
 			transaction_id: txId,
 			product_id: item.product.id,
@@ -327,7 +292,7 @@
 			cashier_name: authState.user?.name || 'Kasir',
 			customer_name: customerName.trim() || undefined,
 			subtotal,
-			discount,
+			discount: cartStore.discount,
 			tax: taxAmount,
 			total: totalAmount,
 			payment_method: paymentMethod,
@@ -384,7 +349,7 @@
 		});
 
 		// Jejak audit diskon: tercatat terpisah agar bisa dievaluasi admin pusat
-		if (discount > 0) {
+		if (cartStore.discount > 0) {
 			await db.activity_logs.add({
 				id: 'act-' + Date.now() + '-d' + Math.random().toString(36).substring(2, 7),
 				branch_id: transaction.branch_id,
@@ -393,7 +358,7 @@
 				user_name: transaction.cashier_name,
 				role: 'cashier',
 				action: 'discount_applied',
-				details: `Diskon ${formatRupiah(discount)} diberikan pada transaksi ${invoiceNo} (subtotal ${formatRupiah(subtotal)}).`,
+				details: `Diskon ${formatRupiah(cartStore.discount)} diberikan pada transaksi ${invoiceNo} (subtotal ${formatRupiah(subtotal)}).`,
 				timestamp: now.toISOString(),
 				synced: false
 			});
@@ -405,9 +370,8 @@
 		// Refresh data produk lokal
 		await loadProductsAndCategories();
 
-		// Reset state keranjang & tutup modal bayar
-		cart = [];
-		discount = 0;
+		// Reset keranjang & tutup modal bayar
+		cartStore.clear();
 		customerName = '';
 		isPaymentModalOpen = false;
 
@@ -554,10 +518,10 @@
 			<div class="flex items-center gap-2">
 				<h2 class="font-bold text-gray-900 text-base">Pesanan Baru</h2>
 				<span class="flex h-5 items-center justify-center rounded-full bg-emerald-100 px-2 text-xs font-bold text-emerald-800">
-					{cart.length} item
+					{cartStore.items.length} item
 				</span>
 			</div>
-			{#if cart.length > 0}
+			{#if cartStore.items.length > 0}
 				<button
 					onclick={clearCart}
 					class="text-xs font-medium text-rose-600 hover:text-rose-700 flex items-center gap-1 transition cursor-pointer"
@@ -570,30 +534,29 @@
 
 		<!-- Daftar Item Keranjang -->
 		<div class="flex-1 overflow-y-auto p-4 divide-y divide-gray-100">
-			{#if cart.length === 0}
+			{#if cartStore.items.length === 0}
 				<div class="flex flex-col items-center justify-center h-full text-gray-400 py-12">
 					<ShoppingBag class="h-12 w-12 mb-3 stroke-1 text-gray-300" />
 					<p class="text-sm font-semibold text-gray-600">Keranjang masih kosong</p>
 					<p class="text-xs text-gray-400 mt-1 text-center max-w-[200px]">Pilih produk di samping untuk menambahkan ke pesanan.</p>
 				</div>
 			{:else}
-				{#each cart as item}
-					<div class="py-3 first:pt-0 last:pb-0 flex items-start justify-between gap-3">
-						<div class="flex-1 min-w-0">
-							<h4 class="text-sm font-semibold text-gray-800 truncate">{item.product.name}</h4>
-							<p class="text-xs text-gray-500">{formatRupiah(item.product.price)} / {item.product.unit}</p>
-							<div class="mt-1 flex items-center gap-2">
-								<input
-									type="text"
-									bind:value={item.notes}
-									placeholder="Catatan (opsional)..."
-									class="w-full text-[11px] px-2 py-0.5 rounded border border-gray-200 text-gray-600 placeholder-gray-400 focus:outline-hidden focus:border-emerald-500"
-								/>
+				{#each cartStore.items as item (item.product.id)}
+					<div class="py-3 first:pt-0 last:pb-0">
+						<div class="flex items-start justify-between gap-2">
+							<div class="min-w-0 flex-1">
+								<h4 class="text-sm font-semibold text-gray-800 truncate">{item.product.name}</h4>
+								<p class="text-[11px] text-gray-500">{formatRupiah(item.product.price)} / {item.product.unit}</p>
 							</div>
+							<button
+								onclick={() => cartStore.removeItem(item.product.id)}
+								title="Hapus item dari keranjang"
+								class="h-6 w-6 shrink-0 flex items-center justify-center rounded-lg text-gray-300 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+							>
+								<Trash2 class="h-3.5 w-3.5" />
+							</button>
 						</div>
-
-						<div class="flex flex-col items-end gap-1.5">
-							<span class="text-sm font-bold text-gray-800">{formatRupiah(item.subtotal)}</span>
+						<div class="mt-2 flex items-center justify-between gap-2">
 							<div class="flex items-center gap-1.5 bg-gray-100 p-0.5 rounded-lg border border-gray-200">
 								<button
 									onclick={() => updateQuantity(item.product.id, -1)}
@@ -609,14 +572,21 @@
 									<Plus class="h-3 w-3" />
 								</button>
 							</div>
+							<span class="text-sm font-bold text-gray-800">{formatRupiah(item.subtotal)}</span>
 						</div>
+						<input
+							type="text"
+							bind:value={item.notes}
+							placeholder="Catatan (opsional)..."
+							class="mt-1.5 w-full text-[11px] px-2 py-0.5 rounded border border-gray-200 text-gray-600 placeholder-gray-400 focus:outline-hidden focus:border-emerald-500"
+						/>
 					</div>
 				{/each}
 			{/if}
 		</div>
 
 		<!-- Kalkulasi Subtotal, Diskon, Pajak & Tombol Bayar -->
-		{#if cart.length > 0}
+		{#if cartStore.items.length > 0}
 			<div class="border-t border-gray-200 bg-gray-50/80 p-4 space-y-2.5">
 				<div class="flex justify-between text-xs text-gray-600">
 					<span>Subtotal</span>
@@ -627,7 +597,7 @@
 					<span>Diskon (Rp)</span>
 					<input
 						type="number"
-						bind:value={discount}
+						bind:value={cartStore.discount}
 						min="0"
 						class="w-24 text-right px-2 py-1 rounded border border-gray-200 text-xs font-semibold text-rose-600 focus:outline-hidden focus:border-emerald-500"
 					/>
