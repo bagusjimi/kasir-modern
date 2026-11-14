@@ -7,7 +7,6 @@
 	import type { Product, Category, CartItem, Transaction, TransactionItem, PaymentMethod, TaxSettings, Shift } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
-		Search,
 		Plus,
 		Minus,
 		Trash2,
@@ -28,7 +27,6 @@
 	let searchQuery = $state<string>('');
 
 	// Scan barcode / SKU ke keranjang (alat pemindai tipe keyboard wedge mengetik lalu Enter)
-	let scanQuery = $state<string>('');
 	let scanFeedback = $state<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
 	let scanSuggestions = $state<Product[]>([]);
 	let scanInput: HTMLInputElement | undefined = $state();
@@ -129,12 +127,12 @@
 	function addScannedProduct(product: Product) {
 		if (product.stock <= 0) {
 			scanSuggestions = [];
-			scanQuery = '';
+			searchQuery = '';
 			showScanFeedback('error', `Stok "${product.name}" habis`);
 			return;
 		}
 		addToCart(product);
-		scanQuery = '';
+		searchQuery = '';
 		scanSuggestions = [];
 		showScanFeedback('success', `${product.name} masuk keranjang`);
 		scanInput?.focus();
@@ -146,7 +144,7 @@
 
 	function handleScan(event: KeyboardEvent) {
 		if (event.key !== 'Enter') return;
-		const query = scanQuery.trim();
+		const query = searchQuery.trim();
 		if (!query) return;
 
 		const lower = query.toLowerCase();
@@ -172,7 +170,6 @@
 		}
 
 		scanSuggestions = [];
-		scanQuery = '';
 		showScanFeedback('error', `Produk dengan kode "${query}" tidak ditemukan`);
 	}
 
@@ -372,16 +369,16 @@
 	<div class="lg:col-span-7 xl:col-span-8 flex flex-col h-full bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
 		<!-- Search & Filter Bar -->
 		<div class="p-4 border-b border-gray-100 space-y-3">
-			<!-- Input Scan Barcode / SKU -->
+			<!-- Pencarian + Scan Barcode (satu kotak: filter live, Enter untuk masukkan ke keranjang) -->
 			<div class="relative">
 				<Barcode class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
 				<input
 					type="text"
 					bind:this={scanInput}
-					bind:value={scanQuery}
+					bind:value={searchQuery}
 					onkeydown={handleScan}
-					placeholder="Scan barcode / ketik SKU lalu Enter..."
-					class="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm font-mono transition outline-hidden"
+					placeholder="Scan barcode / cari nama atau SKU, lalu Enter..."
+					class="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm transition outline-hidden"
 				/>
 				{#if scanFeedback}
 					<div class="absolute left-0 right-0 top-full mt-1.5 z-20 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold shadow-lg {scanFeedback.type === 'success' ? 'bg-emerald-600 border-emerald-600 text-white' : scanFeedback.type === 'error' ? 'bg-rose-600 border-rose-600 text-white' : 'bg-amber-500 border-amber-500 text-white'}">
@@ -409,15 +406,6 @@
 				{/if}
 			</div>
 
-			<div class="relative">
-				<Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-				<input
-					type="text"
-					bind:value={searchQuery}
-					placeholder="Cari produk berdasarkan nama, SKU, atau barcode..."
-					class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm transition outline-hidden"
-				/>
-			</div>
 
 			<!-- Filter Kategori Tabs -->
 			<div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
