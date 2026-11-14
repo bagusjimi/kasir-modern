@@ -20,6 +20,7 @@
 	import AdminCategories from '../lib/components/AdminCategories.svelte';
 	import AdminAnnouncements from '../lib/components/AdminAnnouncements.svelte';
 	import CashierAnnouncements from '../lib/components/CashierAnnouncements.svelte';
+	import AdminBackup from '../lib/components/AdminBackup.svelte';
 
 	let activeTab = $state<string>('pos');
 
@@ -104,6 +105,8 @@
 					<AdminTaxSettings />
 				{:else if activeTab === 'announcements'}
 					<AdminAnnouncements />
+				{:else if activeTab === 'backup'}
+					<AdminBackup />
 				{/if}
 			{/if}
 		</main>
