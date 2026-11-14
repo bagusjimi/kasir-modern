@@ -8,6 +8,38 @@
 		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 		-webkit-tap-highlight-color: transparent;
 	}
+
+	/* Scrollbar tipis bergaya aplikasi native (bukan scrollbar lebar browser) */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: #d4d4d8 transparent;
+	}
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	::-webkit-scrollbar-thumb {
+		background: #d4d4d8;
+		border-radius: 9999px;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		background: #a1a1aa;
+	}
+	::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+}
+
+/* Utilitas: sembunyikan scrollbar penuh, konten tetap bisa digulir */
+@utility scrollbar-none {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	&::-webkit-scrollbar {
+		display: none;
+	}
 }
 
 /* Print styling khusus struk thermal kasir (58mm - 80mm) */
