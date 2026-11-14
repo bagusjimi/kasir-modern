@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 		if (!session) return unauthorized();
 		if (session.role !== 'admin') return forbidden();
 
-		const [todayRes, profitRes, trendRes, branchRes, lowStockRes, productRes, categoryRes] = await d1.batch([
+		const [todayRes, profitRes, trendRes, branchRes, cashierRes, lowStockRes, productRes, categoryRes] = await d1.batch([
 			d1.prepare(
 				`SELECT COUNT(*) AS tx_count, COALESCE(SUM(total), 0) AS total_sales
 				 FROM transactions
@@ -44,6 +44,13 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 				 FROM transactions
 				 WHERE status = 'completed' AND date(created_at) = date('now')
 				 GROUP BY branch_id, branch_name ORDER BY total_sales DESC`
+			),
+			d1.prepare(
+				`SELECT cashier_id, cashier_name, branch_name, COUNT(*) AS tx_count,
+				        COALESCE(SUM(total), 0) AS total_sales, COALESCE(SUM(discount), 0) AS total_discount
+				 FROM transactions
+				 WHERE status = 'completed' AND date(created_at) = date('now')
+				 GROUP BY cashier_id, cashier_name, branch_name ORDER BY total_sales DESC LIMIT 50`
 			),
 			d1.prepare(
 				`SELECT id, name, sku, stock, min_stock, branch_id
@@ -77,6 +84,14 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 					branch_name: r.branch_name,
 					tx_count: Number(r.tx_count || 0),
 					total_sales: Number(r.total_sales || 0)
+				})),
+				cashiers: (cashierRes.results || []).map((r: any) => ({
+					cashier_id: r.cashier_id,
+					cashier_name: r.cashier_name,
+					branch_name: r.branch_name,
+					tx_count: Number(r.tx_count || 0),
+					total_sales: Number(r.total_sales || 0),
+					total_discount: Number(r.total_discount || 0)
 				})),
 				low_stock: (lowStockRes.results || []).map((r: any) => ({
 					id: r.id,

@@ -357,6 +357,22 @@
 			synced: false
 		});
 
+		// Jejak audit diskon: tercatat terpisah agar bisa dievaluasi admin pusat
+		if (discount > 0) {
+			await db.activity_logs.add({
+				id: 'act-' + Date.now() + '-d' + Math.random().toString(36).substring(2, 7),
+				branch_id: transaction.branch_id,
+				branch_name: transaction.branch_name,
+				user_id: transaction.cashier_id,
+				user_name: transaction.cashier_name,
+				role: 'cashier',
+				action: 'discount_applied',
+				details: `Diskon ${formatRupiah(discount)} diberikan pada transaksi ${invoiceNo} (subtotal ${formatRupiah(subtotal)}).`,
+				timestamp: now.toISOString(),
+				synced: false
+			});
+		}
+
 		// 4. Update antrean sinkronisasi
 		await syncEngine.updatePendingCount();
 
