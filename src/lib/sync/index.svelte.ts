@@ -16,6 +16,7 @@ interface SyncApiResponse {
 		shifts?: any[];
 		purchases?: any[];
 		stock_counts?: any[];
+		stock_transfers?: any[];
 		tax_settings?: any;
 		store_settings?: any;
 	};
@@ -79,9 +80,10 @@ export class SyncEngine {
 			const unsyncedShifts = await db.shifts.filter(s => !s.synced).count();
 			const unsyncedPo = await db.purchases.filter(p => !p.synced).count();
 			const unsyncedSc = await db.stock_counts.filter(s => !s.synced).count();
+			const unsyncedTrf = await db.stock_transfers.filter(t => !t.synced).count();
 			const queueCount = await db.sync_queue.where('status').equals('pending').count();
 			const failedCount = await db.sync_queue.where('status').equals('failed').count();
-			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + unsyncedMv + unsyncedShifts + unsyncedPo + unsyncedSc + queueCount + failedCount;
+			this.pendingCount = unsyncedTx + unsyncedExp + unsyncedLogs + unsyncedMv + unsyncedShifts + unsyncedPo + unsyncedSc + unsyncedTrf + queueCount + failedCount;
 			return this.pendingCount;
 		} catch (e) {
 			console.warn('Gagal menghitung antrean sync:', e);
@@ -141,6 +143,11 @@ export class SyncEngine {
 				.filter(s => !s.synced)
 				.toArray();
 
+			// 7b. Ambil transfer stok yang belum tersinkron
+			const pendingTransfers = await db.stock_transfers
+				.filter(t => !t.synced)
+				.toArray();
+
 			// 8. Ambil antrean perubahan umum (produk, user, expense, void/retur, dll.)
 			const queueItems = await db.sync_queue
 				.where('status')
@@ -157,6 +164,7 @@ export class SyncEngine {
 				shifts: pendingShifts,
 				purchases: pendingPurchases,
 				stock_counts: pendingStockCounts,
+				stock_transfers: pendingTransfers,
 				queue: queueItems,
 				lastSyncedAt: this.lastSyncedAt
 			};
@@ -220,6 +228,11 @@ export class SyncEngine {
 				if (pendingStockCounts.length > 0) {
 					for (const sc of pendingStockCounts) {
 						await db.stock_counts.update(sc.id, { synced: true });
+					}
+				}
+				if (pendingTransfers.length > 0) {
+					for (const trf of pendingTransfers) {
+						await db.stock_transfers.update(trf.id, { synced: true });
 					}
 				}
 
@@ -301,6 +314,13 @@ export class SyncEngine {
 							synced: true
 						}));
 						await db.stock_counts.bulkPut(formattedCounts);
+					}
+					if (result.serverUpdates.stock_transfers && result.serverUpdates.stock_transfers.length > 0) {
+						const formattedTransfers = result.serverUpdates.stock_transfers.map(t => ({
+							...t,
+							synced: true
+						}));
+						await db.stock_transfers.bulkPut(formattedTransfers);
 					}
 				}
 
