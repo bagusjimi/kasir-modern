@@ -15,6 +15,7 @@
 	import ComprehensiveReport from '../lib/components/ComprehensiveReport.svelte';
 	import ExpenseManagement from '../lib/components/ExpenseManagement.svelte';
 	import AdminTaxSettings from '../lib/components/AdminTaxSettings.svelte';
+	import PaymentSettings from '../lib/components/PaymentSettings.svelte';
 	import AdminDashboard from '../lib/components/AdminDashboard.svelte';
 	import AdminCategories from '../lib/components/AdminCategories.svelte';
 
@@ -71,6 +72,8 @@
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
+				{:else if activeTab === 'payment'}
+					<PaymentSettings />
 				{:else if activeTab === 'tax'}
 					<AdminTaxSettings />
 				{/if}
@@ -91,6 +94,8 @@
 					<ExpenseManagement />
 				{:else if activeTab === 'reports'}
 					<ComprehensiveReport />
+				{:else if activeTab === 'payment'}
+					<PaymentSettings />
 				{:else if activeTab === 'tax'}
 					<AdminTaxSettings />
 				{/if}

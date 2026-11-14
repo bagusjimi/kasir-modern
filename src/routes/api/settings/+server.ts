@@ -2,9 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
 import { getSession, unauthorized, forbidden } from '#lib/server/auth.js';
-import type { TaxSettings } from '#lib/types/index.js';
+import type { TaxSettings, PaymentSettings } from '#lib/types/index.js';
 
-export const GET: RequestHandler = async ({ platform, cookies }) => {
+export const GET: RequestHandler = async ({ platform, cookies, url }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
 		return json({
@@ -34,9 +34,21 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 			.first<{ value: string }>();
 		const store = storeRow && storeRow.value ? JSON.parse(storeRow.value) : { name: '', address: '', phone: '' };
 
+		// Pengaturan pembayaran bersifat per cabang: kasir selalu menerima pengaturan tokonya,
+		// admin dapat meminta cabang tertentu lewat query param branch_id.
+		const paymentBranchId = session.branchId !== 'all' ? session.branchId : url.searchParams.get('branch_id') || '';
+		let payment: PaymentSettings | null = null;
+		if (paymentBranchId) {
+			const paymentRow = await d1
+				.prepare('SELECT value FROM app_settings WHERE key = ?')
+				.bind('payment_settings:' + paymentBranchId)
+				.first<{ value: string }>();
+			payment = paymentRow && paymentRow.value ? JSON.parse(paymentRow.value) : null;
+		}
+
 		if (row && row.value) {
 			const parsed = JSON.parse(row.value) as TaxSettings;
-			return json({ success: true, data: parsed, store });
+			return json({ success: true, data: parsed, store, ...(payment ? { payment } : {}) });
 		}
 
 		const defaultSettings: TaxSettings = {
@@ -44,7 +56,7 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 			rate: 11,
 			name: 'PPN'
 		};
-		return json({ success: true, data: defaultSettings, store });
+		return json({ success: true, data: defaultSettings, store, ...(payment ? { payment } : {}) });
 	} catch (err: any) {
 		console.error('Error fetching tax settings:', err);
 		return json({ success: false, message: err.message }, { status: 500 });
@@ -53,18 +65,76 @@ export const GET: RequestHandler = async ({ platform, cookies }) => {
 
 export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 	const d1 = getD1(platform);
+	let session: any = null;
 	if (d1) {
 		await ensureD1Seeded(d1);
 
-		const session = await getSession(d1, cookies);
+		session = await getSession(d1, cookies);
 		if (!session) return unauthorized();
-		if (session.role !== 'admin') return forbidden();
 	}
 
 	const body = (await request.json()) as any;
 	const nowIso = new Date().toISOString();
 	let savedStore = false;
 	let savedTax = false;
+
+	// Pengaturan metode pembayaran (QRIS statis, transfer) per cabang:
+	// kasir mengelola QR/rekening tokonya sendiri, admin mengatur atas nama cabang tertentu.
+	if (d1 && body.payment && typeof body.payment === 'object') {
+		let targetBranchId = '';
+		if (session.branchId && session.branchId !== 'all') {
+			targetBranchId = session.branchId;
+		} else {
+			targetBranchId = String(body.branch_id || '').trim();
+			if (!targetBranchId) {
+				return json({ success: false, message: 'Pilih cabang tujuan pengaturan pembayaran terlebih dahulu' }, { status: 400 });
+			}
+			const branchRow = await d1.prepare('SELECT id FROM branches WHERE id = ?').bind(targetBranchId).first();
+			if (!branchRow) {
+				return json({ success: false, message: 'Cabang tidak ditemukan' }, { status: 404 });
+			}
+		}
+
+		const pm = body.payment;
+		const paymentSettings: PaymentSettings = {
+			qris: {
+				enabled: Boolean(pm.qris?.enabled),
+				mode: 'static',
+				image: typeof pm.qris?.image === 'string' ? pm.qris.image : '',
+				merchant_name: String(pm.qris?.merchant_name || '').trim(),
+				updated_at: nowIso
+			},
+			transfer: {
+				enabled: Boolean(pm.transfer?.enabled),
+				bank_name: String(pm.transfer?.bank_name || '').trim(),
+				account_number: String(pm.transfer?.account_number || '').trim(),
+				account_name: String(pm.transfer?.account_name || '').trim(),
+				updated_at: nowIso
+			}
+		};
+
+		try {
+			await d1
+				.prepare(
+					`INSERT INTO app_settings (key, value, updated_at)
+					 VALUES (?, ?, ?)
+					 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+				)
+				.bind('payment_settings:' + targetBranchId, JSON.stringify(paymentSettings), nowIso)
+				.run();
+			return json({
+				success: true,
+				message: 'Metode pembayaran berhasil disimpan',
+				data: paymentSettings,
+				branch_id: targetBranchId
+			});
+		} catch (err: any) {
+			console.error('Error saving payment settings to D1:', err);
+			return json({ success: false, message: err.message }, { status: 500 });
+		}
+	}
+
+	if (session && session.role !== 'admin') return forbidden();
 
 	if (d1) {
 		await ensureD1Seeded(d1);

@@ -26,7 +26,8 @@
 		ClipboardList,
 		LayoutDashboard,
 		Tags,
-		ArrowLeftRight
+		ArrowLeftRight,
+		Wallet
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -316,6 +317,20 @@
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>
+
+					<!-- Metode Pembayaran Toko (QRIS statis & transfer milik toko ini) -->
+					<button
+						onclick={() => selectTab('payment')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'payment' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Wallet class="h-4 w-4 {activeTab === 'payment' ? 'text-emerald-400' : 'text-zinc-400'}" />
+							<span>Metode Pembayaran</span>
+						</div>
+						{#if activeTab === 'payment'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
 				{:else if authState.user?.role === 'admin'}
 					<!-- Beranda Admin -->
 					<button
@@ -425,6 +440,20 @@
 							<span>Laporan Komprehensif</span>
 						</div>
 						{#if activeTab === 'reports'}
+							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
+						{/if}
+					</button>
+
+					<!-- Metode Pembayaran (Admin View) -->
+					<button
+						onclick={() => selectTab('payment')}
+						class="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer {activeTab === 'payment' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900'}"
+					>
+						<div class="flex items-center gap-3">
+							<Wallet class="h-4 w-4 {activeTab === 'payment' ? 'text-indigo-400' : 'text-zinc-400'}" />
+							<span>Metode Pembayaran</span>
+						</div>
+						{#if activeTab === 'payment'}
 							<ChevronRight class="h-3.5 w-3.5 text-zinc-400" />
 						{/if}
 					</button>

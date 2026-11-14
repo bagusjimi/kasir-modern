@@ -21,6 +21,7 @@ interface SyncApiResponse {
 		stock_transfers?: any[];
 		tax_settings?: any;
 		store_settings?: any;
+		payment_settings?: any;
 	};
 }
 
@@ -305,6 +306,9 @@ export class SyncEngine {
 					}
 					if (result.serverUpdates.store_settings) {
 						await db.app_settings.put({ key: 'store_settings', value: result.serverUpdates.store_settings });
+					}
+					if (result.serverUpdates.payment_settings) {
+						await db.app_settings.put({ key: 'payment_settings', value: result.serverUpdates.payment_settings });
 					}
 					if (result.serverUpdates.expenses && result.serverUpdates.expenses.length > 0) {
 						const formattedExpenses = result.serverUpdates.expenses.map(e => ({

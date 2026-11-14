@@ -712,7 +712,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			}
 		}
 
-		// Pengaturan pajak & identitas toko: first-sync selalu dikirim, delta hanya jika berubah
+		// Pengaturan pajak & identitas toko (global): first-sync selalu dikirim, delta hanya jika berubah
 		let taxSettings: any = null;
 		let storeSettings: any = null;
 		const settingsRes = await d1
@@ -725,6 +725,22 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			try {
 				if (r.key === 'tax_settings') taxSettings = JSON.parse(r.value);
 				if (r.key === 'store_settings') storeSettings = JSON.parse(r.value);
+			} catch {
+				// Nilai JSON rusak: lewati
+			}
+		}
+
+		// Pengaturan pembayaran per cabang: hanya sesi non-admin (kasir menerima pengaturan tokonya sendiri)
+		let paymentSettings: any = null;
+		if (session.branchId && session.branchId !== 'all') {
+			try {
+				const payRow = await d1
+					.prepare('SELECT value, updated_at FROM app_settings WHERE key = ?')
+					.bind('payment_settings:' + session.branchId)
+					.first<{ value: string; updated_at: string }>();
+				if (payRow && payRow.value && (!lastSyncedAt || (payRow.updated_at && payRow.updated_at >= lastSyncedAt))) {
+					paymentSettings = JSON.parse(payRow.value);
+				}
 			} catch {
 				// Nilai JSON rusak: lewati
 			}
@@ -803,7 +819,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				stock_counts: updatedStockCounts,
 				stock_transfers: updatedTransfers,
 				...(taxSettings ? { tax_settings: taxSettings } : {}),
-				...(storeSettings ? { store_settings: storeSettings } : {})
+				...(storeSettings ? { store_settings: storeSettings } : {}),
+				...(paymentSettings ? { payment_settings: paymentSettings } : {})
 			}
 		});
 	} catch (error: any) {

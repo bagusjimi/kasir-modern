@@ -310,3 +310,23 @@ export interface TaxSettings {
 	name: string; // Contoh: 'PPN', 'PB1 (Pajak Resto)'
 	updated_at?: string;
 }
+
+// Konfigurasi metode pembayaran non-tunai. Struktur dibuat ekstensibel:
+// QRIS statis saat ini, nanti bisa ditambah mode 'dynamic' (payment gateway)
+// tanpa mengubah skema penyimpanan.
+export interface PaymentSettings {
+	qris: {
+		enabled: boolean;
+		mode: 'static'; // nanti: 'dynamic' saat terhubung payment gateway
+		image: string; // gambar QR statis (data URL), diterbitkan dari bank/mitra
+		merchant_name: string; // nama merchant yang tertera di konfirmasi kasir
+		updated_at?: string;
+	};
+	transfer: {
+		enabled: boolean;
+		bank_name: string;
+		account_number: string;
+		account_name: string;
+		updated_at?: string;
+	};
+}
