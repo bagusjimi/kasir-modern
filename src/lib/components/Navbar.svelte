@@ -16,7 +16,8 @@
 		LogOut,
 		Building2,
 		ShieldCheck,
-		AlertTriangle
+		AlertTriangle,
+		Info
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -263,6 +264,12 @@
 		<div class="flex items-center justify-center gap-1.5 bg-rose-600 px-4 py-1.5 text-center text-xs font-medium text-white">
 			<AlertTriangle class="h-3.5 w-3.5" />
 			<span>Sinkronisasi ditunda: {syncEngine.lastError}</span>
+		</div>
+	{/if}
+	{#if syncEngine.lastNotice}
+		<div class="flex items-center justify-center gap-1.5 bg-amber-500 px-4 py-1.5 text-center text-xs font-medium text-white">
+			<Info class="h-3.5 w-3.5" />
+			<span>{syncEngine.lastNotice}</span>
 		</div>
 	{/if}
 </header>

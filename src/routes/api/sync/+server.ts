@@ -129,10 +129,32 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		}
 
 		// 2. Sinkronisasi Antrean Umum (Produk & User perubahan offline)
+		// Deteksi dulu versi produk yang tersimpan agar push yang kalah (versi
+		// lebih kecil, mis. dibuat perangkat lain saat offline) bisa diberi tahu
+		// ke perangkat pengirim, bukan ditolak diam-diam.
+		const supersededItems: { id: string; name: string; local_version: number; server_version: number }[] = [];
+		const productQueue = queue.filter((q: any) => q.entity === 'product' && (q.action === 'insert' || q.action === 'update'));
+		const effectiveProductVersion = new Map<string, number>();
+		if (productQueue.length > 0) {
+			const prodIds = [...new Set(productQueue.map((q: any) => q.data.id))];
+			const existingProdRes = await d1.prepare(`SELECT id, version FROM products WHERE id IN (${prodIds.map(() => '?').join(',')})`).bind(...prodIds).all();
+			for (const row of existingProdRes.results || []) {
+				effectiveProductVersion.set((row as any).id, Number((row as any).version) || 1);
+			}
+		}
+
 		for (const q of queue) {
 			if (q.entity === 'product') {
 				const p = q.data;
 				if (q.action === 'insert' || q.action === 'update') {
+					const incomingVersion = p.version || 1;
+					const currentVersion = effectiveProductVersion.get(p.id) || 0;
+					if (incomingVersion < currentVersion) {
+						supersededItems.push({ id: p.id, name: p.name || p.sku || p.id, local_version: incomingVersion, server_version: currentVersion });
+						flush('queue:' + q.id);
+						continue;
+					}
+					effectiveProductVersion.set(p.id, incomingVersion);
 					statements.push(
 						d1.prepare(`
 							INSERT INTO products (id, branch_id, sku, barcode, name, category, price, cost_price, stock, min_stock, unit, image_url, is_active, version, created_at, updated_at)
@@ -697,6 +719,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			message: `Sinkronisasi D1 berhasil: ${transactions.length} transaksi, ${expenses.length} pengeluaran, ${activity_logs.length} log, ${queue.length} antrean.`,
 			syncedAt: now,
 			failed_items: failedItems,
+			superseded_items: supersededItems,
 			serverUpdates: {
 				products: updatedProducts,
 				users: updatedUsers,

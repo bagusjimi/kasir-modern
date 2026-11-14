@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
 import { getSession, unauthorized } from '#lib/server/auth.js';
+import { deterministicProductId } from '#lib/products/id.js';
 
 export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	const d1 = getD1(platform);
@@ -80,9 +81,9 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			return json({ success: false, message: 'Nama dan harga produk wajib diisi' }, { status: 400 });
 		}
 
-		const id = body.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 		const now = new Date().toISOString();
 		const finalSku = sku || `SKU-${Date.now().toString().slice(-6)}`;
+		const id = body.id || deterministicProductId(branch_id, finalSku);
 
 		await d1.prepare(`
 			INSERT INTO products (id, branch_id, sku, barcode, name, category, price, cost_price, stock, unit, image_url, is_active, version, created_at, updated_at)

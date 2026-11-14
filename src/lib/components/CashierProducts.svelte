@@ -3,6 +3,7 @@
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import { syncEngine } from '../sync/index.js';
+	import { deterministicProductId } from '../products/id.js';
 	import type { Product, Category, StockMovement } from '../types/index.js';
 	import {
 		Plus,
@@ -362,7 +363,11 @@
 				synced: false
 			});
 		} else {
-			const newId = 'prod-' + Date.now();
+			// Produk dengan SKU memakai ID deterministik agar pembuatan bersamaan
+			// di dua perangkat offline tergabung saat sync, bukan jadi duplikat.
+			const newId = trimmedSku
+				? deterministicProductId(branchId, trimmedSku)
+				: 'prod-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
 			const newProduct: Product = {
 				id: newId,
 				branch_id: branchId,
