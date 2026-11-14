@@ -30,6 +30,7 @@
 
 	let labelSize = $state<LabelSize>('medium');
 	let layout = $state<LayoutMode>('auto');
+	let gapMm = $state<number>(3);
 	let qtyMap = $state<Record<string, number>>({});
 
 	const size = $derived(SIZE_PRESETS[labelSize]);
@@ -38,13 +39,14 @@
 	// cetak (gaya inline menimpa aturan cetak di app.css) agar pratinjau
 	// selalu sama persis dengan hasil cetak.
 	const containerStyle = $derived.by<string>(() => {
+		const gap = `${gapMm}mm`;
 		if (layout === 'roll') {
-			return `display:flex; flex-direction:column; align-items:center; gap:2mm; padding:2mm; width:${size.w + 4}mm;`;
+			return `display:flex; flex-direction:column; align-items:center; gap:${gap}; padding:2mm; width:${size.w + 4}mm;`;
 		}
 		if (layout === 'two') {
-			return `display:grid; grid-template-columns:repeat(2, ${size.w}mm); justify-content:center; gap:3mm; padding:8mm;`;
+			return `display:grid; grid-template-columns:repeat(2, ${size.w}mm); justify-content:center; gap:${gap}; padding:8mm;`;
 		}
-		return 'display:flex; flex-wrap:wrap; gap:3mm; padding:8mm;';
+		return `display:flex; flex-wrap:wrap; gap:${gap}; padding:8mm;`;
 	});
 
 	interface LabelItem {
@@ -68,6 +70,7 @@
 			qtyMap = {};
 			labelSize = 'medium';
 			layout = 'auto';
+			gapMm = 3;
 		}
 	});
 
@@ -139,6 +142,19 @@
 									<option value={key}>{preset.label}</option>
 								{/each}
 							</select>
+						</div>
+						<div>
+							<label for="labelGap" class="block text-xs font-semibold text-gray-700 mb-1">Jarak Antar Label (mm)</label>
+							<input
+								id="labelGap"
+								type="number"
+								min="0"
+								max="20"
+								step="0.5"
+								value={gapMm}
+								onchange={(e) => (gapMm = Math.max(0, Math.min(20, Number((e.target as HTMLInputElement).value) || 0)))}
+								class="w-24 px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
+							/>
 						</div>
 						<div>
 							<label for="labelLayout" class="block text-xs font-semibold text-gray-700 mb-1">Tata Letak</label>
