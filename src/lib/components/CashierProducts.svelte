@@ -24,6 +24,9 @@
 	// Modal Form Tambah / Edit Produk
 	let isModalOpen = $state<boolean>(false);
 	let isEditing = $state<boolean>(false);
+	// Harga hanya boleh diubah admin: keputusan harga bersifat terpusat,
+	// sedangkan kasir tetap bisa kelola stok dan data produk lainnya.
+	const canEditPrice = $derived(authState.user?.role === 'admin' || !isEditing);
 	let formId = $state<string>('');
 	let formName = $state<string>('');
 	let formCategory = $state<string>('');
@@ -601,7 +604,8 @@
 							id="formCostPrice"
 							type="number"
 							bind:value={formCostPrice}
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500"
+							disabled={!canEditPrice}
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-hidden focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
 						/>
 					</div>
 					<div>
@@ -610,10 +614,14 @@
 							id="formPrice"
 							type="number"
 							bind:value={formPrice}
-							class="w-full px-3 py-2 rounded-xl border border-gray-200 font-bold text-emerald-600 focus:outline-hidden focus:border-emerald-500"
+							disabled={!canEditPrice}
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 font-bold text-emerald-600 focus:outline-hidden focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
 						/>
 					</div>
 				</div>
+				{#if !canEditPrice}
+					<p class="text-[11px] text-amber-600 -mt-1">Harga hanya dapat diubah oleh Admin. Perubahan harga berlaku di semua cabang.</p>
+				{/if}
 
 				<div class="grid grid-cols-3 gap-3">
 					<div>
