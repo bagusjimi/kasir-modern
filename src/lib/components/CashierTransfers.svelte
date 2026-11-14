@@ -24,8 +24,8 @@
 	let transfers = $state<StockTransfer[]>([]);
 	let isLoading = $state<boolean>(true);
 
-	// Tab: keluar (sumber) / masuk (tujuan)
-	let activeView = $state<'keluar' | 'masuk'>('keluar');
+	// Tab: keluar (catatan pengirim) / terima (catatan penerimaan manual)
+	let activeView = $state<'keluar' | 'terima'>('keluar');
 
 	// Form transfer baru
 	let isFormOpen = $state<boolean>(false);
@@ -39,6 +39,13 @@
 	}
 
 	let draftRows = $state<DraftRow[]>([]);
+
+	// Form penerimaan manual (tab Terima)
+	let isReceiveOpen = $state<boolean>(false);
+	let receiveFromBranchId = $state<string>('');
+	let receiveNote = $state<string>('');
+	let receiveError = $state<string | null>(null);
+	let receiveRows = $state<DraftRow[]>([]);
 
 	// Modal konfirmasi batal
 	let isCancelOpen = $state<boolean>(false);
@@ -59,8 +66,11 @@
 
 	let currentBranchId = $state<string>('all');
 
-	const outgoing = $derived(transfers.filter(t => t.from_branch_id === currentBranchId || currentBranchId === 'all'));
-	const incoming = $derived(transfers.filter(t => t.to_branch_id === currentBranchId || currentBranchId === 'all'));
+	// Admin pusat (semua cabang) hanya memantau: melihat semua catatan tanpa aksi
+	const isAdmin = $derived(currentBranchId === 'all');
+
+	const outgoing = $derived(transfers.filter(t => (isAdmin ? t.status !== 'diterima' : t.from_branch_id === currentBranchId)));
+	const receiving = $derived(transfers.filter(t => t.status === 'diterima' && (isAdmin || t.to_branch_id === currentBranchId)));
 
 	const statusLabels: Record<StockTransferStatus, string> = {
 		dikirim: 'Dikirim',
@@ -90,7 +100,7 @@
 		transfers = allTransfers
 			.sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
 			.slice(0, 50)
-			.filter(t => currentBranchId === 'all' || t.from_branch_id === currentBranchId || t.to_branch_id === currentBranchId);
+			.filter(t => currentBranchId === 'all' || t.from_branch_id === currentBranchId || (t.status === 'diterima' && t.to_branch_id === currentBranchId));
 		isLoading = false;
 	}
 
@@ -119,6 +129,13 @@
 		const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
 		const timePart = now.toISOString().slice(11, 23).replace(/[:.]/g, '');
 		return `TRF/${datePart}/${fromCode}/${toCode}/${timePart}`;
+	}
+
+	function makeReceiveNo(fromCode: string, toCode: string): string {
+		const now = new Date();
+		const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+		const timePart = now.toISOString().slice(11, 23).replace(/[:.]/g, '');
+		return `TRM/${datePart}/${fromCode}/${toCode}/${timePart}`;
 	}
 
 	async function queueProductUpdate(prod: Product, now: string) {
@@ -373,6 +390,148 @@
 		docTransfer = trf;
 		isDocOpen = true;
 	}
+
+	function openReceiveForm() {
+		receiveFromBranchId = '';
+		receiveNote = '';
+		receiveError = null;
+		receiveRows = [{ product_id: products[0]?.id || '', quantity: 1 }];
+		isReceiveOpen = true;
+	}
+
+	function addReceiveRow() {
+		receiveRows = [...receiveRows, { product_id: products[0]?.id || '', quantity: 1 }];
+	}
+
+	function removeReceiveRow(index: number) {
+		receiveRows = receiveRows.filter((_, i) => i !== index);
+	}
+
+	async function confirmReceive() {
+		receiveError = null;
+
+		if (!receiveFromBranchId) {
+			receiveError = 'Pilih cabang asal barang terlebih dahulu';
+			return;
+		}
+		if (receiveFromBranchId === currentBranchId) {
+			receiveError = 'Cabang asal tidak boleh sama dengan cabang saat ini';
+			return;
+		}
+		const validRows = receiveRows.filter(r => r.product_id && r.quantity > 0);
+		if (validRows.length === 0) {
+			receiveError = 'Tambahkan minimal satu produk dengan jumlah lebih dari 0';
+			return;
+		}
+		const seen = new Set<string>();
+		for (const r of validRows) {
+			if (seen.has(r.product_id)) {
+				receiveError = 'Produk yang sama tidak boleh muncul dua kali. Gabungkan jumlahnya.';
+				return;
+			}
+			seen.add(r.product_id);
+		}
+
+		const now = new Date().toISOString();
+		const fromBranch = branches.find(b => b.id === receiveFromBranchId);
+		const fromCode = fromBranch?.code || 'CB';
+		const toCode = authState.branch?.code || 'CB';
+		const receiveId = newId('trf');
+		const userId = authState.user?.id || '-';
+		const userName = authState.user?.name || 'Kasir';
+
+		const items: StockTransferItem[] = [];
+		for (const row of validRows) {
+			const prod = await db.products.get(row.product_id);
+			if (!prod) {
+				receiveError = 'Produk tidak ditemukan';
+				return;
+			}
+			items.push({
+				id: newId('ti'),
+				transfer_id: receiveId,
+				product_id: prod.id,
+				product_name: prod.name,
+				sku: prod.sku,
+				quantity: row.quantity,
+				quantity_received: row.quantity,
+				created_at: now,
+				price: prod.price,
+				cost_price: prod.cost_price,
+				category: prod.category,
+				unit: prod.unit,
+				min_stock: prod.min_stock || 0
+			});
+
+			// Stok toko penerima bertambah dari catatannya sendiri
+			await db.products.put({
+				...prod,
+				stock: prod.stock + row.quantity,
+				updated_at: now,
+				version: (prod.version || 1) + 1
+			});
+			await db.sync_queue.add({
+				id: newId('sq'),
+				entity: 'product',
+				action: 'update',
+				data: { ...prod, stock: prod.stock + row.quantity, updated_at: now, version: (prod.version || 1) + 1 },
+				timestamp: Date.now(),
+				retry_count: 0,
+				status: 'pending'
+			});
+
+			// Ledger stok: barang masuk ke cabang penerima
+			await db.stock_movements.add({
+				id: newId('mv'),
+				branch_id: currentBranchId,
+				product_id: prod.id,
+				quantity: row.quantity,
+				type: 'transfer_in',
+				reference_id: receiveId,
+				reason: `Penerimaan manual dari ${fromBranch?.name || receiveFromBranchId}`,
+				user_id: userId,
+				user_name: userName,
+				created_at: now,
+				synced: false
+			});
+		}
+
+		const receive: StockTransfer = {
+			id: receiveId,
+			transfer_no: makeReceiveNo(fromCode, toCode),
+			from_branch_id: receiveFromBranchId,
+			from_branch_name: fromBranch?.name,
+			to_branch_id: currentBranchId,
+			to_branch_name: authState.branch?.name,
+			status: 'diterima',
+			notes: receiveNote.trim() || undefined,
+			user_id: userId,
+			user_name: userName,
+			items,
+			created_at: now,
+			updated_at: now,
+			synced: false,
+			received_by: userId,
+			received_by_name: userName,
+			received_at: now
+		};
+
+		await db.stock_transfers.add(receive);
+		await queueTransfer(receive, 'insert');
+		await saveActivity(
+			'stock_transfer_received',
+			`Catat penerimaan stok ${receive.transfer_no} dari ${fromBranch?.name || receiveFromBranchId}: ${items.length} produk.`,
+			currentBranchId,
+			now
+		);
+
+		isReceiveOpen = false;
+		await syncEngine.updatePendingCount();
+		await loadData();
+		if (syncEngine.isOnline) {
+			syncEngine.triggerSync();
+		}
+	}
 </script>
 
 <div class="space-y-6">
@@ -383,19 +542,23 @@
 				<ArrowLeftRight class="h-5 w-5 text-emerald-600" />
 				Transfer Stok Antar Cabang
 			</h1>
-			<p class="text-xs text-zinc-500 mt-0.5">Catat pengiriman stok ke cabang lain dan cetak dokumen serah terima. Stok toko asal berkurang saat dicatat; toko tujuan mengelola stoknya sendiri secara manual.</p>
+			<p class="text-xs text-zinc-500 mt-0.5">{isAdmin
+				? 'Mode admin pusat: memantau semua catatan transfer keluar dan penerimaan antar toko (hanya melihat, tanpa aksi).'
+				: 'Catatan pengirim dan penerima dibuat terpisah dan bersifat privat per toko. Toko asal mencatat pengiriman (stok berkurang) dan mencetak dokumen serah terima; toko tujuan mencatat penerimaannya sendiri di tab Terima.'}</p>
 		</div>
-		<button
-			onclick={openForm}
-			disabled={products.length === 0 || branches.length < 2}
-			class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-600/30 transition cursor-pointer"
-		>
-			<Plus class="h-4 w-4" />
-			<span>Transfer Baru</span>
-		</button>
+		{#if !isAdmin}
+			<button
+				onclick={activeView === 'keluar' ? openForm : openReceiveForm}
+				disabled={products.length === 0 || branches.length < 2}
+				class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-600/30 transition cursor-pointer"
+			>
+				<Plus class="h-4 w-4" />
+				<span>{activeView === 'keluar' ? 'Transfer Baru' : 'Catat Penerimaan'}</span>
+			</button>
+		{/if}
 	</div>
 
-	{#if branches.length < 2}
+	{#if !isAdmin && branches.length < 2}
 		<div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium flex items-start gap-3">
 			<AlertCircle class="h-5 w-5 shrink-0 mt-0.5" />
 			<span>Transfer membutuhkan minimal dua cabang. Tambahkan cabang lain terlebih dahulu di menu Kelola Cabang.</span>
@@ -411,10 +574,10 @@
 			Transfer Keluar ({outgoing.filter(t => t.status === 'dikirim').length})
 		</button>
 		<button
-			onclick={() => activeView = 'masuk'}
-			class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer {activeView === 'masuk' ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}"
+			onclick={() => activeView = 'terima'}
+			class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer {activeView === 'terima' ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}"
 		>
-			Transfer Masuk ({incoming.filter(t => t.status === 'dikirim').length})
+			Terima ({receiving.length})
 		</button>
 	</div>
 
@@ -423,14 +586,14 @@
 		<div class="flex items-center gap-2 px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/70">
 			<Package class="h-4 w-4 text-zinc-400" />
 			<h2 class="text-sm font-bold text-zinc-800">
-				{activeView === 'keluar' ? 'Riwayat Transfer Keluar' : 'Riwayat Transfer Masuk'}
+				{activeView === 'keluar' ? 'Riwayat Transfer Keluar' : 'Riwayat Penerimaan'}
 			</h2>
 		</div>
 		<div class="divide-y divide-zinc-100">
 			{#if isLoading}
 				<div class="px-5 py-12 text-center text-xs text-zinc-400">Memuat...</div>
 			{:else}
-				{#each (activeView === 'keluar' ? outgoing : incoming) as trf (trf.id)}
+				{#each (activeView === 'keluar' ? outgoing : receiving) as trf (trf.id)}
 					<div class="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-zinc-50/60 transition">
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2 flex-wrap">
@@ -440,9 +603,11 @@
 								</span>
 							</div>
 							<div class="text-xs text-zinc-500 mt-1">
-								{activeView === 'keluar'
-									? `Ke: ${trf.to_branch_name || trf.to_branch_id}`
-									: `Dari: ${trf.from_branch_name || trf.from_branch_id}`}
+								{isAdmin
+									? `${trf.from_branch_name || trf.from_branch_id} → ${trf.to_branch_name || trf.to_branch_id}`
+									: activeView === 'keluar'
+										? `Ke: ${trf.to_branch_name || trf.to_branch_id}`
+										: `Dari: ${trf.from_branch_name || trf.from_branch_id}`}
 								&middot; {trf.items.length} produk
 								&middot; {formatDateTime(trf.created_at)}
 							</div>
@@ -451,21 +616,23 @@
 							{/if}
 						</div>
 						<div class="flex items-center gap-1.5 shrink-0">
-							<button
-								onclick={() => openDoc(trf)}
-								class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
-								title="Cetak dokumen serah terima"
-							>
-								<FileText class="h-3.5 w-3.5" />
-								Dokumen
-							</button>
+							{#if activeView === 'keluar'}
+								<button
+									onclick={() => openDoc(trf)}
+									class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
+									title="Cetak dokumen serah terima"
+								>
+									<FileText class="h-3.5 w-3.5" />
+									Dokumen
+								</button>
+							{/if}
 							<button
 								onclick={() => openDetail(trf)}
 								class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
 							>
 								Detail
 							</button>
-							{#if trf.status === 'dikirim' && (trf.from_branch_id === currentBranchId || currentBranchId === 'all')}
+							{#if activeView === 'keluar' && trf.status === 'dikirim' && trf.from_branch_id === currentBranchId}
 								<button
 									onclick={() => openCancelModal(trf)}
 									class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
@@ -479,7 +646,7 @@
 				{:else}
 					<div class="px-5 py-12 text-center text-xs text-zinc-400">
 						<ArrowLeftRight class="h-10 w-10 mx-auto mb-2 text-zinc-200 stroke-1" />
-						{activeView === 'keluar' ? 'Belum ada transfer keluar.' : 'Belum ada transfer masuk.'}
+						{activeView === 'keluar' ? 'Belum ada transfer keluar.' : 'Belum ada catatan penerimaan.'}
 					</div>
 				{/each}
 			{/if}
@@ -589,6 +756,113 @@
 	</div>
 {/if}
 
+
+<!-- Modal Catat Penerimaan Manual -->
+{#if isReceiveOpen}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+		<div class="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl p-6 space-y-4">
+			<div class="flex items-center justify-between">
+				<h3 class="text-base font-bold text-zinc-900">Catat Penerimaan Stok</h3>
+				<button
+					onclick={() => isReceiveOpen = false}
+					class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 transition cursor-pointer"
+					aria-label="Tutup"
+				>
+					<XCircle class="h-4 w-4" />
+				</button>
+			</div>
+
+			<div class="flex items-center gap-1.5 text-[11px] text-zinc-500 bg-zinc-50 border border-zinc-200 rounded-lg p-2">
+				<Package class="h-3.5 w-3.5 shrink-0" />
+				<span>Catatan ini milik toko Anda sendiri dan tidak tampil di toko asal. Stok bertambah setelah disimpan.</span>
+			</div>
+
+			<div>
+				<label for="receive-branch" class="block font-semibold text-zinc-700 mb-1">Cabang Asal</label>
+				<select
+					id="receive-branch"
+					bind:value={receiveFromBranchId}
+					class="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-hidden focus:border-emerald-500 text-sm"
+				>
+					<option value="" disabled>Pilih cabang asal...</option>
+					{#each branches.filter(b => b.id !== currentBranchId) as b (b.id)}
+						<option value={b.id}>{b.name} ({b.code})</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class="space-y-2">
+				<span class="block font-semibold text-zinc-700">Produk yang Diterima</span>
+				{#each receiveRows as row, index}
+					<div class="flex items-center gap-2">
+						<select
+							bind:value={row.product_id}
+							class="flex-1 px-3 py-2 rounded-xl border border-zinc-200 focus:outline-hidden focus:border-emerald-500 text-sm"
+						>
+							{#each products as prod (prod.id)}
+								<option value={prod.id}>{prod.name} (stok: {prod.stock})</option>
+							{/each}
+						</select>
+						<input
+							type="number"
+							bind:value={row.quantity}
+							min="1"
+							class="w-20 px-3 py-2 rounded-xl border border-zinc-200 focus:outline-hidden focus:border-emerald-500 text-sm"
+						/>
+						<button
+							onclick={() => removeReceiveRow(index)}
+							class="p-2 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+							aria-label="Hapus baris"
+						>
+							<Trash2 class="h-4 w-4" />
+						</button>
+					</div>
+				{/each}
+				<button
+					onclick={addReceiveRow}
+					class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-zinc-300 text-xs font-semibold text-zinc-600 hover:border-emerald-500 hover:text-emerald-700 transition cursor-pointer"
+				>
+					<Plus class="h-3.5 w-3.5" />
+					Tambah Produk
+				</button>
+			</div>
+
+			<div>
+				<label for="receive-note" class="block font-semibold text-zinc-700 mb-1">Catatan (Opsional)</label>
+				<input
+					id="receive-note"
+					type="text"
+					bind:value={receiveNote}
+					placeholder="Contoh: sesuai surat jalan TRF/..."
+					class="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-hidden focus:border-emerald-500 text-sm"
+				/>
+			</div>
+
+			{#if receiveError}
+				<div class="flex items-center gap-1.5 p-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-medium">
+					<AlertCircle class="h-4 w-4 shrink-0" />
+					<span>{receiveError}</span>
+				</div>
+			{/if}
+
+			<div class="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
+				<button
+					onclick={() => isReceiveOpen = false}
+					class="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-semibold cursor-pointer"
+				>
+					Batal
+				</button>
+				<button
+					onclick={confirmReceive}
+					class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
+				>
+					<Package class="h-4 w-4" />
+					Simpan Penerimaan
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <!-- Modal Detail Transfer -->
 {#if isDetailOpen && detailTransfer}

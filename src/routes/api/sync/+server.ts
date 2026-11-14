@@ -576,8 +576,18 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			const scRes = await d1.prepare('SELECT * FROM stock_counts WHERE created_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
 			updatedStockCounts = scRes.results || [];
 
-			const trfRes = await d1.prepare('SELECT * FROM stock_transfers WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all();
-			updatedTransfers = trfRes.results || [];
+			// Catatan transfer bersifat privat per toko: pengirim melihat catatan keluarnya
+			// (belum 'diterima'), penerima hanya melihat catatan penerimaannya sendiri.
+			// Admin pusat (semua cabang) menerima semua catatan untuk dipantau (baca-saja).
+			// Kegagalan pull transfer tidak boleh menggagalkan seluruh sinkronisasi.
+			try {
+				const trfRes = session.branchId === 'all'
+					? await d1.prepare('SELECT * FROM stock_transfers WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all()
+					: await d1.prepare("SELECT * FROM stock_transfers WHERE updated_at >= ? AND ((status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?)) ORDER BY created_at DESC LIMIT 100").bind(lastSyncedAt, session.branchId, session.branchId).all();
+				updatedTransfers = trfRes.results || [];
+			} catch (trfErr) {
+				console.warn('Gagal pull stock_transfers:', trfErr);
+			}
 
 			const branchDeltaRes = await d1.prepare('SELECT * FROM branches WHERE updated_at >= ?').bind(lastSyncedAt).all();
 			branches = branchDeltaRes.results || [];
@@ -586,7 +596,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			categories = catDeltaRes.results || [];
 		} else {
 			// Jika first sync, kirimkan semua master data
-			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes, trfRes] = await d1.batch([
+			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes] = await d1.batch([
 				d1.prepare('SELECT * FROM products WHERE is_active = 1'),
 				d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1'),
 				d1.prepare('SELECT * FROM branches'),
@@ -595,8 +605,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				d1.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 200'),
 				d1.prepare('SELECT * FROM shifts ORDER BY opened_at DESC LIMIT 100'),
 				d1.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT 100'),
-				d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100'),
-				d1.prepare('SELECT * FROM stock_transfers ORDER BY created_at DESC LIMIT 100')
+				d1.prepare('SELECT * FROM stock_counts ORDER BY created_at DESC LIMIT 100')
 			]);
 
 			updatedProducts = prodRes.results || [];
@@ -611,7 +620,18 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			updatedShifts = shiftRes.results || [];
 			updatedPurchases = poRes.results || [];
 			updatedStockCounts = scRes.results || [];
-			updatedTransfers = trfRes.results || [];
+
+			// Catatan transfer privat per toko (lihat komentar di blok delta pull);
+			// admin pusat menerima semua catatan untuk dipantau (baca-saja).
+			// Di luar batch agar kegagalan tidak menggagalkan master data lain.
+			try {
+				const trfRes = session.branchId === 'all'
+					? await d1.prepare('SELECT * FROM stock_transfers ORDER BY created_at DESC LIMIT 100').all()
+					: await d1.prepare("SELECT * FROM stock_transfers WHERE (status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?) ORDER BY created_at DESC LIMIT 100").bind(session.branchId, session.branchId).all();
+				updatedTransfers = trfRes.results || [];
+			} catch (trfErr) {
+				console.warn('Gagal pull stock_transfers:', trfErr);
+			}
 		}
 
 		// Pengaturan pajak & identitas toko: first-sync selalu dikirim, delta hanya jika berubah
