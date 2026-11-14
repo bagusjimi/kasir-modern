@@ -23,14 +23,25 @@ export function getD1(platform?: App.Platform | undefined): D1Database | null {
 }
 
 /**
+ * Flag per-isolate: verifikasi skema cukup sekali per isolate. Menjalankan
+ * puluhan statement D1 di setiap request menghabiskan limit CPU Worker.
+ */
+let schemaReady = false;
+
+/**
  * Memastikan skema tabel D1 sudah ada (DDL saja, tanpa data).
  */
 export async function ensureD1Seeded(d1: D1Database): Promise<void> {
-	// Pastikan semua tabel dibuat jika belum ada. Setiap statement dijalankan
-	// sendiri-sendiri: kegagalan satu DDL (mis. indeks pada tabel lama yang
-	// bentuknya tidak sesuai) tidak boleh menggagalkan pembuatan tabel lain
-	// karena d1.batch bersifat atomik.
-	const schemaStatements = [
+	if (schemaReady) return;
+
+	// Cache hanya dipakai jika seluruh langkah struktural sukses; jika ada
+	// yang gagal, verifikasi diulang pada request berikutnya agar skema rusak
+	// tetap mendapat kesempatan pulih.
+	let schemaOk = true;
+
+	// Semua tabel dibuat dengan IF NOT EXISTS: no-op untuk tabel yang sudah
+	// ada (bentuk apa pun) sehingga aman dijalankan dalam satu batch atomik.
+	const tableStatements = [
 		`CREATE TABLE IF NOT EXISTS branches (
 			id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
 			address TEXT, phone TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -131,7 +142,9 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			quantity_received INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
 			price REAL NOT NULL DEFAULT 0, cost_price REAL NOT NULL DEFAULT 0,
 			category TEXT, unit TEXT, min_stock INTEGER NOT NULL DEFAULT 0
-		)`,
+		)`
+	];
+	const indexStatements = [
 		'CREATE INDEX IF NOT EXISTS idx_shifts_branch ON shifts(branch_id)',
 		'CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status)',
 		'CREATE INDEX IF NOT EXISTS idx_shifts_updated ON shifts(updated_at)',
@@ -145,21 +158,62 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		'CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)',
 		'CREATE INDEX IF NOT EXISTS idx_stock_movements_branch ON stock_movements(branch_id)',
 		'CREATE INDEX IF NOT EXISTS idx_stock_movements_created ON stock_movements(created_at)',
-		'CREATE INDEX IF NOT EXISTS idx_tx_adjustments_tx ON transaction_adjustments(transaction_id)'
+		'CREATE INDEX IF NOT EXISTS idx_tx_adjustments_tx ON transaction_adjustments(transaction_id)',
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_from ON stock_transfers(from_branch_id)',
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_to ON stock_transfers(to_branch_id)',
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_updated ON stock_transfers(updated_at)',
+		'CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)'
 	];
-	for (const ddl of schemaStatements) {
-		try {
-			await d1.prepare(ddl).run();
-		} catch (ddlErr) {
-			console.warn('Gagal menyiapkan skema D1:', ddlErr);
-		}
+
+	try {
+		await d1.batch(tableStatements.map(ddl => d1.prepare(ddl)));
+	} catch (ddlErr) {
+		console.warn('Gagal menyiapkan tabel D1:', ddlErr);
+		schemaOk = false;
 	}
 
-	// Migrasi: kolom updated_at untuk delta pull kategori pada database lama
-	try {
-		await d1.prepare('ALTER TABLE categories ADD COLUMN updated_at TEXT').run();
-	} catch {
-		// Kolom sudah ada
+	// Baca struktur tabel yang mungkin berbentuk lama sekali jalan, agar
+	// migrasi hanya menjalankan ALTER yang benar-benar dibutuhkan dan
+	// pemulihan tabel warisan tidak perlu PRAGMA tambahan.
+	const tableInfo = new Map<string, any[]>();
+	for (const t of ['categories', 'products', 'stock_transfer_items', 'stock_transfers']) {
+		try {
+			const info = await d1.prepare(`PRAGMA table_info(${t})`).all();
+			tableInfo.set(t, (info.results || []) as any[]);
+		} catch {
+			tableInfo.set(t, []);
+			schemaOk = false;
+		}
+	}
+	const hasColumn = (t: string, col: string) => tableInfo.get(t)?.some(c => String(c.name) === col) ?? false;
+
+	const alterStatements: string[] = [];
+	if (!hasColumn('categories', 'updated_at')) {
+		alterStatements.push('ALTER TABLE categories ADD COLUMN updated_at TEXT');
+	}
+	if (!hasColumn('products', 'min_stock')) {
+		alterStatements.push('ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0');
+	}
+	for (const [col, def] of [
+		['price', 'REAL NOT NULL DEFAULT 0'],
+		['cost_price', 'REAL NOT NULL DEFAULT 0'],
+		['category', 'TEXT'],
+		['unit', 'TEXT'],
+		['min_stock', 'INTEGER NOT NULL DEFAULT 0'],
+		['sku', 'TEXT'],
+		['quantity_received', 'INTEGER NOT NULL DEFAULT 0']
+	] as [string, string][]) {
+		if (!hasColumn('stock_transfer_items', col)) {
+			alterStatements.push(`ALTER TABLE stock_transfer_items ADD COLUMN ${col} ${def}`);
+		}
+	}
+	if (alterStatements.length > 0) {
+		try {
+			await d1.batch(alterStatements.map(sql => d1.prepare(sql)));
+		} catch (alterErr) {
+			console.warn('Gagal migrasi kolom D1:', alterErr);
+			schemaOk = false;
+		}
 	}
 
 	// Backfill kategori lama yang dibuat sebelum kolom updated_at ada,
@@ -171,30 +225,6 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			.run();
 	} catch (backfillErr) {
 		console.warn('Gagal backfill updated_at kategori:', backfillErr);
-	}
-
-	// Migrasi: stok minimum produk untuk peringatan stok menipis
-	try {
-		await d1.prepare('ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0').run();
-	} catch {
-		// Kolom sudah ada
-	}
-
-	// Migrasi: snapshot harga & kategori pada item transfer stok
-	for (const ddl of [
-		'ALTER TABLE stock_transfer_items ADD COLUMN price REAL NOT NULL DEFAULT 0',
-		'ALTER TABLE stock_transfer_items ADD COLUMN cost_price REAL NOT NULL DEFAULT 0',
-		'ALTER TABLE stock_transfer_items ADD COLUMN category TEXT',
-		'ALTER TABLE stock_transfer_items ADD COLUMN unit TEXT',
-		'ALTER TABLE stock_transfer_items ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0',
-		'ALTER TABLE stock_transfer_items ADD COLUMN sku TEXT',
-		'ALTER TABLE stock_transfer_items ADD COLUMN quantity_received INTEGER NOT NULL DEFAULT 0'
-	]) {
-		try {
-			await d1.prepare(ddl).run();
-		} catch {
-			// Kolom sudah ada
-		}
 	}
 
 	// Migrasi: kolom tabel stock_transfers untuk database yang dibuat dengan
@@ -216,11 +246,18 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		['created_at', "TEXT NOT NULL DEFAULT ''"],
 		['updated_at', "TEXT NOT NULL DEFAULT ''"]
 	];
+	const transferAlterStatements: string[] = [];
 	for (const [col, def] of transferColumnMigrations) {
+		if (!hasColumn('stock_transfers', col)) {
+			transferAlterStatements.push(`ALTER TABLE stock_transfers ADD COLUMN ${col} ${def}`);
+		}
+	}
+	if (transferAlterStatements.length > 0) {
 		try {
-			await d1.prepare(`ALTER TABLE stock_transfers ADD COLUMN ${col} ${def}`).run();
-		} catch {
-			// Kolom sudah ada
+			await d1.batch(transferAlterStatements.map(sql => d1.prepare(sql)));
+		} catch (alterErr) {
+			console.warn('Gagal migrasi kolom stock_transfers:', alterErr);
+			schemaOk = false;
 		}
 	}
 
@@ -232,18 +269,17 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 	// ikut dipindahkan.
 	const rebuildLegacyTable = async (
 		table: string,
+		cols: any[],
 		canonicalDdl: string,
 		canonicalCols: string[],
 		insertSql: string,
 		mapRow: (r: any) => any[]
 	) => {
 		try {
-			const info = await d1.prepare(`PRAGMA table_info(${table})`).all();
-			const cols = (info.results || []) as any[];
-			if (cols.length === 0) return;
+			if (cols.length === 0) return true;
 			const canonical = new Set(canonicalCols);
 			const hasLegacy = cols.some(c => c.notnull && !c.dflt_value && !canonical.has(String(c.name)));
-			if (!hasLegacy) return;
+			if (!hasLegacy) return true;
 			const rowsRes = await d1.prepare(`SELECT * FROM ${table}`).all();
 			await d1.prepare(`DROP TABLE ${table}`).run();
 			await d1.prepare(canonicalDdl).run();
@@ -255,13 +291,16 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 				}
 			}
 			console.warn(`Tabel ${table} dibangun ulang karena ada kolom warisan NOT NULL di luar skema kanonik`);
+			return true;
 		} catch (rebuildErr) {
 			console.warn(`Gagal memulihkan tabel ${table}:`, rebuildErr);
+			return false;
 		}
 	};
 
-	await rebuildLegacyTable(
+	if (!(await rebuildLegacyTable(
 		'stock_transfers',
+		tableInfo.get('stock_transfers') || [],
 		`CREATE TABLE stock_transfers (
 			id TEXT PRIMARY KEY, transfer_no TEXT NOT NULL,
 			from_branch_id TEXT NOT NULL, from_branch_name TEXT,
@@ -280,10 +319,13 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			r.received_by ?? null, r.received_by_name ?? null, r.received_at ?? null,
 			r.created_at || '', r.updated_at || ''
 		]
-	);
+	))) {
+		schemaOk = false;
+	}
 
-	await rebuildLegacyTable(
+	if (!(await rebuildLegacyTable(
 		'stock_transfer_items',
+		tableInfo.get('stock_transfer_items') || [],
 		`CREATE TABLE stock_transfer_items (
 			id TEXT PRIMARY KEY, transfer_id TEXT NOT NULL, product_id TEXT NOT NULL,
 			product_name TEXT NOT NULL, sku TEXT, quantity INTEGER NOT NULL,
@@ -299,23 +341,29 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 			r.created_at || '', r.price || 0, r.cost_price || 0,
 			r.category ?? null, r.unit ?? null, r.min_stock || 0
 		]
-	);
+	))) {
+		schemaOk = false;
+	}
 
-	// Indeks transfer dibuat setelah migrasi kolom agar tidak menggagalkan
-	// batch CREATE TABLE di atas (d1.batch bersifat atomik).
-	for (const idx of [
-		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_from ON stock_transfers(from_branch_id)',
-		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_to ON stock_transfers(to_branch_id)',
-		'CREATE INDEX IF NOT EXISTS idx_stock_transfers_updated ON stock_transfers(updated_at)',
-		'CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer ON stock_transfer_items(transfer_id)'
-	]) {
-		try {
-			await d1.prepare(idx).run();
-		} catch (idxErr) {
-			console.warn('Gagal membuat indeks transfer:', idxErr);
+	// Indeks dibuat setelah migrasi kolom. Dijalankan sebagai satu batch;
+	// jika ada yang gagal (bentuk tabel lama), ulangi per-statement agar
+	// indeks lainnya tetap terbuat.
+	try {
+		await d1.batch(indexStatements.map(sql => d1.prepare(sql)));
+	} catch {
+		for (const idx of indexStatements) {
+			try {
+				await d1.prepare(idx).run();
+			} catch (idxErr) {
+				console.warn('Gagal membuat indeks D1:', idxErr);
+				schemaOk = false;
+			}
 		}
 	}
 
 	// TIDAK ada auto-seeding data: cabang, kategori, dan pengguna dibuat
 	// oleh pengguna lewat alur Pengaturan Awal dan menu admin (data asli, bukan fiktif).
+	if (schemaOk) {
+		schemaReady = true;
+	}
 }
