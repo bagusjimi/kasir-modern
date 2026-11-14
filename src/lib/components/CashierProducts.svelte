@@ -35,6 +35,7 @@
 	let formCategory = $state<string>('');
 	let newCategoryName = $state<string>('');
 	let formSku = $state<string>('');
+	let formBarcode = $state<string>('');
 	let skuInput: HTMLInputElement | undefined = $state();
 	let formPrice = $state<number>(0);
 	let formCostPrice = $state<number>(0);
@@ -115,7 +116,8 @@
 		products.filter(p =>
 			searchQuery.trim() === '' ||
 			p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			p.sku.toLowerCase().includes(searchQuery.toLowerCase())
+			p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			(p.barcode && p.barcode.includes(searchQuery))
 		)
 	);
 
@@ -151,6 +153,7 @@
 		formCategory = categories[0]?.name || '';
 		newCategoryName = '';
 		formSku = 'PRD-' + Math.floor(100 + Math.random() * 900);
+		formBarcode = '';
 		formPrice = 0;
 		formCostPrice = 0;
 		formStock = 10;
@@ -167,6 +170,7 @@
 		formCategory = prod.category;
 		newCategoryName = '';
 		formSku = prod.sku;
+		formBarcode = prod.barcode || '';
 		formPrice = prod.price;
 		formCostPrice = prod.cost_price;
 		formStock = prod.stock;
@@ -344,6 +348,25 @@
 			}
 		}
 
+		// Barcode pabrik opsional, tetapi jika diisi harus unik dalam cabang —
+		// tidak boleh sama dengan barcode maupun SKU produk lain agar hasil
+		// pemindaian selalu mengarah ke satu produk yang tepat.
+		const trimmedBarcode = formBarcode.trim();
+		if (trimmedBarcode) {
+			const allProducts = await db.products.toArray();
+			const duplicate = allProducts.find(
+				p =>
+					p.id !== formId &&
+					p.branch_id === branchId &&
+					((p.barcode && p.barcode.toLowerCase() === trimmedBarcode.toLowerCase()) ||
+						p.sku.toLowerCase() === trimmedBarcode.toLowerCase())
+			);
+			if (duplicate) {
+				formError = `Barcode pabrik "${trimmedBarcode}" sudah dipakai produk "${duplicate.name}" di toko ini`;
+				return;
+			}
+		}
+
 		const now = new Date().toISOString();
 
 		await registerCategory(formCategory);
@@ -357,6 +380,7 @@
 				name: formName.trim(),
 				category: formCategory,
 				sku: formSku.trim(),
+				barcode: formBarcode.trim() || undefined,
 				price: Number(formPrice),
 				cost_price: Number(formCostPrice),
 				stock: Number(formStock),
@@ -401,6 +425,7 @@
 				id: newId,
 				branch_id: branchId,
 				sku: formSku.trim(),
+				barcode: formBarcode.trim() || undefined,
 				name: formName.trim(),
 				category: formCategory,
 				price: Number(formPrice),
@@ -594,6 +619,9 @@
 								<td class="px-5 py-3.5">
 									<div class="font-bold text-gray-900">{prod.name}</div>
 									<div class="text-[11px] text-gray-500 font-mono">{prod.sku}</div>
+									{#if prod.barcode}
+										<div class="text-[11px] text-gray-400 font-mono">{prod.barcode}</div>
+									{/if}
 								</td>
 								<td class="px-5 py-3.5">
 									<span class="bg-gray-100 text-gray-700 px-2.5 py-0.5 rounded-md font-semibold text-[11px]">
@@ -730,6 +758,17 @@
 							</button>
 						</div>
 						<p class="text-[11px] text-gray-500 mt-1">Isi dengan isi kode batang (Code 128 / EAN-13). Klik kolom lalu pindai dengan alat pemindai.</p>
+					</div>
+					<div>
+						<label for="formBarcode" class="block font-semibold text-gray-700 mb-1">Barcode Pabrik (Opsional)</label>
+						<input
+							id="formBarcode"
+							type="text"
+							bind:value={formBarcode}
+							placeholder="Kosongkan jika tidak ada"
+							class="w-full px-3 py-2 rounded-xl border border-gray-200 font-mono focus:outline-hidden focus:border-emerald-500"
+						/>
+						<p class="text-[11px] text-gray-500 mt-1">Kode batang dari kemasan pabrik. Jika diisi, hasil pemindaian dicocokkan ke sini lebih dulu; jika kosong, pemindaian memakai SKU.</p>
 					</div>
 				</div>
 
