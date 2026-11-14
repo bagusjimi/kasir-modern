@@ -7,6 +7,7 @@
 	import {
 		Plus,
 		Edit3,
+		Trash2,
 		PackagePlus,
 		Search,
 		Package,
@@ -47,6 +48,11 @@
 	// Modal Riwayat Stok (Audit)
 	let isHistoryModalOpen = $state<boolean>(false);
 	let historyProduct = $state<Product | null>(null);
+
+	// Modal Konfirmasi Hapus Produk (aman: produk milik toko sendiri, tidak
+	// berpengaruh ke toko lain; riwayat transaksi tetap tersimpan)
+	let isDeleteModalOpen = $state<boolean>(false);
+	let productToDelete = $state<Product | null>(null);
 	let productMovements = $state<StockMovement[]>([]);
 
 	const movementLabels: Record<string, string> = {
@@ -146,6 +152,11 @@
 		restockNotes = '';
 		restockError = null;
 		isRestockModalOpen = true;
+	}
+
+	function openDeleteModal(prod: Product) {
+		productToDelete = prod;
+		isDeleteModalOpen = true;
 	}
 
 	async function openHistoryModal(prod: Product) {
@@ -404,6 +415,51 @@
 		}
 	}
 
+	async function confirmDeleteProduct() {
+		if (!productToDelete) return;
+
+		const prod = productToDelete;
+		const now = new Date().toISOString();
+		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
+
+		// 1. Hapus dari IndexedDB lokal
+		await db.products.delete(prod.id);
+
+		// 2. Tambahkan ke antrean sinkronisasi
+		await db.sync_queue.add({
+			id: 'sq-' + Date.now(),
+			entity: 'product',
+			action: 'delete',
+			data: { id: prod.id, name: prod.name, sku: prod.sku },
+			timestamp: Date.now(),
+			retry_count: 0,
+			status: 'pending'
+		});
+
+		// 3. Log aktivitas
+		await db.activity_logs.add({
+			id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+			branch_id: branchId,
+			branch_name: authState.branch?.name,
+			user_id: authState.user?.id || '-',
+			user_name: authState.user?.name || 'Kasir',
+			role: authState.user?.role || 'cashier',
+			action: 'delete_product',
+			details: `Menghapus produk: ${prod.name} (SKU: ${prod.sku})`,
+			timestamp: now,
+			synced: false
+		});
+
+		await syncEngine.updatePendingCount();
+		await loadData();
+		isDeleteModalOpen = false;
+		productToDelete = null;
+
+		if (syncEngine.isOnline) {
+			syncEngine.triggerSync();
+		}
+	}
+
 	function formatRupiah(num: number): string {
 		return new Intl.NumberFormat('id-ID', {
 			style: 'currency',
@@ -512,6 +568,14 @@
 									>
 										<Edit3 class="h-3.5 w-3.5" />
 										<span>Edit</span>
+									</button>
+									<button
+										onclick={() => openDeleteModal(prod)}
+										class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold transition cursor-pointer"
+										title="Hapus Produk"
+									>
+										<Trash2 class="h-3.5 w-3.5" />
+										<span>Hapus</span>
 									</button>
 
 								</td>
@@ -837,6 +901,48 @@
 					class="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs cursor-pointer"
 				>
 					Tutup
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Modal Konfirmasi Hapus Produk -->
+{#if isDeleteModalOpen && productToDelete}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+		<div class="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+			<div class="flex items-center gap-3 mb-3">
+				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+					<Trash2 class="h-5 w-5" />
+				</div>
+				<div>
+					<h3 class="text-base font-bold text-gray-900">Hapus Produk?</h3>
+					<p class="text-xs text-gray-500">Tindakan ini tidak dapat dibatalkan</p>
+				</div>
+			</div>
+
+			<div class="my-4 rounded-xl bg-gray-50 p-3 border border-gray-100 text-xs space-y-1">
+				<div class="font-bold text-gray-800">{productToDelete.name}</div>
+				<div class="text-gray-500 font-mono text-[11px]">{productToDelete.sku} • {productToDelete.category}</div>
+				<div class="text-gray-500 text-[11px]">Sisa Stok: <span class="font-bold text-gray-700">{productToDelete.stock} {productToDelete.unit}</span></div>
+			</div>
+
+			<p class="text-xs text-gray-600 mb-5 leading-relaxed">
+				Apakah Anda yakin ingin menghapus produk ini dari daftar inventaris toko ini? Riwayat transaksi sebelumnya tetap tersimpan secara aman.
+			</p>
+
+			<div class="flex items-center justify-end gap-2">
+				<button
+					onclick={() => { isDeleteModalOpen = false; productToDelete = null; }}
+					class="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs cursor-pointer"
+				>
+					Batal
+				</button>
+				<button
+					onclick={confirmDeleteProduct}
+					class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer shadow-md shadow-rose-600/20"
+				>
+					Hapus Produk
 				</button>
 			</div>
 		</div>
