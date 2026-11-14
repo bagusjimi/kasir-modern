@@ -66,8 +66,11 @@
 
 	let currentBranchId = $state<string>('all');
 
-	const outgoing = $derived(transfers.filter(t => t.from_branch_id === currentBranchId));
-	const receiving = $derived(transfers.filter(t => t.status === 'diterima' && t.to_branch_id === currentBranchId));
+	// Admin pusat (semua cabang) hanya memantau: melihat semua catatan tanpa aksi
+	const isAdmin = $derived(currentBranchId === 'all');
+
+	const outgoing = $derived(transfers.filter(t => (isAdmin ? t.status !== 'diterima' : t.from_branch_id === currentBranchId)));
+	const receiving = $derived(transfers.filter(t => t.status === 'diterima' && (isAdmin || t.to_branch_id === currentBranchId)));
 
 	const statusLabels: Record<StockTransferStatus, string> = {
 		dikirim: 'Dikirim',
@@ -97,7 +100,7 @@
 		transfers = allTransfers
 			.sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
 			.slice(0, 50)
-			.filter(t => currentBranchId === 'all' || t.from_branch_id === currentBranchId || t.to_branch_id === currentBranchId);
+			.filter(t => currentBranchId === 'all' || t.from_branch_id === currentBranchId || (t.status === 'diterima' && t.to_branch_id === currentBranchId));
 		isLoading = false;
 	}
 
@@ -539,19 +542,23 @@
 				<ArrowLeftRight class="h-5 w-5 text-emerald-600" />
 				Transfer Stok Antar Cabang
 			</h1>
-			<p class="text-xs text-zinc-500 mt-0.5">Catatan pengirim dan penerima dibuat terpisah dan bersifat privat per toko. Toko asal mencatat pengiriman (stok berkurang) dan mencetak dokumen serah terima; toko tujuan mencatat penerimaannya sendiri di tab Terima.</p>
+			<p class="text-xs text-zinc-500 mt-0.5">{isAdmin
+				? 'Mode admin pusat: memantau semua catatan transfer keluar dan penerimaan antar toko (hanya melihat, tanpa aksi).'
+				: 'Catatan pengirim dan penerima dibuat terpisah dan bersifat privat per toko. Toko asal mencatat pengiriman (stok berkurang) dan mencetak dokumen serah terima; toko tujuan mencatat penerimaannya sendiri di tab Terima.'}</p>
 		</div>
-		<button
-			onclick={activeView === 'keluar' ? openForm : openReceiveForm}
-			disabled={products.length === 0 || branches.length < 2}
-			class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-600/30 transition cursor-pointer"
-		>
-			<Plus class="h-4 w-4" />
-			<span>{activeView === 'keluar' ? 'Transfer Baru' : 'Catat Penerimaan'}</span>
-		</button>
+		{#if !isAdmin}
+			<button
+				onclick={activeView === 'keluar' ? openForm : openReceiveForm}
+				disabled={products.length === 0 || branches.length < 2}
+				class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-600/30 transition cursor-pointer"
+			>
+				<Plus class="h-4 w-4" />
+				<span>{activeView === 'keluar' ? 'Transfer Baru' : 'Catat Penerimaan'}</span>
+			</button>
+		{/if}
 	</div>
 
-	{#if branches.length < 2}
+	{#if !isAdmin && branches.length < 2}
 		<div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium flex items-start gap-3">
 			<AlertCircle class="h-5 w-5 shrink-0 mt-0.5" />
 			<span>Transfer membutuhkan minimal dua cabang. Tambahkan cabang lain terlebih dahulu di menu Kelola Cabang.</span>
@@ -596,9 +603,11 @@
 								</span>
 							</div>
 							<div class="text-xs text-zinc-500 mt-1">
-								{activeView === 'keluar'
-									? `Ke: ${trf.to_branch_name || trf.to_branch_id}`
-									: `Dari: ${trf.from_branch_name || trf.from_branch_id}`}
+								{isAdmin
+									? `${trf.from_branch_name || trf.from_branch_id} → ${trf.to_branch_name || trf.to_branch_id}`
+									: activeView === 'keluar'
+										? `Ke: ${trf.to_branch_name || trf.to_branch_id}`
+										: `Dari: ${trf.from_branch_name || trf.from_branch_id}`}
 								&middot; {trf.items.length} produk
 								&middot; {formatDateTime(trf.created_at)}
 							</div>

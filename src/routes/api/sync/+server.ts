@@ -578,9 +578,12 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 
 			// Catatan transfer bersifat privat per toko: pengirim melihat catatan keluarnya
 			// (belum 'diterima'), penerima hanya melihat catatan penerimaannya sendiri.
+			// Admin pusat (semua cabang) menerima semua catatan untuk dipantau (baca-saja).
 			// Kegagalan pull transfer tidak boleh menggagalkan seluruh sinkronisasi.
 			try {
-				const trfRes = await d1.prepare("SELECT * FROM stock_transfers WHERE updated_at >= ? AND ((status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?)) ORDER BY created_at DESC LIMIT 100").bind(lastSyncedAt, session.branchId, session.branchId).all();
+				const trfRes = session.branchId === 'all'
+					? await d1.prepare('SELECT * FROM stock_transfers WHERE updated_at >= ? ORDER BY created_at DESC LIMIT 100').bind(lastSyncedAt).all()
+					: await d1.prepare("SELECT * FROM stock_transfers WHERE updated_at >= ? AND ((status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?)) ORDER BY created_at DESC LIMIT 100").bind(lastSyncedAt, session.branchId, session.branchId).all();
 				updatedTransfers = trfRes.results || [];
 			} catch (trfErr) {
 				console.warn('Gagal pull stock_transfers:', trfErr);
@@ -618,10 +621,13 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			updatedPurchases = poRes.results || [];
 			updatedStockCounts = scRes.results || [];
 
-			// Catatan transfer privat per toko (lihat komentar di blok delta pull).
+			// Catatan transfer privat per toko (lihat komentar di blok delta pull);
+			// admin pusat menerima semua catatan untuk dipantau (baca-saja).
 			// Di luar batch agar kegagalan tidak menggagalkan master data lain.
 			try {
-				const trfRes = await d1.prepare("SELECT * FROM stock_transfers WHERE (status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?) ORDER BY created_at DESC LIMIT 100").bind(session.branchId, session.branchId).all();
+				const trfRes = session.branchId === 'all'
+					? await d1.prepare('SELECT * FROM stock_transfers ORDER BY created_at DESC LIMIT 100').all()
+					: await d1.prepare("SELECT * FROM stock_transfers WHERE (status != 'diterima' AND from_branch_id = ?) OR (status = 'diterima' AND to_branch_id = ?) ORDER BY created_at DESC LIMIT 100").bind(session.branchId, session.branchId).all();
 				updatedTransfers = trfRes.results || [];
 			} catch (trfErr) {
 				console.warn('Gagal pull stock_transfers:', trfErr);
