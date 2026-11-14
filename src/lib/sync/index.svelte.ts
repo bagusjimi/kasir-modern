@@ -6,6 +6,7 @@ interface SyncApiResponse {
 	message?: string;
 	syncedAt?: string;
 	failed_items?: string[];
+	superseded_items?: { id: string; name: string; local_version: number; server_version: number }[];
 	serverUpdates?: {
 		products?: any[];
 		users?: any[];
@@ -28,6 +29,8 @@ export class SyncEngine {
 	lastSyncedAt = $state<string | null>(null);
 	pendingCount = $state<number>(0);
 	lastError = $state<string | null>(null);
+	// Pemberitahuan non-gagal, mis. perubahan produk yang kalah versi saat sync
+	lastNotice = $state<string | null>(null);
 
 	private syncIntervalTimer: number | null = null;
 
@@ -102,6 +105,7 @@ export class SyncEngine {
 
 		this.isSyncing = true;
 		this.lastError = null;
+		this.lastNotice = null;
 
 		try {
 			await this.updatePendingCount();
@@ -322,6 +326,15 @@ export class SyncEngine {
 						}));
 						await db.stock_transfers.bulkPut(formattedTransfers);
 					}
+				}
+
+				// Beri tahu perangkat jika ada perubahan produknya yang kalah versi
+				const superseded = result.superseded_items || [];
+				if (superseded.length === 1) {
+					const it = superseded[0];
+					this.lastNotice = `Perubahan produk "${it.name}" tidak diterapkan karena perangkat lain sudah menyimpan versi lebih baru (v${it.server_version}).`;
+				} else if (superseded.length > 1) {
+					this.lastNotice = `${superseded.length} perubahan produk tidak diterapkan karena perangkat lain sudah menyimpan versi lebih baru.`;
 				}
 
 				// Gunakan waktu server agar delta pull tidak terpengaruh selisih jam perangkat

@@ -17,6 +17,7 @@
 		Building2,
 		ShieldCheck,
 		AlertTriangle,
+		Info,
 		Menu,
 		X,
 		ChevronRight,
@@ -488,6 +489,12 @@
 					<div class="flex items-center gap-1 text-[10px] text-rose-600">
 						<AlertTriangle class="h-3 w-3 shrink-0" />
 						<span class="truncate">{syncEngine.lastError}</span>
+					</div>
+				{/if}
+				{#if syncEngine.lastNotice}
+					<div class="flex items-center gap-1 text-[10px] text-amber-600">
+						<Info class="h-3 w-3 shrink-0" />
+						<span class="truncate">{syncEngine.lastNotice}</span>
 					</div>
 				{/if}
 			</div>
