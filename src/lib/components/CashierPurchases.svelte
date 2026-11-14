@@ -217,9 +217,9 @@
 		<div>
 			<h1 class="text-xl font-black text-zinc-900 flex items-center gap-2">
 				<Truck class="h-5 w-5 text-emerald-600" />
-				Pembelian Stok (Supplier)
+				Pembelian Stok (Pemasok)
 			</h1>
-			<p class="text-xs text-zinc-500 mt-0.5">Catat stok masuk dari supplier. Stok dan harga beli produk otomatis diperbarui.</p>
+			<p class="text-xs text-zinc-500 mt-0.5">Catat stok masuk dari pemasok. Stok dan harga beli produk otomatis diperbarui.</p>
 		</div>
 		<button
 			onclick={openForm}
@@ -251,7 +251,7 @@
 								<p class="text-sm font-bold text-zinc-900 flex items-center gap-2">
 									{po.supplier_name}
 									{#if !po.synced}
-										<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Menunggu sinkron</span>
+										<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Menunggu Sinkronisasi</span>
 									{/if}
 								</p>
 								<p class="text-[11px] text-zinc-400 mt-0.5">
@@ -290,7 +290,7 @@
 
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
 				<div>
-					<label for="supplierName" class="block text-xs font-semibold text-zinc-700 mb-1">Nama Supplier <span class="text-rose-500">*</span></label>
+					<label for="supplierName" class="block text-xs font-semibold text-zinc-700 mb-1">Nama Pemasok <span class="text-rose-500">*</span></label>
 					<input
 						id="supplierName"
 						type="text"
@@ -300,7 +300,7 @@
 					/>
 				</div>
 				<div>
-					<label for="supplierPhone" class="block text-xs font-semibold text-zinc-700 mb-1">Telepon Supplier (opsional)</label>
+					<label for="supplierPhone" class="block text-xs font-semibold text-zinc-700 mb-1">Telepon Pemasok (opsional)</label>
 					<input
 						id="supplierPhone"
 						type="text"

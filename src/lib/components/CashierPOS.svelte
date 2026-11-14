@@ -452,7 +452,7 @@
 					bind:this={scanInput}
 					bind:value={searchQuery}
 					onkeydown={handleScan}
-					placeholder="Scan barcode / cari nama atau SKU, lalu Enter..."
+					placeholder="Pindai kode batang / cari nama atau SKU, lalu tekan Enter..."
 					class="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm transition outline-hidden"
 				/>
 				{#if scanFeedback}
@@ -467,7 +467,7 @@
 				{/if}
 				{#if scanSuggestions.length > 0}
 					<div class="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-						<p class="px-3 py-2 text-[11px] font-semibold text-gray-500 bg-gray-50">Beberapa produk cocok — panah ↑↓ untuk memilih, Enter untuk mengambil:</p>
+						<p class="px-3 py-2 text-[11px] font-semibold text-gray-500 bg-gray-50">Beberapa produk cocok — gunakan panah ↑↓ untuk memilih, lalu tekan Enter:</p>
 						{#each scanSuggestions as sugg, i (sugg.id)}
 							<button
 								onclick={() => pickSuggestion(sugg)}
@@ -770,7 +770,7 @@
 						{#if paymentSettings.qris.merchant_name}
 							<p class="text-xs font-bold text-gray-900">{paymentSettings.qris.merchant_name}</p>
 						{/if}
-						<p class="text-xs font-semibold text-gray-800 mt-1">Minta pelanggan scan QRIS dan bayar sesuai nominal</p>
+						<p class="text-xs font-semibold text-gray-800 mt-1">Minta pelanggan memindai QRIS dan membayar sesuai nominal</p>
 						<p class="text-[11px] text-gray-500 mt-1">Total: <span class="font-bold text-emerald-700">{formatRupiah(totalAmount)}</span></p>
 						<p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2">Pastikan notifikasi dana masuk terlihat sebelum menekan konfirmasi.</p>
 					</div>

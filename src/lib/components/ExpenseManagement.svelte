@@ -668,7 +668,7 @@
 										<p class="font-bold text-rose-700 text-sm">{formatRupiah(item.amount)}</p>
 										{#if !item.synced}
 											<span class="inline-block mt-0.5 text-[9px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-												Offline
+												Belum Tersinkron
 											</span>
 										{/if}
 									</td>

@@ -69,7 +69,7 @@
 				class="w-full flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white transition cursor-pointer"
 			>
 				<Download class="h-3.5 w-3.5" />
-				<span>Install Aplikasi</span>
+				<span>Pasang Aplikasi</span>
 			</button>
 		{:else if isIOS}
 			<button

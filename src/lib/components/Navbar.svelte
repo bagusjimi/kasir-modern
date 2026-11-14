@@ -60,7 +60,7 @@
 				</div>
 				<div class="flex items-center gap-1.5 text-xs text-gray-500">
 					<Building2 class="h-3.5 w-3.5" />
-					<span>{authState.branch?.name || (authState.user?.role === 'admin' ? 'Monitoring Semua Cabang' : 'Pusat')}</span>
+					<span>{authState.branch?.name || (authState.user?.role === 'admin' ? 'Pemantauan Semua Cabang' : 'Pusat')}</span>
 				</div>
 			</div>
 		</div>
@@ -116,7 +116,7 @@
 					class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 transition {activeTab === 'monitoring' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-gray-600 hover:text-gray-900'}"
 				>
 					<Activity class="h-4 w-4" />
-					<span>Monitoring Aktivitas</span>
+					<span>Pemantauan Aktivitas</span>
 				</button>
 				<button
 					onclick={() => onTabChange('expenses')}
@@ -141,12 +141,12 @@
 			{#if syncEngine.isOnline}
 				<div class="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 border border-emerald-200/60" title="Terhubung ke Internet">
 					<Wifi class="h-3.5 w-3.5" />
-					<span class="hidden sm:inline">Online</span>
+					<span class="hidden sm:inline">Terhubung</span>
 				</div>
 			{:else}
-				<div class="flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 border border-rose-200/60 animate-pulse" title="Tidak ada koneksi internet. Data disimpan di IndexedDB lokal.">
+				<div class="flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 border border-rose-200/60 animate-pulse" title="Tidak ada koneksi internet. Data disimpan di penyimpanan perangkat.">
 					<WifiOff class="h-3.5 w-3.5" />
-					<span class="hidden sm:inline">Offline Mode</span>
+					<span class="hidden sm:inline">Tanpa Koneksi</span>
 				</div>
 			{/if}
 
@@ -155,7 +155,7 @@
 				onclick={handleSyncNow}
 				disabled={!syncEngine.isOnline || syncEngine.isSyncing}
 				class="relative flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 active:scale-95 disabled:opacity-50 transition cursor-pointer"
-				title="Klik untuk menyinkronkan data lokal ke cloud"
+				title="Klik untuk menyinkronkan data perangkat ke server pusat"
 			>
 				<RefreshCw class="h-3.5 w-3.5 text-gray-500 {syncEngine.isSyncing ? 'animate-spin text-emerald-600' : ''}" />
 				<span class="hidden sm:inline">{syncEngine.isSyncing ? 'Menyinkronkan...' : 'Sinkron'}</span>
@@ -175,8 +175,8 @@
 				<button
 					onclick={() => authState.logout()}
 					class="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-					title="Keluar (Logout)"
-					aria-label="Logout"
+					title="Keluar dari Sistem"
+					aria-label="Keluar"
 				>
 					<LogOut class="h-4 w-4" />
 				</button>

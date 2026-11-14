@@ -10,7 +10,7 @@ import { getD1, ensureD1Seeded } from '#lib/server/db.js';
 export const GET: RequestHandler = async ({ platform }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
-		return json({ success: false, message: 'D1 database binding DB not found' }, { status: 503 });
+		return json({ success: false, message: 'Layanan basis data belum tersedia' }, { status: 503 });
 	}
 
 	await ensureD1Seeded(d1);

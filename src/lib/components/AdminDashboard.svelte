@@ -97,7 +97,7 @@
 		<div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-start gap-3">
 			<WifiOff class="h-5 w-5 shrink-0 mt-0.5" />
 			<div class="text-sm font-medium">
-				Sedang offline. Beranda menampilkan data dari server — transaksi yang belum tersinkronisasi akan muncul setelah koneksi pulih.
+				Sedang tidak terhubung. Beranda menampilkan data dari server — transaksi yang belum tersinkronisasi akan muncul setelah koneksi pulih.
 			</div>
 		</div>
 	{/if}

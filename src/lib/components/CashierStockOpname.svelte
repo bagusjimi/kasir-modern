@@ -321,7 +321,7 @@
 								<p class="text-xs font-bold text-zinc-800">
 									{formatDateTime(sc.created_at)} • oleh {sc.user_name}
 									{#if !sc.synced}
-										<span class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Menunggu sinkron</span>
+										<span class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Menunggu Sinkronisasi</span>
 									{/if}
 								</p>
 								<p class="text-[11px] text-zinc-400 mt-0.5">{sc.items.length} produk disesuaikan</p>

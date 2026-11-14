@@ -526,7 +526,7 @@
 	<div class="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs space-y-4 print:hidden">
 		<div class="flex items-center gap-2 pb-2 border-b border-gray-100 text-xs font-bold text-gray-700">
 			<Filter class="h-4 w-4 text-emerald-600" />
-			<span>Filter & Kustomisasi Periode Laporan</span>
+			<span>Filter & Penyesuaian Periode Laporan</span>
 		</div>
 
 		<!-- Tombol Cepat Periode (Presets) -->
