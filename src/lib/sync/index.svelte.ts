@@ -360,24 +360,18 @@ export class SyncEngine {
 							synced: true
 						}));
 						await db.announcements.bulkPut(formattedAnnouncements);
-						// Kasir tidak menyimpan pengumuman yang sudah dinonaktifkan di server;
-						// admin pusat tetap menyimpannya agar bisa mengelola ulang.
-						const isAdminSession = localStorage.getItem('kasir_session_branch_id') === 'all';
-						if (!isAdminSession) {
-							const inactiveIds = (await db.announcements.toArray())
-								.filter(a => !a.is_active)
-								.map(a => a.id);
-							if (inactiveIds.length > 0) await db.announcements.bulkDelete(inactiveIds);
-						}
-						// Rekonsiliasi daftar ID dari server: hapus salinan lokal pengumuman
-						// yang sudah dihapus permanen di admin (tidak terdeteksi oleh pull delta).
-						if (Array.isArray(result.serverUpdates.announcement_ids)) {
-							const validIds = new Set(result.serverUpdates.announcement_ids);
-							const staleIds = (await db.announcements.toArray())
-								.map(a => a.id)
-								.filter(id => !validIds.has(id));
-							if (staleIds.length > 0) await db.announcements.bulkDelete(staleIds);
-						}					}
+					}
+
+					// Rekonsiliasi pengumuman dengan server: hapus salinan lokal yang sudah
+					// dinonaktifkan atau dihapus permanen oleh admin. Berjalan di setiap
+					// sinkronisasi karena pull delta tidak mengirim sinyal penghapusan.
+					if (Array.isArray(result.serverUpdates.announcement_ids)) {
+						const validIds = new Set(result.serverUpdates.announcement_ids);
+						const staleIds = (await db.announcements.toArray())
+							.map(a => a.id)
+							.filter(id => !validIds.has(id));
+						if (staleIds.length > 0) await db.announcements.bulkDelete(staleIds);
+					}
 				}
 
 				// Beri tahu perangkat jika ada perubahan produknya yang kalah versi

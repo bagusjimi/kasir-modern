@@ -18,13 +18,22 @@
 	let page = $state<number>(1);
 	let perPage = $state<number>(25);
 
-	onMount(async () => {
-		branches = await db.branches.toArray();
-		await announcementStore.load(authState.user?.id);
-		announcements = announcementStore.items;
+	onMount(() => {
+		const reload = async () => {
+			branches = await db.branches.toArray();
+			await announcementStore.load(authState.user?.id);
+			announcements = announcementStore.items;
+		};
+
+		reload();
 
 		// Tandai semua pengumuman sebagai sudah dibaca setelah tampil
 		announcementStore.markAllRead(authState.user?.id);
+
+		// Segarkan daftar secara berkala agar pengumuman yang dihapus/dinonaktifkan
+		// admin ikut hilang tanpa harus pindah tab
+		const timer = setInterval(reload, 30000);
+		return () => clearInterval(timer);
 	});
 
 	function branchName(branchId: string): string {
