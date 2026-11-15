@@ -12,6 +12,7 @@ import type {
 	StockMovement,
 	TransactionAdjustment,
 	Shift,
+	Device,
 	Purchase,
 	StockCount,
 	StockTransfer,
@@ -36,6 +37,7 @@ export class KasirDatabase extends Dexie {
 	stock_movements!: Table<StockMovement, string>;
 	transaction_adjustments!: Table<TransactionAdjustment, string>;
 	shifts!: Table<Shift, string>;
+	devices!: Table<Device, string>;
 	purchases!: Table<Purchase, string>;
 	stock_counts!: Table<StockCount, string>;
 	stock_transfers!: Table<StockTransfer, string>;
@@ -78,6 +80,10 @@ export class KasirDatabase extends Dexie {
 
 		this.version(6).stores({
 			announcements: 'id, branch_id, created_at'
+		});
+
+		this.version(7).stores({
+			devices: 'id, branch_id, updated_at'
 		});
 	}
 }

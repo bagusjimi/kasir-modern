@@ -13,3 +13,22 @@ Output:
 - File konfigurasi build dan deployment untuk Cloudflare Pages.  
 - Dokumentasi singkat (README.md) yang menjelaskan struktur proyek, cara deploy, dan mekanisme sinkronisasi offline.  
 - Gunakan teknologi pendukung: SvelteKit, TypeScript, Tailwind CSS, IndexedDB/localForage, dan Cloudflare Workers untuk fungsi backend.
+---
+
+## Catatan Repositori (untuk sesi berikutnya)
+
+### Model Autentikasi Dua Lapis (sudah diterapkan)
+- **Lapis 1 — Perangkat/Toko** (`LoginScreen.svelte`): `authState.initDevice()` / `authState.initializeStore()` mengikat terminal ke satu cabang. Endpoint: `POST /api/auth/device` (sesi `kind: 'device'`) dan `POST /api/auth/bootstrap` (penyiapan awal: admin + cabang + perangkat pertama).
+- **Lapis 2 — Operator/Kasir** (`OperatorLock.svelte`): `authState.openShift({ operator, pin, openingCash })` memverifikasi PIN pribadi dan mengikat shift ke perangkat. Menutup shift (Z-Report) memanggil `authState.releaseOperator()` → kembali ke layar kunci operator.
+- **Pintu Admin**: `authState.loginAdmin()` → `POST /api/auth/login` (hanya role `admin`; kasir ditolak dengan kode `NOT_ADMIN`). `authState.exitAdmin()` keluar dari mode admin tanpa melepas perangkat.
+- State di `src/lib/stores/auth.svelte.ts`: `mode` ('none'|'admin'|'cashier'), `operator`, `admin`, `device`, `branch`, dan `user` (shim: admin di mode admin, operator di mode kasir).
+- Routing di `src/routes/+page.svelte`: loading → `!user` → LoginScreen → `mode==='cashier' && !operator` → OperatorLock → aplikasi utama.
+
+### Entitas & Sinkronisasi
+- Entitas `device` ikut disinkronkan dua arah: server (`src/routes/api/sync/+server.ts` mengembalikan `serverUpdates.devices`) dan klien (`src/lib/sync/index.svelte.ts` `bulkPut` ke tabel `devices`).
+- Shift terikat perangkat (`getOpenShiftForDevice`), identitas orang ada di `cashier_id`/`cashier_name`.
+
+### Perintah
+- `npm run check` — svelte-check (harus 0 error, 0 warning).
+- `npm run build` — build produksi (adapter Cloudflare).
+- `npm run dev` — dev server Vite.

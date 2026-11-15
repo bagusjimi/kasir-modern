@@ -10,6 +10,7 @@ interface SyncApiResponse {
 	serverUpdates?: {
 		products?: any[];
 		users?: any[];
+		devices?: any[];
 		transactions?: any[];
 		branches?: any[];
 		categories?: any[];
@@ -289,6 +290,9 @@ export class SyncEngine {
 							pin: u.pin || existingUsers[i]?.pin || ''
 						}));
 						await db.users.bulkPut(mergedUsers);
+					}
+					if (result.serverUpdates.devices && result.serverUpdates.devices.length > 0) {
+						await db.devices.bulkPut(result.serverUpdates.devices);
 					}
 					if (result.serverUpdates.transactions && result.serverUpdates.transactions.length > 0) {
 						const formattedTx = result.serverUpdates.transactions.map(t => ({

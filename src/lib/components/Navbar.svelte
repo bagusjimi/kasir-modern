@@ -48,7 +48,7 @@
 			<div>
 				<div class="flex items-center gap-2">
 					<h1 class="text-lg font-bold text-gray-900 tracking-tight">Kasir Modern</h1>
-					{#if authState.user?.role === 'admin'}
+					{#if authState.mode === 'admin'}
 						<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
 							<ShieldCheck class="h-3 w-3" /> Admin
 						</span>
@@ -169,13 +169,18 @@
 			<!-- User & Logout -->
 			<div class="flex items-center gap-2 pl-2 border-l border-gray-200">
 				<div class="text-right hidden sm:block">
-					<p class="text-xs font-bold text-gray-800 leading-tight">{authState.user?.name}</p>
-					<p class="text-[10px] text-gray-500 capitalize">{authState.user?.role}</p>
+					{#if authState.mode === 'admin'}
+						<p class="text-xs font-bold text-gray-800 leading-tight">{authState.admin?.name}</p>
+						<p class="text-[10px] text-gray-500">Admin</p>
+					{:else}
+						<p class="text-xs font-bold text-gray-800 leading-tight">{authState.operator?.name || 'Belum ada operator'}</p>
+						<p class="text-[10px] text-gray-500">{authState.device?.name || 'Perangkat Kasir'}</p>
+					{/if}
 				</div>
 				<button
-					onclick={() => authState.logout()}
+					onclick={() => (authState.mode === 'admin' ? authState.exitAdmin() : authState.logout())}
 					class="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-					title="Keluar dari Sistem"
+					title={authState.mode === 'admin' ? 'Keluar dari mode Admin' : 'Keluar dari Perangkat'}
 					aria-label="Keluar"
 				>
 					<LogOut class="h-4 w-4" />

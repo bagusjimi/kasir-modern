@@ -3,9 +3,9 @@ import type { RequestHandler } from './$types';
 import { getD1, ensureD1Seeded } from '#lib/server/db.js';
 
 /**
- * Status pengguna server (publik, untuk layar login):
- * menentukan apakah perangkat baru harus menampilkan Pengaturan Awal
- * atau mode login biasa.
+ * Status server (publik, untuk layar inisialisasi perangkat):
+ * menentukan apakah perangkat harus menampilkan penyiapan awal (belum ada
+ * pengguna/cabang) atau cukup memilih cabang yang sudah terdaftar.
  */
 export const GET: RequestHandler = async ({ platform }) => {
 	const d1 = getD1(platform);
@@ -16,8 +16,16 @@ export const GET: RequestHandler = async ({ platform }) => {
 	await ensureD1Seeded(d1);
 
 	try {
-		const row = await d1.prepare('SELECT COUNT(*) AS c FROM users').first<{ c: number }>();
-		return json({ success: true, has_users: !!row && row.c > 0 });
+		const [userRow, branchRes] = await d1.batch([
+			d1.prepare('SELECT COUNT(*) AS c FROM users'),
+			d1.prepare('SELECT id, code, name FROM branches ORDER BY name ASC')
+		]);
+		const users = (userRow.results?.[0] as any) || { c: 0 };
+		return json({
+			success: true,
+			has_users: Number(users.c) > 0,
+			branches: branchRes.results || []
+		});
 	} catch (err: any) {
 		return json({ success: false, message: err.message }, { status: 500 });
 	}

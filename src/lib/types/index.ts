@@ -132,10 +132,26 @@ export interface TransactionAdjustment {
 	synced: boolean;
 }
 
+/**
+ * Perangkat/terminal toko yang diinisialisasi ke satu cabang.
+ * Login (lapis toko) mengikat perangkat ke cabang ini; identitas operator
+ * ditentukan terpisah lewat Shift (lapis orang).
+ */
+export interface Device {
+	id: string;
+	branch_id: string;
+	branch_name?: string;
+	name: string;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface Shift {
 	id: string;
 	branch_id: string;
 	branch_name?: string;
+	device_id?: string;
+	device_name?: string;
 	cashier_id: string;
 	cashier_name: string;
 	opening_cash: number;
@@ -289,7 +305,7 @@ export interface Expense {
 
 export interface SyncQueueItem {
 	id: string;
-	entity: 'transaction' | 'product' | 'user' | 'branch' | 'category' | 'activity' | 'expense' | 'transaction_adjustment' | 'transfer' | 'announcement';
+	entity: 'transaction' | 'product' | 'user' | 'branch' | 'device' | 'category' | 'activity' | 'expense' | 'transaction_adjustment' | 'transfer' | 'announcement';
 	action: 'insert' | 'update' | 'delete';
 	data: unknown;
 	timestamp: number;

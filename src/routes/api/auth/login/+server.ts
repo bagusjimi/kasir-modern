@@ -4,6 +4,13 @@ import { getD1, ensureD1Seeded } from '#lib/server/db.js';
 import { createSession } from '#lib/server/auth.js';
 import { hashPin, verifyPin, isHashedPin } from '#lib/auth/pin.js';
 
+/**
+ * Masuk sebagai Admin (lapis orang, khusus admin).
+ *
+ * Kasir tidak lagi login di sini: identitas operator kasir ditentukan saat
+ * membuka shift (lapis 2), sedangkan perangkat diinisialisasi lewat
+ * /api/auth/device. Endpoint ini hanya menerima akun ber-role 'admin'.
+ */
 export const POST: RequestHandler = async ({ request, platform, cookies, url }) => {
 	const d1 = getD1(platform);
 	if (!d1) {
@@ -36,6 +43,15 @@ export const POST: RequestHandler = async ({ request, platform, cookies, url }) 
 				}, { status: 401 });
 			}
 			return json({ success: false, message: 'Username atau PIN salah' }, { status: 401 });
+		}
+
+		// Pintu ini khusus admin; kasir masuk lewat shift di perangkat toko.
+		if (user.role !== 'admin') {
+			return json({
+				success: false,
+				code: 'NOT_ADMIN',
+				message: 'Akun kasir tidak login di sini. Inisialisasi perangkat toko lalu buka shift untuk memulai.'
+			}, { status: 403 });
 		}
 
 		const pinOk = await verifyPin(pin.trim(), user.pin);

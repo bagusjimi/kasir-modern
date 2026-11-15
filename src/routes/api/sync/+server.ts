@@ -216,6 +216,27 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 							d1.prepare('DELETE FROM branches WHERE id = ?').bind(br.id)
 						);
 					}
+				} else if (q.entity === 'device') {
+					// Perangkat/terminal toko (dibuat offline): upsert idempoten.
+					const dev = q.data;
+					if (q.action === 'insert' || q.action === 'update') {
+						statements.push(
+							d1.prepare(`
+								INSERT INTO devices (id, branch_id, branch_name, name, created_at, updated_at)
+								VALUES (?, ?, ?, ?, ?, ?)
+								ON CONFLICT(id) DO UPDATE SET
+									branch_id = excluded.branch_id,
+									branch_name = excluded.branch_name,
+									name = excluded.name,
+									updated_at = excluded.updated_at
+							`).bind(
+								dev.id, dev.branch_id, dev.branch_name || '', dev.name || 'Kasir',
+								dev.created_at || now, now
+							)
+						);
+					} else if (q.action === 'delete') {
+						statements.push(d1.prepare('DELETE FROM devices WHERE id = ?').bind(dev.id));
+					}
 				} else if (q.entity === 'category') {
 					const cat = q.data;
 					if (q.action === 'insert' || q.action === 'update') {
@@ -279,7 +300,10 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						if (existingTx && existingTx.status !== 'completed') {
 							continue; // sudah dibatalkan/diretur sebelumnya
 						}
-						if (existingTx && session.role === 'cashier' && existingTx.cashier_id !== session.userId) {
+						// Operator (adj.user_id) hanya boleh membatalkan transaksi miliknya sendiri.
+						// Pada model dua lapis, session.userId untuk sesi perangkat adalah ID terminal,
+						// sehingga identitas operator diambil dari payload penyesuaian.
+						if (existingTx && session.role === 'cashier' && existingTx.cashier_id !== (adj.user_id || session.userId)) {
 							continue; // kasir hanya boleh membatalkan transaksinya sendiri
 						}
 
@@ -442,11 +466,12 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		}
 
 		// 4. Sinkronisasi Shift Kasir (buka/tutup shift)
+		// Shift membawa dua identitas: device_* (terminal/toko) dan cashier_* (operator).
 		for (const sh of shifts) {
 			statements.push(
 				d1.prepare(`
-					INSERT INTO shifts (id, branch_id, branch_name, cashier_id, cashier_name, opening_cash, opened_at, closed_at, closing_cash, expected_cash, cash_difference, total_sales, cash_sales, non_cash_sales, total_transactions, voided_count, refunded_count, status, note, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					INSERT INTO shifts (id, branch_id, branch_name, device_id, device_name, cashier_id, cashier_name, opening_cash, opened_at, closed_at, closing_cash, expected_cash, cash_difference, total_sales, cash_sales, non_cash_sales, total_transactions, voided_count, refunded_count, status, note, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 					ON CONFLICT(id) DO UPDATE SET
 						closed_at = excluded.closed_at,
 						closing_cash = excluded.closing_cash,
@@ -462,7 +487,8 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 						note = excluded.note,
 						updated_at = excluded.updated_at
 				`).bind(
-					sh.id, sh.branch_id, sh.branch_name || '', sh.cashier_id, sh.cashier_name,
+					sh.id, sh.branch_id, sh.branch_name || '', sh.device_id || null, sh.device_name || null,
+					sh.cashier_id, sh.cashier_name,
 					Number(sh.opening_cash) || 0, sh.opened_at, sh.closed_at || null,
 					sh.closing_cash ?? null, sh.expected_cash ?? null, sh.cash_difference ?? null,
 					sh.total_sales ?? null, sh.cash_sales ?? null, sh.non_cash_sales ?? null,
@@ -604,6 +630,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 		// 8. Tarik Pembaruan dari D1 Server (Pull delta changes)
 		let updatedProducts: any[] = [];
 		let updatedUsers: any[] = [];
+		let updatedDevices: any[] = [];
 		let updatedTransactions: any[] = [];
 		let updatedExpenses: any[] = [];
 		let updatedMovements: any[] = [];
@@ -634,6 +661,11 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				...u,
 				active: Boolean(u.active)
 			}));
+
+			const devRes = isAdmin
+				? await d1.prepare('SELECT * FROM devices WHERE updated_at >= ?').bind(lastSyncedAt).all()
+				: await d1.prepare('SELECT * FROM devices WHERE updated_at >= ? AND branch_id = ?').bind(lastSyncedAt, branchId).all();
+			updatedDevices = devRes.results || [];
 
 			const expRes = isAdmin
 				? await d1.prepare('SELECT * FROM expenses WHERE updated_at >= ?').bind(lastSyncedAt).all()
@@ -701,13 +733,16 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			// Jika first sync, kirimkan master data (difilter per cabang untuk non-admin)
 			const isAdmin = session.branchId === 'all';
 			const branchId = session.branchId;
-			const [prodRes, userRes, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes, txRes] = await d1.batch([
+			const [prodRes, userRes, devRes2, branchRes, catRes, expRes, mvRes, shiftRes, poRes, scRes, txRes] = await d1.batch([
 				isAdmin
 					? d1.prepare('SELECT * FROM products WHERE is_active = 1')
 					: d1.prepare('SELECT * FROM products WHERE is_active = 1 AND branch_id = ?').bind(branchId),
 				isAdmin
 					? d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1')
 					: d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1 AND branch_id = ?').bind(branchId),
+				isAdmin
+					? d1.prepare('SELECT * FROM devices')
+					: d1.prepare('SELECT * FROM devices WHERE branch_id = ?').bind(branchId),
 				d1.prepare('SELECT * FROM branches'),
 				d1.prepare('SELECT * FROM categories'),
 				isAdmin
@@ -735,6 +770,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				...u,
 				active: Boolean(u.active)
 			}));
+			updatedDevices = devRes2.results || [];
 			branches = branchRes.results || [];
 			categories = catRes.results || [];
 			updatedExpenses = expRes.results || [];
@@ -878,6 +914,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 			serverUpdates: {
 				products: updatedProducts,
 				users: updatedUsers,
+				devices: updatedDevices,
 				transactions: updatedTransactions,
 				branches,
 				categories,

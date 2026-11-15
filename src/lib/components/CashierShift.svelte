@@ -2,9 +2,8 @@
 	import { onMount } from 'svelte';
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
-	import { syncEngine } from '../sync/index.js';
-	import { getOpenShift, computeShiftSummary, formatRupiah, formatDateTime, type ShiftSummary } from '../shift/index.js';
-	import type { Shift } from '../types/index.js';
+	import { getOpenShiftForDevice, computeShiftSummary, formatRupiah, formatDateTime, type ShiftSummary } from '../shift/index.js';
+	import type { Shift, User } from '../types/index.js';
 	import {
 		Clock,
 		Play,
@@ -16,16 +15,21 @@
 		CreditCard,
 		Coins,
 		FileText,
-		History as HistoryIcon
+		History as HistoryIcon,
+		UserCircle2,
+		KeyRound
 	} from 'lucide-svelte';
 
 	let openShift = $state<Shift | null>(null);
 	let shiftHistory = $state<Shift[]>([]);
+	let operators = $state<User[]>([]);
 	let isLoading = $state<boolean>(true);
 
-	// Form buka shift
+	// Form buka shift (operator + PIN)
 	let isOpenModalOpen = $state<boolean>(false);
 	let openingCash = $state<number>(0);
+	let selectedOperatorId = $state<string>('');
+	let operatorPin = $state<string>('');
 	let openError = $state<string | null>(null);
 
 	// Modal tutup shift (Z-Report)
@@ -36,74 +40,55 @@
 	let closeError = $state<string | null>(null);
 
 	let cashDifference = $derived(closingCash - (summary?.expectedCash ?? 0));
+	let selectedOperator = $derived(operators.find(o => o.id === selectedOperatorId) || null);
 
 	onMount(loadData);
 
 	async function loadData() {
 		isLoading = true;
-		const cashierId = authState.user?.id || '';
-		openShift = (await getOpenShift(cashierId)) || null;
-		const branchId = authState.branch?.id || authState.user?.branch_id || 'all';
+		// Shift terikat pada PERANGKAT (toko); identitas orang ada di dalam shift.
+		const deviceId = authState.device?.id || '';
+		openShift = (await getOpenShiftForDevice(deviceId)) || null;
+		const branchId = authState.branch?.id || authState.device?.branch_id || 'all';
 		const allShifts = await db.shifts.orderBy('opened_at').reverse().limit(10).toArray();
 		shiftHistory = allShifts.filter(s => s.status === 'closed' && (branchId === 'all' || s.branch_id === branchId));
+		// Operator yang bisa dipilih: kasir aktif yang ditugaskan ke cabang toko ini.
+		const allUsers = await db.users.toArray();
+		operators = allUsers.filter(u => u.active && u.role === 'cashier' && (u.branch_id === branchId || u.branch_id === 'all'));
 		isLoading = false;
 	}
 
-	function openOpenModal() {
+	async function openOpenModal() {
+		await loadData();
 		openingCash = 0;
+		selectedOperatorId = operators[0]?.id || '';
+		operatorPin = '';
 		openError = null;
 		isOpenModalOpen = true;
 	}
 
 	async function confirmOpenShift() {
 		openError = null;
+		if (!selectedOperator) {
+			openError = 'Pilih operator yang memegang laci';
+			return;
+		}
+		if (!operatorPin.trim()) {
+			openError = 'Masukkan PIN operator';
+			return;
+		}
 		if (openingCash < 0 || isNaN(openingCash)) {
 			openError = 'Setoran awal tidak boleh negatif';
 			return;
 		}
 
-		const existing = await getOpenShift(authState.user?.id || '');
-		if (existing) {
-			openError = 'Masih ada shift yang terbuka. Tutup shift tersebut terlebih dahulu.';
+		const res = await authState.openShift({ operator: selectedOperator, pin: operatorPin, openingCash });
+		if (!res.success) {
+			openError = res.message || 'Gagal membuka shift';
 			return;
 		}
-
-		const now = new Date().toISOString();
-		const shift: Shift = {
-			id: 'sh-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-			branch_id: authState.branch?.id || authState.user?.branch_id || 'all',
-			branch_name: authState.branch?.name,
-			cashier_id: authState.user?.id || '-',
-			cashier_name: authState.user?.name || 'Kasir',
-			opening_cash: openingCash,
-			opened_at: now,
-			status: 'open',
-			updated_at: now,
-			synced: false
-		};
-
-		await db.shifts.add(shift);
-
-		await db.activity_logs.add({
-			id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-			branch_id: shift.branch_id,
-			branch_name: shift.branch_name,
-			user_id: shift.cashier_id,
-			user_name: shift.cashier_name,
-			role: 'cashier',
-			action: 'open_shift',
-			details: `Shift dibuka dengan setoran awal ${formatRupiah(openingCash)}.`,
-			timestamp: now,
-			synced: false
-		});
-
 		isOpenModalOpen = false;
-		await syncEngine.updatePendingCount();
 		await loadData();
-
-		if (syncEngine.isOnline) {
-			syncEngine.triggerSync();
-		}
 	}
 
 	async function openCloseModal() {
@@ -150,18 +135,14 @@
 			user_name: openShift.cashier_name,
 			role: 'cashier',
 			action: 'close_shift',
-			details: `Shift ditutup. Kas diharapkan ${formatRupiah(summary.expectedCash)}, fisik ${formatRupiah(closingCash)}, selisih ${formatRupiah(cashDifference)}.`,
+			details: `Shift ditutup oleh ${openShift.cashier_name}. Kas diharapkan ${formatRupiah(summary.expectedCash)}, fisik ${formatRupiah(closingCash)}, selisih ${formatRupiah(cashDifference)}.`,
 			timestamp: now,
 			synced: false
 		});
 
 		isCloseModalOpen = false;
-		await syncEngine.updatePendingCount();
+		await authState.releaseOperator();
 		await loadData();
-
-		if (syncEngine.isOnline) {
-			syncEngine.triggerSync();
-		}
 	}
 </script>
 
@@ -289,6 +270,42 @@
 			</div>
 
 			<div class="space-y-4">
+				<div>
+					<label for="operatorSelect" class="block text-xs font-semibold text-zinc-700 mb-1">Operator (Pemegang Laci)</label>
+					<div class="relative">
+						<UserCircle2 class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+						<select
+							id="operatorSelect"
+							bind:value={selectedOperatorId}
+							class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-zinc-300 text-sm font-semibold text-zinc-900 bg-white focus:outline-hidden focus:border-emerald-500"
+						>
+							{#if operators.length === 0}
+								<option value="">Belum ada akun kasir di cabang ini</option>
+							{:else}
+								{#each operators as op}
+									<option value={op.id}>{op.name}</option>
+								{/each}
+							{/if}
+						</select>
+					</div>
+					<p class="text-[11px] text-zinc-400 mt-1">Pilih siapa yang memegang uang laci. Admin dapat menambah akun kasir di menu Pengguna.</p>
+				</div>
+
+				<div>
+					<label for="operatorPin" class="block text-xs font-semibold text-zinc-700 mb-1">PIN Operator</label>
+					<div class="relative">
+						<KeyRound class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+						<input
+							id="operatorPin"
+							type="password"
+							bind:value={operatorPin}
+							placeholder="PIN pribadi operator"
+							class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-zinc-300 text-sm font-mono tracking-widest focus:outline-hidden focus:border-emerald-500"
+						/>
+					</div>
+					<p class="text-[11px] text-zinc-400 mt-1">PIN ini membuktikan siapa yang bertanggung jawab atas kas selama shift.</p>
+				</div>
+
 				<div>
 					<label for="openingCash" class="block text-xs font-semibold text-zinc-700 mb-1">Setoran Awal (Modal Laci)</label>
 					<input

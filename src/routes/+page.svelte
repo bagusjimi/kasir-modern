@@ -21,6 +21,7 @@
 	import AdminAnnouncements from '../lib/components/AdminAnnouncements.svelte';
 	import CashierAnnouncements from '../lib/components/CashierAnnouncements.svelte';
 	import AdminBackup from '../lib/components/AdminBackup.svelte';
+	import OperatorLock from '../lib/components/OperatorLock.svelte';
 
 	let activeTab = $state<string>('pos');
 
@@ -48,6 +49,9 @@
 	</div>
 {:else if !authState.user}
 	<LoginScreen />
+{:else if authState.mode === 'cashier' && !authState.operator}
+	<!-- Perangkat sudah terikat cabang, tetapi belum ada operator pemegang laci -->
+	<OperatorLock />
 {:else}
 	<!-- Layout Dua Kolom: Sidebar Navigasi di Kiri & Konten Utama di Kanan -->
 	<div class="min-h-screen flex flex-col lg:flex-row bg-zinc-100/70">
