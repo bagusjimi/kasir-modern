@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { liveQuery } from 'dexie';
 	import { db } from '../db/index.js';
 	import { authState } from '../stores/auth.svelte.js';
 	import type { User } from '../types/index.js';
@@ -30,18 +30,32 @@
 
 	let selectedOperator = $derived(operators.find((o) => o.id === selectedOperatorId) || null);
 
-	onMount(loadOperators);
-
-	async function loadOperators() {
-		isLoading = true;
+	// Daftar operator dibaca reaktif dari IndexedDB. Sinkronisasi pertama setelah
+	// perangkat diaktifkan menulis akun kasir secara asinkron, sehingga daftar
+	// harus ikut terbarui tanpa perlu refresh halaman.
+	const operatorsQuery = liveQuery(async () => {
 		const branchId = authState.branch?.id || authState.device?.branch_id || 'all';
 		const all = await db.users.toArray();
-		operators = all.filter(
+		return all.filter(
 			(u) => u.active && u.role === 'cashier' && (branchId === 'all' || u.branch_id === branchId || u.branch_id === 'all')
 		);
-		if (operators.length > 0) selectedOperatorId = operators[0].id;
-		isLoading = false;
-	}
+	});
+
+	$effect(() => {
+		const sub = operatorsQuery.subscribe({
+			next: (list) => {
+				operators = list;
+				if (list.length > 0 && !list.some((o) => o.id === selectedOperatorId)) {
+					selectedOperatorId = list[0].id;
+				}
+				isLoading = false;
+			},
+			error: () => {
+				isLoading = false;
+			}
+		});
+		return () => sub.unsubscribe();
+	});
 
 	async function handleOpenShift() {
 		errorMessage = null;

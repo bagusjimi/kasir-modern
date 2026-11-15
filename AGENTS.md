@@ -37,3 +37,7 @@ Output:
 - Akun pusat (`branch_id = 'all'`, termasuk admin) WAJIB ikut ditarik pada sinkronisasi perangkat cabang, karena pintu "Masuk sebagai Admin" ada di terminal toko dan butuh hash PIN admin untuk verifikasi offline. Filter sinkronisasi user di `src/routes/api/sync/+server.ts` memakai `(branch_id = ? OR branch_id = 'all')` pada tarikan pertama maupun delta.
 - `authState.loginAdmin()` memverifikasi PIN ke server saat online (server = sumber kebenaran, sekaligus membuat sesi server untuk endpoint khusus admin) lalu menyimpan hash PIN lokal agar login offline berikutnya tetap berhasil. Bila server tak terjangkau, dipakai verifikasi lokal.
 - `createSession()` di `src/lib/server/auth.ts` menghapus sesi lama dengan `user_id` sama sebelum INSERT (rotasi sesi). Ini mencegah kegagalan login pada basis data lama yang punya batasan UNIQUE pada `sessions.user_id` — sebelumnya harus menghapus baris sesi manual di database.
+
+### Daftar Operator Harus Reaktif (perbaikan "harus refresh setelah aktifkan perangkat")
+- `OperatorLock.svelte` membaca daftar operator lewat `liveQuery` Dexie (bukan `onMount` sekali baca). Setelah "Aktifkan Perangkat", `initDevice()` memicu `triggerSync()` yang menulis akun kasir ke IndexedDB secara asinkron; pembacaan sekali pakai selesai sebelum data itu tiba sehingga layar menampilkan "Belum ada akun kasir" sampai halaman di-refresh.
+- Pola ini berlaku umum: komponen yang menampilkan data hasil sinkronisasi (user, produk, shift) sebaiknya memakai `liveQuery` agar UI ikut terbarui saat sinkronisasi menulis ke IndexedDB.
