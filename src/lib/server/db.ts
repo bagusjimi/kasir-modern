@@ -82,7 +82,12 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		)`,
 		`CREATE TABLE IF NOT EXISTS sessions (
 			token TEXT PRIMARY KEY, user_id TEXT NOT NULL, role TEXT NOT NULL,
-			branch_id TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
+			branch_id TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'user', name TEXT,
+			created_at TEXT NOT NULL, expires_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS devices (
+			id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, branch_name TEXT,
+			name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS stock_movements (
 			id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, product_id TEXT NOT NULL,
@@ -96,6 +101,7 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		)`,
 		`CREATE TABLE IF NOT EXISTS shifts (
 			id TEXT PRIMARY KEY, branch_id TEXT NOT NULL, branch_name TEXT,
+			device_id TEXT, device_name TEXT,
 			cashier_id TEXT NOT NULL, cashier_name TEXT NOT NULL,
 			opening_cash REAL NOT NULL DEFAULT 0, opened_at TEXT NOT NULL,
 			closed_at TEXT, closing_cash REAL, expected_cash REAL, cash_difference REAL,
@@ -159,6 +165,7 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 		'CREATE INDEX IF NOT EXISTS idx_stock_count_items_count ON stock_count_items(stock_count_id)',
 		'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)',
 		'CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)',
+		'CREATE INDEX IF NOT EXISTS idx_devices_branch ON devices(branch_id)',
 		'CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)',
 		'CREATE INDEX IF NOT EXISTS idx_stock_movements_branch ON stock_movements(branch_id)',
 		'CREATE INDEX IF NOT EXISTS idx_stock_movements_created ON stock_movements(created_at)',
@@ -181,7 +188,7 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 	// migrasi hanya menjalankan ALTER yang benar-benar dibutuhkan dan
 	// pemulihan tabel warisan tidak perlu PRAGMA tambahan.
 	const tableInfo = new Map<string, any[]>();
-	for (const t of ['categories', 'products', 'stock_transfer_items', 'stock_transfers']) {
+	for (const t of ['categories', 'products', 'stock_transfer_items', 'stock_transfers', 'sessions', 'shifts']) {
 		try {
 			const info = await d1.prepare(`PRAGMA table_info(${t})`).all();
 			tableInfo.set(t, (info.results || []) as any[]);
@@ -194,6 +201,21 @@ export async function ensureD1Seeded(d1: D1Database): Promise<void> {
 	const alterStatements: string[] = [];
 	if (!hasColumn('categories', 'updated_at')) {
 		alterStatements.push('ALTER TABLE categories ADD COLUMN updated_at TEXT');
+	}
+	// Sesi kini mengenal jenisnya: 'user' (admin) atau 'device' (terminal toko).
+	if (!hasColumn('sessions', 'kind')) {
+		alterStatements.push("ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'user'");
+	}
+	if (!hasColumn('sessions', 'name')) {
+		alterStatements.push('ALTER TABLE sessions ADD COLUMN name TEXT');
+	}
+	// Shift mencatat perangkat/terminal tempat shift dibuka (identitas toko),
+	// terpisah dari identitas operator (cashier_id).
+	if (!hasColumn('shifts', 'device_id')) {
+		alterStatements.push('ALTER TABLE shifts ADD COLUMN device_id TEXT');
+	}
+	if (!hasColumn('shifts', 'device_name')) {
+		alterStatements.push('ALTER TABLE shifts ADD COLUMN device_name TEXT');
 	}
 	if (!hasColumn('products', 'min_stock')) {
 		alterStatements.push('ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0');

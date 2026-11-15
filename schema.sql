@@ -117,8 +117,22 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id TEXT NOT NULL,
     role TEXT NOT NULL,
     branch_id TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'user',
+    name TEXT,
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL
+);
+
+-- Perangkat/terminal toko yang diinisialisasi ke satu cabang (lapis "toko").
+-- Login perangkat mengikat terminal ke cabang; identitas operator ditentukan
+-- terpisah lewat shift.
+CREATE TABLE IF NOT EXISTS devices (
+    id TEXT PRIMARY KEY,
+    branch_id TEXT NOT NULL,
+    branch_name TEXT,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 -- Ledger pergerakan stok (audit stok): penjualan, restock, void, retur, penyesuaian
@@ -152,6 +166,8 @@ CREATE TABLE IF NOT EXISTS shifts (
     id TEXT PRIMARY KEY,
     branch_id TEXT NOT NULL,
     branch_name TEXT,
+    device_id TEXT,
+    device_name TEXT,
     cashier_id TEXT NOT NULL,
     cashier_name TEXT NOT NULL,
     opening_cash REAL NOT NULL DEFAULT 0,

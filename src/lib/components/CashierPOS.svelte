@@ -4,7 +4,7 @@
 	import { authState } from '../stores/auth.svelte.js';
 	import { cartStore } from '../stores/cart.svelte.js';
 	import { syncEngine } from '../sync/index.js';
-	import { getOpenShift } from '../shift/index.js';
+	import { getOpenShiftForDevice } from '../shift/index.js';
 	import type { Product, Category, Transaction, TransactionItem, PaymentMethod, TaxSettings, PaymentSettings, Shift } from '../types/index.js';
 	import ReceiptModal from './ReceiptModal.svelte';
 	import {
@@ -85,7 +85,8 @@
 	});
 
 	async function loadOpenShift() {
-		openShift = (await getOpenShift(authState.user?.id || '')) || null;
+		// Shift terikat perangkat/toko; identitas operator diambil dari shift itu.
+		openShift = (await getOpenShiftForDevice(authState.device?.id || '')) || null;
 	}
 
 	async function loadTaxSettings() {

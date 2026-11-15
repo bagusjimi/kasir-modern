@@ -7,6 +7,9 @@ export interface AuthSession {
 	userId: string;
 	role: 'admin' | 'cashier';
 	branchId: string;
+	// 'device' = sesi terminal/toko (lapis inisialisasi toko), 'user' = sesi admin (lapis orang)
+	kind: 'user' | 'device';
+	name?: string | null;
 }
 
 function generateToken(): string {
@@ -18,19 +21,30 @@ function generateToken(): string {
 
 export async function createSession(
 	d1: D1Database,
-	user: { id: string; role: string; branch_id: string },
+	user: { id: string; role: string; branch_id: string; name?: string | null; kind?: 'user' | 'device' },
 	cookies: Cookies,
 	secure: boolean
 ): Promise<void> {
 	const token = generateToken();
 	const now = new Date();
 	const expires = new Date(now.getTime() + SESSION_TTL_SECONDS * 1000);
+	const kind = user.kind || 'user';
+
+	// Rotasi sesi: hapus sesi lama milik identitas yang sama sebelum membuat yang baru.
+	// Beberapa basis data lama punya batasan UNIQUE pada sessions.user_id (satu sesi per
+	// pengguna), sehingga login ulang gagal sampai baris lama dihapus. Menghapus di sini
+	// membuat login selalu berhasil dan sekaligus membersihkan sesi kedaluwarsa.
+	try {
+		await d1.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+	} catch {
+		// abaikan: tabel sesi bisa berbentuk berbeda pada basis data lama
+	}
 
 	await d1
 		.prepare(
-			'INSERT INTO sessions (token, user_id, role, branch_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
+			'INSERT INTO sessions (token, user_id, role, branch_id, kind, name, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
 		)
-		.bind(token, user.id, user.role, user.branch_id, now.toISOString(), expires.toISOString())
+		.bind(token, user.id, user.role, user.branch_id, kind, user.name ?? null, now.toISOString(), expires.toISOString())
 		.run();
 
 	cookies.set(SESSION_COOKIE, token, {
@@ -42,6 +56,24 @@ export async function createSession(
 	});
 }
 
+/**
+ * Membuat sesi terminal/toko: perangkat diikat ke satu cabang. Identitas operator
+ * (siapa yang memegang laci) TIDAK disimpan di sesi ini, melainkan pada shift.
+ */
+export async function createDeviceSession(
+	d1: D1Database,
+	device: { id: string; name: string; branch_id: string },
+	cookies: Cookies,
+	secure: boolean
+): Promise<void> {
+	await createSession(
+		d1,
+		{ id: device.id, role: 'cashier', branch_id: device.branch_id, name: device.name, kind: 'device' },
+		cookies,
+		secure
+	);
+}
+
 export async function getSession(d1: D1Database, cookies: Cookies): Promise<AuthSession | null> {
 	const token = cookies.get(SESSION_COOKIE);
 	if (!token) return null;
@@ -49,15 +81,20 @@ export async function getSession(d1: D1Database, cookies: Cookies): Promise<Auth
 	try {
 		const row = await d1
 			.prepare(
-				`SELECT u.id, u.role, u.branch_id, u.active, s.expires_at
+				`SELECT s.user_id, s.role, s.branch_id, s.kind, s.name, s.expires_at,
+				        u.active
 				 FROM sessions s
-				 JOIN users u ON u.id = s.user_id
+				 LEFT JOIN users u ON u.id = s.user_id
 				 WHERE s.token = ?`
 			)
 			.bind(token)
-			.first<{ id: string; role: string; branch_id: string; active: number; expires_at: string }>();
+			.first<{ user_id: string; role: string; branch_id: string; kind: string | null; name: string | null; active: number | null; expires_at: string }>();
 
-		if (!row || !row.active) return null;
+		if (!row) return null;
+
+		// Sesi admin (user) tetap divalidasi terhadap status aktif akun.
+		// Sesi perangkat tidak terikat akun pengguna, jadi tidak ada pengecekan 'active'.
+		if (row.kind !== 'device' && !row.active) return null;
 
 		if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
 			await d1.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
@@ -65,9 +102,11 @@ export async function getSession(d1: D1Database, cookies: Cookies): Promise<Auth
 		}
 
 		return {
-			userId: row.id,
+			userId: row.user_id,
 			role: row.role === 'admin' ? 'admin' : 'cashier',
-			branchId: row.branch_id
+			branchId: row.branch_id,
+			kind: row.kind === 'device' ? 'device' : 'user',
+			name: row.name
 		};
 	} catch {
 		return null;

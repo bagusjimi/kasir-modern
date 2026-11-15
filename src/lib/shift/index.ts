@@ -25,6 +25,19 @@ export async function getOpenShift(cashierId: string): Promise<Shift | undefined
 }
 
 /**
+ * Mengambil shift yang masih terbuka pada satu perangkat/terminal.
+ * Satu perangkat hanya boleh memiliki satu shift aktif; identitas orang
+ * (operator) ditentukan terpisah lewat shift itu sendiri.
+ */
+export async function getOpenShiftForDevice(deviceId: string): Promise<Shift | undefined> {
+	if (!deviceId) return undefined;
+	const shifts = await db.shifts.where('status').equals('open').toArray();
+	return shifts
+		.filter(s => s.device_id === deviceId)
+		.sort((a, b) => b.opened_at.localeCompare(a.opened_at))[0];
+}
+
+/**
  * Menghitung ringkasan (Z-Report) transaksi selama shift berjalan:
  * omset per metode bayar, jumlah void/retur, dan kas yang seharusnya ada di laci.
  * Kas yang diharapkan = setoran awal + penjualan tunai - retur tunai.

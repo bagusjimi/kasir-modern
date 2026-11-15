@@ -45,6 +45,30 @@
 	// State untuk membuka/menutup drawer menu di tampilan layar seluler (mobile)
 	let isMobileOpen = $state<boolean>(false);
 	let syncMessage = $state<string | null>(null);
+	let logoutNotice = $state<string | null>(null);
+
+	/**
+	 * Tombol keluar di sidebar.
+	 * - Mode admin: keluar dari mode admin (perangkat tetap terikat cabang).
+	 * - Ada shift terbuka: JANGAN lepas perangkat (shift jadi yatim & Z-Report hilang);
+	 *   arahkan ke menu Shift untuk menutup shift lebih dulu.
+	 * - Tidak ada operator: lepas perangkat dari cabang, dengan konfirmasi.
+	 */
+	function handleLogoutClick() {
+		if (authState.mode === 'admin') {
+			authState.exitAdmin();
+			return;
+		}
+		if (authState.operator) {
+			selectTab('shift');
+			logoutNotice = 'Tutup shift (Z-Report) dulu sebelum melepas perangkat dari cabang.';
+			setTimeout(() => (logoutNotice = null), 6000);
+			return;
+		}
+		if (confirm('Lepas perangkat ini dari cabang? Anda perlu menginisialisasi ulang perangkat untuk memakainya lagi.')) {
+			authState.logout();
+		}
+	}
 
 	onMount(() => {
 		refreshAnnouncements();
@@ -191,11 +215,19 @@
 					{authState.branch?.name || (authState.user?.role === 'admin' ? 'Semua Cabang Toko' : '-')}
 				</span>
 			</div>
-			{#if authState.branch?.code}
+			{#if authState.branch?.code || authState.device}
 				<div class="mt-1 flex items-center justify-between text-[11px] text-zinc-400">
-					<span>Kode: <strong class="text-zinc-600 font-mono">{authState.branch.code}</strong></span>
+					{#if authState.branch?.code}
+						<span>Kode: <strong class="text-zinc-600 font-mono">{authState.branch.code}</strong></span>
+					{:else}
+						<span>Perangkat</span>
+					{/if}
 					<span class="text-zinc-300">•</span>
-					<span class="text-emerald-600 font-medium">Siap Beroperasi</span>
+					{#if authState.device}
+						<span class="text-zinc-500 truncate" title="Perangkat/terminal">{authState.device.name}</span>
+					{:else}
+						<span class="text-emerald-600 font-medium">Siap Beroperasi</span>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -604,19 +636,28 @@
 				</div>
 				<div class="min-w-0">
 					<p class="text-xs font-bold text-zinc-900 truncate leading-tight">{authState.user?.name}</p>
-					<p class="text-[11px] text-zinc-400 capitalize">{authState.user?.role}</p>
+					<p class="text-[11px] text-zinc-400">
+						{authState.mode === 'admin' ? 'Admin' : authState.operator ? 'Operator Kasir' : 'Belum ada operator'}
+					</p>
 				</div>
 			</div>
 
-			<!-- Tombol Logout -->
+			<!-- Tombol Keluar -->
 			<button
-				onclick={() => authState.logout()}
+				onclick={handleLogoutClick}
 				class="rounded-xl p-2 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-				title="Keluar dari Sistem"
+				title={authState.mode === 'admin'
+					? 'Keluar dari mode Admin'
+					: authState.operator
+						? 'Tutup shift dulu sebelum melepas perangkat'
+						: 'Lepas Perangkat dari Cabang'}
 				aria-label="Keluar"
 			>
 				<LogOut class="h-4 w-4" />
 			</button>
 		</div>
+		{#if logoutNotice}
+			<p class="mt-2 text-[10px] font-medium text-amber-600 leading-snug">{logoutNotice}</p>
+		{/if}
 	</div>
 </aside>

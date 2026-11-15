@@ -24,7 +24,21 @@ Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan 
   - Mengakses laporan komprehensif untuk cabang penugasannya.
   - **Aturan Proteksi**: Kasir **tidak memiliki** akses ke panel administrasi sistem.
 
-### 2. Pengelolaan Pengeluaran Operasional (Expense Management)
+### 2. Autentikasi Dua Lapis: Toko (Perangkat) & Operator (Shift)
+
+Aplikasi memisahkan dua hal yang berbeda — **perangkat/toko** dan **orang** — sehingga pergantian kasir tidak memerlukan login ulang.
+
+- **Lapis 1 — Inisialisasi Toko/Perangkat**: sekali per perangkat. Mengikat terminal ke satu cabang (`device`), membuat sesi server berjenis `device`, dan menarik data cabang. Terminal tidak terikat pada satu orang.
+  - *Penyiapan Awal*: bila sistem masih kosong, perangkat pertama membuat **admin pertama + cabang pertama + perangkat pertama** sekaligus.
+  - *Inisialisasi Perangkat*: bila cabang sudah ada, cukup pilih cabang (atau buat cabang baru) lalu aktifkan perangkat.
+- **Lapis 2 — Operator/Kasir (Shift)**: per pergantian kasir. Operator memilih namanya, memasukkan **PIN pribadi**, dan mengisi setoran awal untuk membuka shift. Identitas operator inilah yang tercatat pada setiap transaksi (`cashier_id`/`user_id`).
+  - Menutup shift (Z-Report) melepas operator; kasir berikutnya cukup membuka shift baru.
+  - Lapisan PIN per orang tetap menjaga akuntabilitas meski tidak ada "login" terpisah.
+- **Pintu Admin**: terpisah dari alur di atas. Admin masuk dengan username + PIN khusus di layar inisialisasi untuk mengelola pengguna dan memantau aktivitas; admin tidak mengakses entri transaksi.
+
+> Ringkasnya: **login = inisialisasi perangkat ke cabang**, sedangkan **shift = identitas operator** (pola Square/Loyverse/Pawoon).
+
+### 3. Pengelolaan Pengeluaran Operasional (Expense Management)
 - **Kategori Beban Minimarket Lengkap**:
   - Tagihan Listrik, Air & Internet (PLN, PDAM, WiFi).
   - Gaji & Upah Karyawan (kasir, staf gudang, lembur).
@@ -80,6 +94,7 @@ Aplikasi Point of Sale (POS) modern berbasis **SvelteKit**, **TypeScript**, dan 
 - **Engine Sinkronisasi Otomatis**:
   - Event listener `online` dan `offline` browser.
   - Antrean perubahan (*sync queue*) dengan resolusi konflik berbasis *timestamp* dan *versioning*.
+  - Sinkronisasi dua arah untuk seluruh entitas — termasuk `device` (perangkat/terminal) — sehingga perangkat baru yang dibuat offline tetap muncul di server dan sebaliknya.
   - Indikator status jaringan visual: Badge Online (Hijau), Offline (Merah), dan jumlah transaksi tertunda (*pending count*).
   - Tombol manual *“Sinkronkan Sekarang”* serta auto-sync di latar belakang.
 
@@ -104,18 +119,20 @@ kasir-modern/
 │   │   ├── sync/              # Engine Sinkronisasi Offline-First & Queue Manager
 │   │   └── components/        # Komponen UI Modular:
 │   │       ├── Navbar.svelte           # Header navigasi, indikator jaringan & sync
-│   │       ├── LoginScreen.svelte      # Layar masuk & demo switch
+│   │       ├── LoginScreen.svelte      # Inisialisasi perangkat/toko & pintu Admin
+│   │       ├── OperatorLock.svelte     # Layar buka shift operator (pilih nama + PIN)
 │   │       ├── CashierPOS.svelte       # Antarmuka kasir utama & katalog
 │   │       ├── CashierProducts.svelte  # Kelola produk & stok cabang
 │   │       ├── CashierHistory.svelte   # Riwayat nota & rekap harian
-│       │   ├── ComprehensiveReport.svelte # Halaman laporan komprehensif & analitik POS
+│   │       ├── ComprehensiveReport.svelte # Halaman laporan komprehensif & analitik POS
 │   │       ├── ReceiptModal.svelte     # Modal struk belanja thermal
 │   │       ├── AdminUsers.svelte       # Manajemen user & kasir
 │   │       └── AdminMonitoring.svelte  # Dashboard monitoring kasir real-time
 │   └── routes/
 │       ├── +layout.svelte     # Layout root, seeding DB & inisialisasi state
-│       ├── +page.svelte       # Router dinamis berdasarkan peran akun
+│       ├── +page.svelte       # Router dua lapis: inisialisasi perangkat → shift operator / mode admin
 │       └── api/
+│           ├── auth/          # Endpoint sesi: bootstrap, device (toko), login (admin), logout, status
 │           ├── reports/       # Endpoint agregasi laporan komprehensif D1
 │           └── sync/          # Endpoint Cloudflare Pages Functions (+server.ts)
 ```
@@ -158,16 +175,21 @@ kasir-modern/
 
 ---
 
-## 🔑 Kredensial Pengguna Demo Bawaan
+## 🔑 Akun Bawaan & Cara Masuk
 
-Saat pertama kali dijalankan, sistem otomatis melakukan *seeding* data awal:
+Sistem tidak lagi menanam akun demo. Saat pertama kali dijalankan, perangkat menampilkan **Penyiapan Awal** dan pemilik membuat akun admin pertama, cabang pertama, dan perangkat pertama sekaligus.
 
-| Peran | Nama Pengguna (Username) | PIN | Cabang Penugasan | Hak Akses |
-|---|---|---|---|---|
-| **Admin** | `admin` | `123456` | Semua Cabang (Pusat) | Kelola User, Monitoring Real-Time |
-| **Kasir** | `kasir_jkt` | `1234` | Cabang Jakarta (Menteng) | POS Kasir, Stok Cabang, Riwayat Nota |
-| **Kasir** | `kasir_bdg` | `1234` | Cabang Bandung (Riau) | POS Kasir, Stok Cabang, Riwayat Nota |
-| **Kasir** | `kasir_sby` | `1234` | Cabang Surabaya (Gubeng) | POS Kasir, Stok Cabang, Riwayat Nota |
+| Peran | Cara Masuk | Keterangan |
+|---|---|---|
+| **Admin** | Pintu Admin di layar inisialisasi perangkat (username + PIN) | Dibuat saat Penyiapan Awal; kelola user & monitoring real-time |
+| **Kasir** | Buka **Shift** di perangkat toko (pilih nama + PIN pribadi) | Dibuat admin lewat menu *Kelola Pengguna*; tidak "login" terpisah |
+
+Alur singkat:
+1. **Penyiapan Awal** — isi nama, username, dan PIN admin, lalu kode/nama cabang pertama dan nama perangkat.
+2. Setelah tersimpan, pemilik langsung berada di **mode Admin** untuk menambah akun kasir.
+3. Menutup mode Admin mengembalikan layar ke **buka shift operator**. Kasir memilih namanya, memasukkan PIN pribadi, dan mengisi setoran awal untuk mulai bertransaksi.
+
+> **Catatan autentikasi dua lapis:** akun **Admin** masuk melalui pintu Admin (username + PIN) di layar inisialisasi perangkat. Akun **Kasir** tidak lagi "login" secara terpisah — mereka mengidentifikasi diri saat **membuka shift** dengan memilih nama lalu memasukkan PIN pribadi.
 
 ---
 
