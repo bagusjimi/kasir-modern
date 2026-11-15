@@ -41,3 +41,8 @@ Output:
 ### Daftar Operator Harus Reaktif (perbaikan "harus refresh setelah aktifkan perangkat")
 - `OperatorLock.svelte` membaca daftar operator lewat `liveQuery` Dexie (bukan `onMount` sekali baca). Setelah "Aktifkan Perangkat", `initDevice()` memicu `triggerSync()` yang menulis akun kasir ke IndexedDB secara asinkron; pembacaan sekali pakai selesai sebelum data itu tiba sehingga layar menampilkan "Belum ada akun kasir" sampai halaman di-refresh.
 - Pola ini berlaku umum: komponen yang menampilkan data hasil sinkronisasi (user, produk, shift) sebaiknya memakai `liveQuery` agar UI ikut terbarui saat sinkronisasi menulis ke IndexedDB.
+
+### Tombol "Keluar" = Lepas Perangkat (lapis 1), bukan ganti kasir
+- Sidebar hanya tampil saat operator aktif, jadi tombol keluar di sana TIDAK boleh memanggil `authState.logout()` langsung: itu melepas ikatan perangkat padahal shift masih terbuka (shift jadi yatim, Z-Report hilang).
+- Aturan `handleLogoutClick()` di `Sidebar.svelte`: mode admin → `exitAdmin()`; ada operator → arahkan ke tab `shift` + notis "tutup shift dulu"; tanpa operator → `logout()` dengan `confirm()`.
+- `initDevice()` memakai ulang `kasir_terminal_id` (localStorage, sengaja tidak dihapus saat lepas perangkat) sebagai `device_id` agar inisialisasi ulang meng-update baris `devices` yang sama, bukan menumpuk duplikat.

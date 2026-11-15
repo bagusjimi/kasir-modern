@@ -45,6 +45,30 @@
 	// State untuk membuka/menutup drawer menu di tampilan layar seluler (mobile)
 	let isMobileOpen = $state<boolean>(false);
 	let syncMessage = $state<string | null>(null);
+	let logoutNotice = $state<string | null>(null);
+
+	/**
+	 * Tombol keluar di sidebar.
+	 * - Mode admin: keluar dari mode admin (perangkat tetap terikat cabang).
+	 * - Ada shift terbuka: JANGAN lepas perangkat (shift jadi yatim & Z-Report hilang);
+	 *   arahkan ke menu Shift untuk menutup shift lebih dulu.
+	 * - Tidak ada operator: lepas perangkat dari cabang, dengan konfirmasi.
+	 */
+	function handleLogoutClick() {
+		if (authState.mode === 'admin') {
+			authState.exitAdmin();
+			return;
+		}
+		if (authState.operator) {
+			selectTab('shift');
+			logoutNotice = 'Tutup shift (Z-Report) dulu sebelum melepas perangkat dari cabang.';
+			setTimeout(() => (logoutNotice = null), 6000);
+			return;
+		}
+		if (confirm('Lepas perangkat ini dari cabang? Anda perlu menginisialisasi ulang perangkat untuk memakainya lagi.')) {
+			authState.logout();
+		}
+	}
 
 	onMount(() => {
 		refreshAnnouncements();
@@ -618,15 +642,22 @@
 				</div>
 			</div>
 
-			<!-- Tombol Logout -->
+			<!-- Tombol Keluar -->
 			<button
-				onclick={() => (authState.mode === 'admin' ? authState.exitAdmin() : authState.logout())}
+				onclick={handleLogoutClick}
 				class="rounded-xl p-2 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-				title={authState.mode === 'admin' ? 'Keluar dari mode Admin' : 'Keluar dari Perangkat'}
+				title={authState.mode === 'admin'
+					? 'Keluar dari mode Admin'
+					: authState.operator
+						? 'Tutup shift dulu sebelum melepas perangkat'
+						: 'Lepas Perangkat dari Cabang'}
 				aria-label="Keluar"
 			>
 				<LogOut class="h-4 w-4" />
 			</button>
 		</div>
+		{#if logoutNotice}
+			<p class="mt-2 text-[10px] font-medium text-amber-600 leading-snug">{logoutNotice}</p>
+		{/if}
 	</div>
 </aside>

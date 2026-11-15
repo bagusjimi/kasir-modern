@@ -6,6 +6,9 @@ import { syncEngine } from '../sync/index.js';
 
 const DEVICE_KEY = 'kasir_device_id';
 const DEVICE_NAME_KEY = 'kasir_device_name';
+// Identitas fisik terminal; sengaja TIDAK dihapus saat lepas perangkat agar
+// inisialisasi ulang memakai baris perangkat yang sama (tidak menumpuk duplikat).
+const TERMINAL_KEY = 'kasir_terminal_id';
 const ADMIN_KEY = 'kasir_admin_user_id';
 const BRANCH_KEY = 'kasir_session_branch_id';
 const DATA_BRANCH_KEY = 'kasir_data_branch';
@@ -162,6 +165,17 @@ class AuthState {
 		localStorage.setItem(DATA_BRANCH_KEY, device.branch_id);
 	}
 
+	/** Identitas fisik terminal ini; dibuat sekali dan dipakai ulang tiap inisialisasi. */
+	private getTerminalId(): string {
+		if (typeof window === 'undefined') return `dev-${crypto.randomUUID()}`;
+		let id = localStorage.getItem(TERMINAL_KEY);
+		if (!id) {
+			id = `dev-${crypto.randomUUID()}`;
+			localStorage.setItem(TERMINAL_KEY, id);
+		}
+		return id;
+	}
+
 	/**
 	 * Inisialisasi Perangkat/Toko (lapis 1).
 	 * Mengikat terminal ke cabang, menarik data cabang, dan menyiapkan aplikasi.
@@ -174,6 +188,7 @@ class AuthState {
 	}): Promise<{ success: boolean; message?: string }> {
 		const deviceName = params.device_name.trim() || 'Kasir';
 		const online = typeof navigator !== 'undefined' && navigator.onLine;
+		const terminalId = this.getTerminalId();
 
 		if (online) {
 			try {
@@ -181,6 +196,7 @@ class AuthState {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
+						device_id: terminalId,
 						device_name: deviceName,
 						branch_id: params.branch_id || '',
 						branch_code: params.branch_code || '',
@@ -234,7 +250,7 @@ class AuthState {
 		}
 		const now = new Date().toISOString();
 		const device: Device = {
-			id: `dev-${crypto.randomUUID()}`,
+			id: terminalId,
 			branch_id: branch.id,
 			branch_name: branch.name,
 			name: deviceName,

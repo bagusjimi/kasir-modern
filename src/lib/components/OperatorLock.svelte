@@ -57,6 +57,14 @@
 		return () => sub.unsubscribe();
 	});
 
+	/** Lepas perangkat dari cabang (lapis 1). Beri konfirmasi karena aksi ini
+	 *  mengharuskan inisialisasi ulang terminal. */
+	function releaseDevice() {
+		if (confirm('Lepas perangkat ini dari cabang? Anda perlu menginisialisasi ulang perangkat untuk memakainya lagi.')) {
+			authState.logout();
+		}
+	}
+
 	async function handleOpenShift() {
 		errorMessage = null;
 		if (!selectedOperator) return (errorMessage = 'Pilih operator yang memegang laci');
@@ -109,10 +117,10 @@
 					</p>
 					<button
 						type="button"
-						onclick={() => authState.logout()}
+						onclick={releaseDevice}
 						class="mt-4 inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-500 hover:text-zinc-700 cursor-pointer"
 					>
-						<LogOut class="h-3.5 w-3.5" /> Keluar dari perangkat
+						<LogOut class="h-3.5 w-3.5" /> Lepas perangkat dari cabang
 					</button>
 				</div>
 			{:else}
@@ -189,10 +197,11 @@
 					</span>
 					<button
 						type="button"
-						onclick={() => authState.logout()}
+						onclick={releaseDevice}
 						class="inline-flex items-center gap-1 font-semibold text-zinc-500 hover:text-zinc-700 cursor-pointer"
+						title="Lepas perangkat dari cabang"
 					>
-						<LogOut class="h-3.5 w-3.5" /> Keluar
+						<LogOut class="h-3.5 w-3.5" /> Lepas perangkat
 					</button>
 				</div>
 			{/if}
