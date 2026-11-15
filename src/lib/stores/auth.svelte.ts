@@ -403,28 +403,59 @@ class AuthState {
 	 */
 	async loginAdmin(username: string, pin: string): Promise<{ success: boolean; message?: string }> {
 		const cleanUsername = username.trim();
+		const cleanPin = pin.trim();
 		const online = typeof navigator !== 'undefined' && navigator.onLine;
+		const now = new Date().toISOString();
 
 		let user = await db.users.where('username').equalsIgnoreCase(cleanUsername).first();
+		let verified = false;
+		let rejectMessage: string | null = null;
 
-		// Perangkat baru: data user belum ada di lokal. Jika online, tarik dulu.
-		if (!user && online) {
+		// Saat online, server adalah sumber kebenaran PIN admin: verifikasi ke server sekaligus
+		// membuat sesi server yang dipakai endpoint khusus admin (pengguna, pemantauan, cabang).
+		// Bila server tak terjangkau, jatuh ke verifikasi lokal agar tetap bisa masuk offline.
+		if (online) {
 			try {
 				const res = await fetch('/api/auth/login', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ username: cleanUsername, pin: pin.trim() })
+					body: JSON.stringify({ username: cleanUsername, pin: cleanPin })
 				});
-				if (res.ok) {
-					await syncEngine.triggerSync();
-					user = await db.users.where('username').equalsIgnoreCase(cleanUsername).first();
+				const data: any = await res.json().catch(() => null);
+				if (res.ok && data && data.success && data.user) {
+					// PIN sudah diverifikasi server: simpan akun beserta hash PIN lokal (dibuat dari PIN
+					// yang baru saja diverifikasi) supaya login offline berikutnya tidak bergantung pada
+					// hasil sinkronisasi.
+					user = {
+						id: data.user.id,
+						username: data.user.username,
+						name: data.user.name,
+						role: 'admin',
+						branch_id: 'all',
+						pin: await hashPin(cleanPin),
+						active: true,
+						created_at: user?.created_at || now,
+						updated_at: now
+					} as User;
+					await db.users.put(user);
+					verified = true;
+				} else if (data && data.code === 'NO_USERS') {
+					// Server belum punya pengguna: andalkan data lokal (mis. pengaturan awal offline).
+				} else if (res.status === 401 || res.status === 403) {
+					rejectMessage = data?.message || 'PIN / Sandi salah';
 				}
 			} catch {
-				// Server tidak terjangkau: lanjut validasi lokal
+				// Server tidak terjangkau: lanjut verifikasi lokal
 			}
 		}
 
-		if (!user) return { success: false, message: 'Nama pengguna tidak ditemukan' };
+		// Verifikasi lokal (offline, atau server tak terjangkau).
+		if (!verified && !rejectMessage && user && user.active && user.role === 'admin') {
+			verified = await verifyPin(cleanPin, user.pin);
+			if (!verified) rejectMessage = 'PIN / Sandi salah';
+		}
+
+		if (!user) return { success: false, message: rejectMessage || 'Nama pengguna tidak ditemukan' };
 		if (!user.active) return { success: false, message: 'Akun ini dinonaktifkan oleh Admin' };
 		if (user.role !== 'admin') {
 			return {
@@ -432,9 +463,7 @@ class AuthState {
 				message: 'Akun kasir tidak masuk di sini. Buka shift untuk mulai sebagai operator.'
 			};
 		}
-
-		const pinOk = await verifyPin(pin.trim(), user.pin);
-		if (!pinOk) return { success: false, message: 'PIN / Sandi salah' };
+		if (!verified) return { success: false, message: rejectMessage || 'PIN / Sandi salah' };
 
 		this.admin = user;
 		// Admin memantau semua cabang, jadi cabang toko dinetralkan selama mode admin.
@@ -442,17 +471,9 @@ class AuthState {
 		localStorage.setItem(ADMIN_KEY, user.id);
 		this.refreshUser();
 
-		// Sesi server (best-effort, tidak mewajibkan koneksi)
+		// Tarik data terbaru setelah sesi admin aktif (best-effort, tidak mewajibkan koneksi).
 		if (online) {
-			try {
-				await fetch('/api/auth/login', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ username: user.username, pin: pin.trim() })
-				});
-			} catch {
-				// Sesi server bisa dibuat saat login berikutnya saat online
-			}
+			syncEngine.triggerSync();
 		}
 
 		await db.activity_logs.add({

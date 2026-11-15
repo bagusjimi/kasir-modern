@@ -654,9 +654,12 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 				: await d1.prepare('SELECT * FROM products WHERE updated_at >= ? AND branch_id = ?').bind(lastSyncedAt, branchId).all();
 			updatedProducts = prodRes.results || [];
 
+			// Akun pusat (branch_id = 'all', mis. admin) selalu ikut ditarik ke perangkat cabang:
+			// pintu "Masuk sebagai Admin" ada di terminal toko dan harus bisa memverifikasi PIN
+			// admin secara offline, sehingga hash PIN admin harus tersimpan lokal.
 			const userRes = isAdmin
 				? await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ?').bind(lastSyncedAt).all()
-				: await d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ? AND branch_id = ?').bind(lastSyncedAt, branchId).all();
+				: await d1.prepare("SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE updated_at >= ? AND (branch_id = ? OR branch_id = 'all')").bind(lastSyncedAt, branchId).all();
 			updatedUsers = (userRes.results || []).map((u: any) => ({
 				...u,
 				active: Boolean(u.active)
@@ -739,7 +742,7 @@ export const POST: RequestHandler = async ({ request, platform, cookies }) => {
 					: d1.prepare('SELECT * FROM products WHERE is_active = 1 AND branch_id = ?').bind(branchId),
 				isAdmin
 					? d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1')
-					: d1.prepare('SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1 AND branch_id = ?').bind(branchId),
+					: d1.prepare("SELECT id, username, name, role, branch_id, pin, active, created_at, updated_at FROM users WHERE active = 1 AND (branch_id = ? OR branch_id = 'all')").bind(branchId),
 				isAdmin
 					? d1.prepare('SELECT * FROM devices')
 					: d1.prepare('SELECT * FROM devices WHERE branch_id = ?').bind(branchId),

@@ -30,6 +30,16 @@ export async function createSession(
 	const expires = new Date(now.getTime() + SESSION_TTL_SECONDS * 1000);
 	const kind = user.kind || 'user';
 
+	// Rotasi sesi: hapus sesi lama milik identitas yang sama sebelum membuat yang baru.
+	// Beberapa basis data lama punya batasan UNIQUE pada sessions.user_id (satu sesi per
+	// pengguna), sehingga login ulang gagal sampai baris lama dihapus. Menghapus di sini
+	// membuat login selalu berhasil dan sekaligus membersihkan sesi kedaluwarsa.
+	try {
+		await d1.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+	} catch {
+		// abaikan: tabel sesi bisa berbentuk berbeda pada basis data lama
+	}
+
 	await d1
 		.prepare(
 			'INSERT INTO sessions (token, user_id, role, branch_id, kind, name, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'

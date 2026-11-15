@@ -32,3 +32,8 @@ Output:
 - `npm run check` — svelte-check (harus 0 error, 0 warning).
 - `npm run build` — build produksi (adapter Cloudflare).
 - `npm run dev` — dev server Vite.
+
+### Sinkronisasi Akun Pusat & Rotasi Sesi (perbaikan login admin)
+- Akun pusat (`branch_id = 'all'`, termasuk admin) WAJIB ikut ditarik pada sinkronisasi perangkat cabang, karena pintu "Masuk sebagai Admin" ada di terminal toko dan butuh hash PIN admin untuk verifikasi offline. Filter sinkronisasi user di `src/routes/api/sync/+server.ts` memakai `(branch_id = ? OR branch_id = 'all')` pada tarikan pertama maupun delta.
+- `authState.loginAdmin()` memverifikasi PIN ke server saat online (server = sumber kebenaran, sekaligus membuat sesi server untuk endpoint khusus admin) lalu menyimpan hash PIN lokal agar login offline berikutnya tetap berhasil. Bila server tak terjangkau, dipakai verifikasi lokal.
+- `createSession()` di `src/lib/server/auth.ts` menghapus sesi lama dengan `user_id` sama sebelum INSERT (rotasi sesi). Ini mencegah kegagalan login pada basis data lama yang punya batasan UNIQUE pada `sessions.user_id` — sebelumnya harus menghapus baris sesi manual di database.
