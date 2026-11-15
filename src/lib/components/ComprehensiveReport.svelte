@@ -24,8 +24,16 @@
 		Filter,
 		ReceiptText,
 		PieChart,
-		Coins
+		Coins,
+		FileText
 	} from 'lucide-svelte';
+	import {
+		buildReportPdf,
+		printReportPdf,
+		formatRupiahPdf,
+		type ReportPdfInput
+	} from '../report/pdf.js';
+	import type { StoreSettings } from '../types/index.js';
 
 	// State Filter
 	let presetRange = $state<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom'>('all');
@@ -40,6 +48,9 @@
 	let transactions = $state<Transaction[]>([]);
 	let products = $state<Product[]>([]);
 	let expenses = $state<Expense[]>([]);
+	let storeSettings = $state<StoreSettings | null>(null);
+	let isExportingPdf = $state<boolean>(false);
+	let pdfError = $state<string | null>(null);
 
 	function getTodayDateString(): string {
 		const d = new Date();
@@ -106,6 +117,8 @@
 		try {
 			branches = await db.branches.toArray();
 			products = await db.products.toArray();
+			const storeRow = await db.app_settings.get('store_settings');
+			storeSettings = (storeRow?.value as StoreSettings) || null;
 			await Promise.all([loadTransactions(), loadExpensesData()]);
 		} finally {
 			isLoading = false;
@@ -423,8 +436,93 @@
 		}).format(num);
 	}
 
-	function handlePrint() {
-		window.print();
+	// Label periode/cabang yang dipakai di dokumen PDF & cetak
+	function getPeriodLabel(): string {
+		if (!startDate && !endDate) return 'Semua Waktu';
+		return `${startDate || 'awal'} s/d ${endDate || 'sekarang'}`;
+	}
+
+	function getBranchLabel(): string {
+		if (selectedBranchId === 'all') return 'Semua Cabang';
+		return branches.find((b) => b.id === selectedBranchId)?.name || selectedBranchId;
+	}
+
+	function buildPdfInput(): ReportPdfInput {
+		const metrics: ReportPdfInput['metrics'] = [
+			{ label: 'Total Pendapatan (Omset)', value: formatRupiahPdf(totalRevenue), note: `${totalTransactionsCount} transaksi selesai` },
+			{ label: 'Estimasi Laba Kotor', value: formatRupiahPdf(grossProfit), note: `${profitMarginPercentage}% margin` },
+			{ label: 'Biaya Operasional Toko', value: formatRupiahPdf(totalOperationalExpenses), note: `${filteredExpenses.length} catatan` },
+			{ label: 'Laba Bersih Toko', value: formatRupiahPdf(netProfit), note: `${netProfitMarginPercentage}% net` },
+			{ label: 'Rata-rata Nilai Nota', value: formatRupiahPdf(averageOrderValue) },
+			{ label: 'Total Item Terjual', value: `${totalItemsSold} item` },
+			{ label: 'Total Diskon', value: formatRupiahPdf(totalDiscount) },
+			{ label: 'Total Pajak', value: formatRupiahPdf(totalTax) }
+		];
+
+		return {
+			storeName: storeSettings?.name || 'Kasir Modern',
+			storeAddress: storeSettings?.address,
+			storePhone: storeSettings?.phone,
+			periodLabel: getPeriodLabel(),
+			branchLabel: getBranchLabel(),
+			paymentLabel: selectedPaymentMethod,
+			generatedAt: new Date().toLocaleString('id-ID'),
+			metrics,
+			payments: paymentBreakdown.map((p) => ({
+				label: p.label,
+				count: p.count,
+				amount: p.amount,
+				percentage: p.percentage
+			})),
+			categories: categoryBreakdown.map((c) => ({ name: c.name, count: c.count, revenue: c.revenue })),
+			products: topProducts.map((p) => ({ name: p.name, quantity: p.quantity, revenue: p.revenue, profit: p.profit })),
+			expenses: expenseCategoryBreakdown.map((e) => ({ name: e.name, count: e.count, amount: e.amount })),
+			transactions: filteredTransactions.map((tx) => ({
+				invoice_no: tx.invoice_no,
+				created_at: tx.created_at,
+				branch_name: tx.branch_name,
+				cashier_name: tx.cashier_name,
+				payment_method: tx.payment_method,
+				discount: tx.discount,
+				tax: tx.tax,
+				total: tx.total
+			}))
+		};
+	}
+
+	function pdfFilename(): string {
+		const slug = (getBranchLabel() || 'Semua-Cabang').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '');
+		return `Laporan_Penjualan_${slug}_${startDate || 'awal'}_sd_${endDate || 'sekarang'}.pdf`;
+	}
+
+	function exportToPDF() {
+		if (filteredTransactions.length === 0 && filteredExpenses.length === 0) {
+			alert('Tidak ada data untuk diekspor pada periode/filter ini.');
+			return;
+		}
+		isExportingPdf = true;
+		pdfError = null;
+		try {
+			buildReportPdf(buildPdfInput()).save(pdfFilename());
+		} catch (err) {
+			console.error('Gagal membuat PDF laporan:', err);
+			pdfError = 'Gagal membuat PDF. Silakan coba lagi.';
+		} finally {
+			isExportingPdf = false;
+		}
+	}
+
+	function printReport() {
+		if (filteredTransactions.length === 0 && filteredExpenses.length === 0) {
+			alert('Tidak ada data untuk dicetak pada periode/filter ini.');
+			return;
+		}
+		try {
+			printReportPdf(buildPdfInput());
+		} catch (err) {
+			console.error('Gagal mencetak PDF laporan:', err);
+			pdfError = 'Gagal menyiapkan cetak PDF. Silakan coba lagi.';
+		}
 	}
 
 	function exportToCSV() {
@@ -493,34 +591,55 @@
 		</div>
 
 		<!-- Action Export & Print -->
-		<div class="flex items-center gap-2.5 print:hidden">
-			<button
-				onclick={handlePrint}
-				class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-2xs transition cursor-pointer"
-				title="Cetak format cetak struk/dokumen laporan"
-			>
-				<Printer class="h-4 w-4 text-gray-500" />
-				<span>Cetak Laporan</span>
-			</button>
+		<div class="flex flex-wrap items-center gap-2.5 print:hidden">
+		<button
+		onclick={printReport}
+		class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-2xs transition cursor-pointer"
+		title="Buka pratinjau cetak PDF A4 siap cetak"
+		>
+		<Printer class="h-4 w-4 text-gray-500" />
+		<span>Cetak Laporan</span>
+		</button>
 
-			<button
-				onclick={exportToCSV}
-				class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
-				title="Unduh data dalam format file Excel/CSV"
-			>
-				<FileSpreadsheet class="h-4 w-4" />
-				<span>Ekspor CSV</span>
-			</button>
+		<button
+		onclick={exportToPDF}
+		disabled={isExportingPdf}
+		class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-md shadow-rose-600/20 active:scale-95 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+		title="Unduh laporan lengkap sebagai berkas PDF A4 siap cetak"
+		>
+		{#if isExportingPdf}
+		<RefreshCw class="h-4 w-4 animate-spin" />
+		<span>Menyiapkan…</span>
+		{:else}
+		<FileText class="h-4 w-4" />
+		<span>Unduh PDF</span>
+		{/if}
+		</button>
 
-			<button
-				onclick={() => { loadTransactions(); loadExpensesData(); }}
-				class="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-500 transition cursor-pointer"
-				title="Muat Ulang Data"
-			>
-				<RefreshCw class="h-4 w-4 {isLoading ? 'animate-spin text-emerald-600' : ''}" />
-			</button>
+		<button
+		onclick={exportToCSV}
+		class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
+		title="Unduh data transaksi dalam format file Excel/CSV"
+		>
+		<FileSpreadsheet class="h-4 w-4" />
+		<span>Ekspor CSV</span>
+		</button>
+
+		<button
+		onclick={() => { loadTransactions(); loadExpensesData(); }}
+		class="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-500 transition cursor-pointer"
+		title="Muat Ulang Data"
+		>
+		<RefreshCw class="h-4 w-4 {isLoading ? 'animate-spin text-emerald-600' : ''}" />
+		</button>
 		</div>
 	</div>
+
+	{#if pdfError}
+	<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 print:hidden">
+	{pdfError}
+	</div>
+	{/if}
 
 	<!-- Filter Panel: Rentang Tanggal, Cabang, Metode Pembayaran -->
 	<div class="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs space-y-4 print:hidden">
