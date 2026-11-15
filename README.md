@@ -81,9 +81,10 @@ Aplikasi memisahkan dua hal yang berbeda — **perangkat/toko** dan **orang** �
   - Analisis penjualan per kategori produk.
   - Peringkat produk terlaris (*Top 8 Selling Products*) beserta kuantitas, kontribusi omset, dan laba kotor.
 - **Ekspor & Cetak Laporan**:
-  - Unduh rekapitulasi data penjualan ke file CSV/Excel (*Export to CSV*).
-  - Cetak laporan resmi siap cetak (*Print Document*) dengan layout khusus printer bebas gangguan menu navigasi.
-  - Bekerja secara penuh baik dalam mode offline (*IndexedDB*) maupun online (*Cloudflare D1 Backend*).
+  - Unduh **laporan lengkap siap cetak dalam format PDF A4** (*Unduh PDF*): kop toko, ringkasan eksekutif (omset, laba kotor, biaya operasional, laba bersih), distribusi metode pembayaran, penjualan per kategori, produk terlaris, rincian biaya, dan tabel rincian transaksi — lengkap dengan nomor halaman serta kolom tanda tangan.
+  - **Cetak Laporan** membuka pratinjau cetak PDF yang sama, sehingga hasil cetak konsisten dengan berkas yang diunduh (memakai viewer PDF bawaan browser).
+  - Unduh rekapitulasi data penjualan ke file CSV/Excel (*Ekspor CSV*).
+  - Bekerja secara penuh baik dalam mode offline (*IndexedDB*) maupun online (*Cloudflare D1 Backend*) — berkas PDF dibentuk di perangkat, jadi tidak butuh internet.
 
 ### 2. Arsitektur Offline-First & Mekanisme Sinkronisasi
 - **Penyimpanan Lokal (IndexedDB via Dexie.js)**:
@@ -117,6 +118,7 @@ kasir-modern/
 │   │   ├── db/                # Inisialisasi Dexie IndexedDB & Seeding Data Awal
 │   │   ├── stores/            # Reactive State Manajemen (Svelte 5 Runes) & Sesi Auth
 │   │   ├── sync/              # Engine Sinkronisasi Offline-First & Queue Manager
+│   │   ├── report/            # Pembangun PDF laporan (pdf.ts: A4 siap cetak, jsPDF + autotable)
 │   │   └── components/        # Komponen UI Modular:
 │   │       ├── Navbar.svelte           # Header navigasi, indikator jaringan & sync
 │   │       ├── LoginScreen.svelte      # Inisialisasi perangkat/toko & pintu Admin

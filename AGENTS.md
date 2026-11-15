@@ -46,3 +46,11 @@ Output:
 - Sidebar hanya tampil saat operator aktif, jadi tombol keluar di sana TIDAK boleh memanggil `authState.logout()` langsung: itu melepas ikatan perangkat padahal shift masih terbuka (shift jadi yatim, Z-Report hilang).
 - Aturan `handleLogoutClick()` di `Sidebar.svelte`: mode admin → `exitAdmin()`; ada operator → arahkan ke tab `shift` + notis "tutup shift dulu"; tanpa operator → `logout()` dengan `confirm()`.
 - `initDevice()` memakai ulang `kasir_terminal_id` (localStorage, sengaja tidak dihapus saat lepas perangkat) sebagai `device_id` agar inisialisasi ulang meng-update baris `devices` yang sama, bukan menumpuk duplikat.
+
+### Ekspor PDF Laporan Komprehensif
+- `src/lib/report/pdf.ts` membangun PDF A4 (jsPDF + jspdf-autotable) dari snapshot data biasa (`ReportPdfInput`) — tidak menyentuh store/komponen, jadi mudah diuji dan dipakai ulang.
+- `ComprehensiveReport.svelte` merakit input dari state yang sudah ada (`buildPdfInput()`), lalu: `buildReportPdf(...).save(name)` untuk **Unduh PDF** dan `printReportPdf(...)` (iframe tersembunyi + `bloburl`) untuk **Cetak Laporan**.
+- PENTING soal cetak: `src/app.css` menyembunyikan `body *` saat `@media print` dan hanya menampilkan `#thermal-receipt`/`#transfer-document`/`#barcode-labels`. Karena itu laporan TIDAK memakai `window.print()` (dulu menghasilkan halaman kosong), melainkan mencetak PDF lewat viewer bawaan browser.
+- jspdf-autotable diekspor sebagai default CJS; impornya dinormalkan (`typeof x === 'function' ? x : x.default`) karena interop Vite dan Node berbeda.
+- Berkas PDF dibentuk sepenuhnya di sisi klien, jadi tetap berfungsi saat offline (PWA). Service worker mem-precache chunk JS termasuk jsPDF (~200 KB).
+- `store_settings` (nama/alamat/telp toko) dibaca dari `db.app_settings.get('store_settings')` untuk kop laporan.
