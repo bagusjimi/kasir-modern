@@ -243,7 +243,7 @@
 					<Wallet class="h-6 w-6" />
 				</div>
 				<div>
-					<h1 class="text-2xl font-black text-gray-900 tracking-tight">Metode Pembayaran</h1>
+					<h1 class="text-3xl font-semibold tracking-tight text-gray-900">Metode Pembayaran</h1>
 					<p class="text-xs text-gray-500">Atur QRIS statis dan transfer bank per toko — setiap toko memiliki QR dan rekeningnya sendiri.</p>
 				</div>
 			</div>

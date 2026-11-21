@@ -41,10 +41,14 @@
 </script>
 
 {#if authState.isLoading}
-	<div class="flex h-screen w-full items-center justify-center bg-slate-900 text-white">
-		<div class="flex flex-col items-center gap-3">
-			<div class="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
-			<p class="text-sm font-semibold tracking-wide text-slate-300">Memuat Sistem Kasir Modern...</p>
+	<div class="flex h-screen w-full flex-col items-center justify-center bg-gray-950">
+		<div class="stamp flex h-14 w-14 items-center justify-center text-gray-100">
+			<span class="font-display text-xl font-semibold">KM</span>
+		</div>
+		<p class="mt-6 font-display text-lg font-semibold tracking-tight text-gray-100">Kasir Modern</p>
+		<p class="eyebrow mt-1 text-[9px] text-gray-500">Membuka buku kas</p>
+		<div class="mt-6 h-px w-40 overflow-hidden bg-gray-100/10">
+			<div class="h-px w-1/2 animate-pulse bg-rose-500"></div>
 		</div>
 	</div>
 {:else if !authState.user}
@@ -54,12 +58,12 @@
 	<OperatorLock />
 {:else}
 	<!-- Layout Dua Kolom: Sidebar Navigasi di Kiri & Konten Utama di Kanan -->
-	<div class="min-h-screen flex flex-col lg:flex-row bg-zinc-100/70">
+	<div class="flex min-h-screen flex-col lg:flex-row">
 		<!-- Sidebar Navigasi Responsif -->
 		<Sidebar {activeTab} onTabChange={handleTabChange} />
 
 		<!-- Area Konten Utama -->
-		<main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+		<main class="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
 			{#if authState.user.role === 'cashier'}
 				{#if activeTab === 'pos'}
 					<CashierPOS />

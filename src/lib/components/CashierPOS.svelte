@@ -393,414 +393,418 @@
 		}).format(num);
 	}
 </script>
-
 {#if !openShift}
-	<div class="mb-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-		<Clock class="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-		<div>
-			<p class="text-sm font-bold text-amber-800">Belum ada shift aktif</p>
-			<p class="text-xs text-amber-700 mt-0.5">Buka shift di menu <strong>Shift Kasir</strong> dengan setoran awal sebelum memproses transaksi.</p>
-		</div>
-	</div>
+        <div class="mb-4 flex items-start gap-3 border-l-2 border-amber-500 bg-amber-50 px-4 py-3">
+                <Clock class="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                <div>
+                        <p class="text-sm font-semibold text-amber-900">Belum ada shift aktif</p>
+                        <p class="mt-0.5 text-xs text-amber-800">Buka shift di menu <strong>Shift Kasir</strong> dengan setoran awal sebelum memproses transaksi.</p>
+                </div>
+        </div>
 {/if}
 
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-5rem)]">
-	<!-- Kolom Kiri: Katalog Produk (7 Kolom pada Desktop) -->
-	<div class="lg:col-span-7 xl:col-span-8 flex flex-col h-full bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
-		<!-- Search & Filter Bar -->
-		<div class="p-4 border-b border-gray-100 space-y-3">
-			<!-- Pencarian + Scan Barcode (satu kotak: filter live, Enter untuk masukkan ke keranjang) -->
-			<div class="relative">
-				<Barcode class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
-				<input
-					type="text"
-					bind:this={scanInput}
-					bind:value={searchQuery}
-					onkeydown={handleScan}
-					placeholder="Pindai kode batang / cari nama atau SKU, lalu tekan Enter..."
-					class="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm transition outline-hidden"
-				/>
-				{#if scanFeedback}
-					<div class="absolute left-0 right-0 top-full mt-1.5 z-20 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold shadow-lg {scanFeedback.type === 'success' ? 'bg-emerald-600 border-emerald-600 text-white' : scanFeedback.type === 'error' ? 'bg-rose-600 border-rose-600 text-white' : 'bg-amber-500 border-amber-500 text-white'}">
-						{#if scanFeedback.type === 'success'}
-							<CheckCircle class="h-4 w-4 shrink-0" />
-						{:else}
-							<AlertCircle class="h-4 w-4 shrink-0" />
-						{/if}
-						{scanFeedback.message}
-					</div>
-				{/if}
-				{#if scanSuggestions.length > 0}
-					<div class="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-						<p class="px-3 py-2 text-[11px] font-semibold text-gray-500 bg-gray-50">Beberapa produk cocok — gunakan panah ↑↓ untuk memilih, lalu tekan Enter:</p>
-						{#each scanSuggestions as sugg, i (sugg.id)}
-							<button
-								onclick={() => pickSuggestion(sugg)}
-								class="w-full flex items-center justify-between px-3 py-2.5 text-sm transition text-left {i === activeSuggestion ? 'bg-emerald-100 font-semibold' : 'hover:bg-emerald-50'}"
-							>
-								<span class="font-semibold text-gray-800">{sugg.name}</span>
-								<span class="text-xs text-gray-400 font-mono">{sugg.sku}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
+<div class="grid h-[calc(100vh-6.5rem)] grid-cols-1 gap-5 lg:h-[calc(100vh-3.5rem)] lg:grid-cols-12">
+        <!-- Katalog produk -->
+        <section class="reveal flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs lg:col-span-7 xl:col-span-8">
+                <div class="border-b border-gray-200 px-4 pb-3 pt-4 sm:px-5">
+                        <div class="flex items-baseline justify-between gap-3">
+                                <div>
+                                        <p class="eyebrow text-gray-400">Katalog</p>
+                                        <h1 class="mt-0.5 text-xl font-semibold tracking-tight text-gray-900">Pilih barang</h1>
+                                </div>
+                                <span class="font-mono text-[10px] uppercase tracking-wider text-gray-400">
+                                        {filteredProducts.length} produk
+                                </span>
+                        </div>
 
+                        <!-- Satu kotak: filter langsung, Enter untuk memindai/menambahkan -->
+                        <div class="relative mt-3">
+                                <Barcode class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                <input
+                                        type="text"
+                                        bind:this={scanInput}
+                                        bind:value={searchQuery}
+                                        onkeydown={handleScan}
+                                        placeholder="Pindai kode batang / cari nama atau SKU, lalu Enter..."
+                                        class="w-full rounded-md border border-gray-300 bg-gray-50 py-2.5 pl-9 pr-4 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/15 focus:outline-hidden"
+                                />
+                                {#if scanFeedback}
+                                        <div class="absolute left-0 right-0 top-full z-20 mt-1.5 flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-white shadow-lg {scanFeedback.type === 'success' ? 'bg-emerald-600' : scanFeedback.type === 'error' ? 'bg-rose-600' : 'bg-amber-500'}">
+                                                {#if scanFeedback.type === 'success'}
+                                                        <CheckCircle class="h-4 w-4 shrink-0" />
+                                                {:else}
+                                                        <AlertCircle class="h-4 w-4 shrink-0" />
+                                                {/if}
+                                                {scanFeedback.message}
+                                        </div>
+                                {/if}
+                                {#if scanSuggestions.length > 0}
+                                        <div class="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
+                                                <p class="border-b border-gray-100 bg-gray-50 px-3 py-2 text-[11px] font-medium text-gray-500">Beberapa produk cocok — gunakan panah ↑↓ lalu Enter:</p>
+                                                {#each scanSuggestions as sugg, i (sugg.id)}
+                                                        <button
+                                                                onclick={() => pickSuggestion(sugg)}
+                                                                class="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition {i === activeSuggestion ? 'bg-emerald-50 font-semibold' : 'hover:bg-gray-50'}"
+                                                        >
+                                                                <span class="font-medium text-gray-800">{sugg.name}</span>
+                                                                <span class="font-mono text-[11px] text-gray-400">{sugg.sku}</span>
+                                                        </button>
+                                                {/each}
+                                        </div>
+                                {/if}
+                        </div>
 
-			<!-- Filter Kategori Tabs -->
-			<div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-				<button
-					onclick={() => selectedCategory = 'all'}
-					class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition {selectedCategory === 'all' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
-				>
-					Semua Kategori
-				</button>
-				{#each categories as cat}
-					<button
-						onclick={() => selectedCategory = cat.name}
-						class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition {selectedCategory === cat.name ? 'bg-emerald-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
-					>
-						{cat.name}
-					</button>
-				{/each}
-			</div>
-		</div>
+                        <!-- Filter kategori -->
+                        <div class="mt-3 flex items-center gap-4 overflow-x-auto scrollbar-none">
+                                <button
+                                        onclick={() => selectedCategory = 'all'}
+                                        class="shrink-0 border-b-2 pb-1.5 text-xs font-semibold transition {selectedCategory === 'all' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-700'}"
+                                >
+                                        Semua
+                                </button>
+                                {#each categories as cat}
+                                        <button
+                                                onclick={() => selectedCategory = cat.name}
+                                                class="shrink-0 whitespace-nowrap border-b-2 pb-1.5 text-xs font-semibold transition {selectedCategory === cat.name ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-700'}"
+                                        >
+                                                {cat.name}
+                                        </button>
+                                {/each}
+                        </div>
+                </div>
 
-		<!-- Grid Produk -->
-		<div class="flex-1 overflow-y-auto p-4">
-			{#if filteredProducts.length === 0}
-				<div class="flex flex-col items-center justify-center h-64 text-gray-400">
-					<ShoppingBag class="h-12 w-12 mb-2 stroke-1" />
-					<p class="text-sm font-medium">Tidak ada produk ditemukan</p>
-					<p class="text-xs text-gray-400 mt-1">Coba cari dengan kata kunci lain atau pilih kategori berbeda.</p>
-				</div>
-			{:else}
-				<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
-					{#each filteredProducts as product}
-						<button
-							onclick={() => addToCart(product)}
-							disabled={product.stock <= 0}
-							class="group relative flex flex-col justify-between rounded-xl border border-gray-200/90 bg-white p-3.5 text-left transition hover:border-emerald-500 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-98"
-						>
-							<div>
-								<div class="flex items-start justify-between gap-1 mb-1.5">
-									<span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-										{product.category}
-									</span>
-									<span class="text-[11px] font-semibold {product.stock <= 5 ? 'text-rose-600 bg-rose-50' : 'text-gray-500 bg-gray-100'} px-2 py-0.5 rounded-md">
-										Stok: {product.stock}
-									</span>
-								</div>
-								<h3 class="font-bold text-gray-800 text-sm line-clamp-2 group-hover:text-emerald-600 transition">
-									{product.name}
-								</h3>
-								<p class="text-[11px] text-gray-500 mt-0.5">{product.sku}</p>
-							</div>
+                <!-- Grid produk -->
+                <div class="min-h-0 flex-1 overflow-y-auto p-4">
+                        {#if filteredProducts.length === 0}
+                                <div class="flex h-64 flex-col items-center justify-center text-gray-400">
+                                        <ShoppingBag class="mb-2 h-10 w-10 stroke-1 text-gray-300" />
+                                        <p class="text-sm font-medium text-gray-600">Tidak ada produk ditemukan</p>
+                                        <p class="mt-1 text-xs text-gray-400">Coba kata kunci lain atau pilih kategori berbeda.</p>
+                                </div>
+                        {:else}
+                                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                                        {#each filteredProducts as product, i (product.id)}
+                                                <button
+                                                        onclick={() => addToCart(product)}
+                                                        disabled={product.stock <= 0}
+                                                        class="group relative flex flex-col justify-between rounded-md border border-gray-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-gray-900 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:border-gray-200 disabled:hover:shadow-none cursor-pointer"
+                                                >
+                                                        <div>
+                                                                <div class="mb-1.5 flex items-center justify-between gap-1">
+                                                                        <span class="truncate font-mono text-[9px] uppercase tracking-wider text-gray-400">{product.category}</span>
+                                                                        <span class="shrink-0 font-mono text-[10px] font-medium {product.stock <= 5 ? 'text-rose-600' : 'text-gray-400'}">
+                                                                                {product.stock <= 5 ? 'sisa ' : ''}{product.stock}
+                                                                        </span>
+                                                                </div>
+                                                                <h3 class="line-clamp-2 text-[13px] font-semibold leading-snug text-gray-900 transition group-hover:text-emerald-800">
+                                                                        {product.name}
+                                                                </h3>
+                                                                <p class="mt-0.5 truncate font-mono text-[10px] text-gray-400">{product.sku}</p>
+                                                        </div>
 
-							<div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-2">
-								<span class="text-sm font-bold text-emerald-600">
-									{formatRupiah(product.price)}
-								</span>
-								<div class="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
-									<Plus class="h-4 w-4" />
-								</div>
-							</div>
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	</div>
+                                                        <div class="mt-3 flex items-end justify-between gap-2 border-t border-dashed border-gray-200 pt-2">
+                                                                <span class="num text-sm font-semibold text-gray-900">
+                                                                        {formatRupiah(product.price)}
+                                                                </span>
+                                                                <span class="flex h-6 w-6 items-center justify-center rounded-sm border border-gray-300 text-gray-500 transition group-hover:border-emerald-600 group-hover:bg-emerald-600 group-hover:text-white">
+                                                                        <Plus class="h-3.5 w-3.5" />
+                                                                </span>
+                                                        </div>
+                                                </button>
+                                        {/each}
+                                </div>
+                        {/if}
+                </div>
+        </section>
 
-	<!-- Kolom Kanan: Keranjang Kasir (5 Kolom pada Desktop) -->
-	<div class="lg:col-span-5 xl:col-span-4 flex flex-col h-full bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
-		<!-- Header Keranjang -->
-		<div class="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/70">
-			<div class="flex items-center gap-2">
-				<h2 class="font-bold text-gray-900 text-base">Pesanan Baru</h2>
-				<span class="flex h-5 items-center justify-center rounded-full bg-emerald-100 px-2 text-xs font-bold text-emerald-800">
-					{cartStore.items.length} item
-				</span>
-			</div>
-			{#if cartStore.items.length > 0}
-				<button
-					onclick={clearCart}
-					class="text-xs font-medium text-rose-600 hover:text-rose-700 flex items-center gap-1 transition cursor-pointer"
-				>
-					<Trash2 class="h-3.5 w-3.5" />
-					<span>Kosongkan</span>
-				</button>
-			{/if}
-		</div>
+        <!-- Nota / keranjang -->
+        <section class="reveal flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs lg:col-span-5 xl:col-span-4" style="--i: 1">
+                <div class="flex items-center justify-between border-b border-gray-900/10 bg-gray-50 px-4 py-3">
+                        <div class="flex items-baseline gap-2">
+                                <h2 class="text-base font-semibold tracking-tight text-gray-900">Nota</h2>
+                                <span class="font-mono text-[10px] uppercase tracking-wider text-gray-400">
+                                        {cartStore.items.length} item
+                                </span>
+                        </div>
+                        {#if cartStore.items.length > 0}
+                                <button
+                                        onclick={clearCart}
+                                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 transition hover:text-rose-800 cursor-pointer"
+                                >
+                                        <Trash2 class="h-3.5 w-3.5" />
+                                        <span>Kosongkan</span>
+                                </button>
+                        {/if}
+                </div>
 
-		<!-- Daftar Item Keranjang -->
-		<div class="flex-1 overflow-y-auto p-4 divide-y divide-gray-100">
-			{#if cartStore.items.length === 0}
-				<div class="flex flex-col items-center justify-center h-full text-gray-400 py-12">
-					<ShoppingBag class="h-12 w-12 mb-3 stroke-1 text-gray-300" />
-					<p class="text-sm font-semibold text-gray-600">Keranjang masih kosong</p>
-					<p class="text-xs text-gray-400 mt-1 text-center max-w-[200px]">Pilih produk di samping untuk menambahkan ke pesanan.</p>
-				</div>
-			{:else}
-				{#each cartStore.items as item (item.product.id)}
-					<div class="py-3 first:pt-0 last:pb-0">
-						<div class="flex items-start justify-between gap-2">
-							<div class="min-w-0 flex-1">
-								<h4 class="text-sm font-semibold text-gray-800 truncate">{item.product.name}</h4>
-								<p class="text-[11px] text-gray-500">{formatRupiah(item.product.price)} / {item.product.unit}</p>
-							</div>
-							<button
-								onclick={() => cartStore.removeItem(item.product.id)}
-								title="Hapus item dari keranjang"
-								class="h-6 w-6 shrink-0 flex items-center justify-center rounded-lg text-gray-300 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-							>
-								<Trash2 class="h-3.5 w-3.5" />
-							</button>
-						</div>
-						<div class="mt-2 flex items-center justify-between gap-2">
-							<div class="flex items-center gap-1.5 bg-gray-100 p-0.5 rounded-lg border border-gray-200">
-								<button
-									onclick={() => updateQuantity(item.product.id, -1)}
-									class="h-6 w-6 rounded bg-white text-gray-600 flex items-center justify-center shadow-2xs hover:bg-gray-200 transition"
-								>
-									<Minus class="h-3 w-3" />
-								</button>
-								<span class="w-6 text-center text-xs font-bold text-gray-800">{item.quantity}</span>
-								<button
-									onclick={() => updateQuantity(item.product.id, 1)}
-									class="h-6 w-6 rounded bg-white text-gray-600 flex items-center justify-center shadow-2xs hover:bg-gray-200 transition"
-								>
-									<Plus class="h-3 w-3" />
-								</button>
-							</div>
-							<span class="text-sm font-bold text-gray-800">{formatRupiah(item.subtotal)}</span>
-						</div>
-						<input
-							type="text"
-							bind:value={item.notes}
-							placeholder="Catatan (opsional)..."
-							class="mt-1.5 w-full text-[11px] px-2 py-0.5 rounded border border-gray-200 text-gray-600 placeholder-gray-400 focus:outline-hidden focus:border-emerald-500"
-						/>
-					</div>
-				{/each}
-			{/if}
-		</div>
+                <div class="min-h-0 flex-1 overflow-y-auto px-4">
+                        {#if cartStore.items.length === 0}
+                                <div class="flex h-full flex-col items-center justify-center py-12 text-center text-gray-400">
+                                        <ShoppingBag class="mb-3 h-10 w-10 stroke-1 text-gray-300" />
+                                        <p class="text-sm font-semibold text-gray-600">Keranjang masih kosong</p>
+                                        <p class="mt-1 max-w-[210px] text-xs text-gray-400">Pilih produk di samping untuk menambahkan ke pesanan.</p>
+                                </div>
+                        {:else}
+                                {#each cartStore.items as item (item.product.id)}
+                                        <div class="border-b border-dashed border-gray-200 py-3 last:border-b-0">
+                                                <div class="flex items-start justify-between gap-2">
+                                                        <div class="min-w-0 flex-1">
+                                                                <h4 class="truncate text-[13px] font-semibold text-gray-900">{item.product.name}</h4>
+                                                                <p class="mt-0.5 font-mono text-[10px] text-gray-400">{formatRupiah(item.product.price)} / {item.product.unit}</p>
+                                                        </div>
+                                                        <button
+                                                                onclick={() => cartStore.removeItem(item.product.id)}
+                                                                title="Hapus item dari keranjang"
+                                                                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-gray-300 transition hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
+                                                        >
+                                                                <Trash2 class="h-3.5 w-3.5" />
+                                                        </button>
+                                                </div>
+                                                <div class="mt-2 flex items-center justify-between gap-2">
+                                                        <div class="flex items-center rounded-sm border border-gray-300">
+                                                                <button
+                                                                        onclick={() => updateQuantity(item.product.id, -1)}
+                                                                        class="flex h-7 w-7 items-center justify-center text-gray-600 transition hover:bg-gray-100"
+                                                                >
+                                                                        <Minus class="h-3 w-3" />
+                                                                </button>
+                                                                <span class="num w-8 border-x border-gray-300 py-1 text-center text-xs font-semibold text-gray-900">{item.quantity}</span>
+                                                                <button
+                                                                        onclick={() => updateQuantity(item.product.id, 1)}
+                                                                        class="flex h-7 w-7 items-center justify-center text-gray-600 transition hover:bg-gray-100"
+                                                                >
+                                                                        <Plus class="h-3 w-3" />
+                                                                </button>
+                                                        </div>
+                                                        <span class="num text-sm font-semibold text-gray-900">{formatRupiah(item.subtotal)}</span>
+                                                </div>
+                                                <input
+                                                        type="text"
+                                                        bind:value={item.notes}
+                                                        placeholder="Catatan (opsional)..."
+                                                        class="mt-1.5 w-full rounded-sm border border-transparent bg-gray-50 px-2 py-1 text-[11px] text-gray-700 placeholder:text-gray-400 transition focus:border-gray-300 focus:bg-white focus:outline-hidden"
+                                                />
+                                        </div>
+                                {/each}
+                        {/if}
+                </div>
 
-		<!-- Kalkulasi Subtotal, Diskon, Pajak & Tombol Bayar -->
-		{#if cartStore.items.length > 0}
-			<div class="border-t border-gray-200 bg-gray-50/80 p-4 space-y-2.5">
-				<div class="flex justify-between text-xs text-gray-600">
-					<span>Subtotal</span>
-					<span class="font-medium text-gray-800">{formatRupiah(subtotal)}</span>
-				</div>
+                <!-- Total -->
+                {#if cartStore.items.length > 0}
+                        <div class="border-t border-dashed border-gray-300 bg-gray-50/80 px-4 py-3.5">
+                                <div class="leader py-0.5">
+                                        <span class="text-xs text-gray-500">Subtotal</span>
+                                        <span class="num text-xs font-medium text-gray-800">{formatRupiah(subtotal)}</span>
+                                </div>
 
-				<div class="flex items-center justify-between text-xs text-gray-600">
-					<span>Diskon (Rp)</span>
-					<input
-						type="number"
-						bind:value={cartStore.discount}
-						min="0"
-						class="w-24 text-right px-2 py-1 rounded border border-gray-200 text-xs font-semibold text-rose-600 focus:outline-hidden focus:border-emerald-500"
-					/>
-				</div>
+                                <div class="leader py-0.5">
+                                        <span class="flex items-center gap-1.5 text-xs text-gray-500">
+                                                Diskon
+                                                <span class="font-mono text-[10px] text-gray-400">Rp</span>
+                                        </span>
+                                        <input
+                                                type="number"
+                                                bind:value={cartStore.discount}
+                                                min="0"
+                                                class="num w-24 rounded-sm border border-gray-300 bg-white px-2 py-0.5 text-right text-xs font-semibold text-rose-600 transition focus:border-emerald-600 focus:outline-hidden"
+                                        />
+                                </div>
 
-				<div class="flex justify-between text-xs text-gray-600">
-					<span>{taxLabel}</span>
-					<span class="font-medium text-gray-800">{formatRupiah(taxAmount)}</span>
-				</div>
+                                <div class="leader py-0.5">
+                                        <span class="text-xs text-gray-500">{taxLabel}</span>
+                                        <span class="num text-xs font-medium text-gray-800">{formatRupiah(taxAmount)}</span>
+                                </div>
 
-				<div class="border-t border-gray-200 pt-2 flex justify-between items-center">
-					<div>
-						<p class="text-xs text-gray-500">Total Tagihan</p>
-						<p class="text-xl font-black text-emerald-700">{formatRupiah(totalAmount)}</p>
-					</div>
-					<button
-						onclick={openPayment}
-						class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/30 active:scale-95 transition cursor-pointer"
-					>
-						<span>Bayar</span>
-						<ArrowRight class="h-4 w-4" />
-					</button>
-				</div>
-			</div>
-		{/if}
-	</div>
+                                <div class="mt-2.5 flex items-end justify-between gap-3 border-t border-gray-900/15 pt-2.5">
+                                        <div>
+                                                <p class="eyebrow text-[9px] text-gray-400">Total tagihan</p>
+                                                <p class="num mt-0.5 text-xl font-semibold tracking-tight text-emerald-800">{formatRupiah(totalAmount)}</p>
+                                        </div>
+                                        <button
+                                                onclick={openPayment}
+                                                class="group inline-flex items-center gap-2 rounded-md bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:translate-y-px cursor-pointer"
+                                        >
+                                                <span>Bayar</span>
+                                                <ArrowRight class="h-4 w-4 transition group-hover:translate-x-0.5" />
+                                        </button>
+                                </div>
+                        </div>
+                {/if}
+        </section>
 </div>
 
-<!-- Modal Pembayaran -->
+<!-- Modal pembayaran -->
 {#if isPaymentModalOpen}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-		<div class="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-			<div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-				<h3 class="text-lg font-bold text-gray-900">Pembayaran Transaksi</h3>
-				<span class="text-sm font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-					{formatRupiah(totalAmount)}
-				</span>
-			</div>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/55 p-4 backdrop-blur-xs">
+                <div class="reveal max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl">
+                        <div class="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4">
+                                <div>
+                                        <p class="eyebrow text-gray-400">Nota {formatRupiah(totalAmount)}</p>
+                                        <h3 class="mt-0.5 text-lg font-semibold tracking-tight text-gray-900">Pembayaran</h3>
+                                </div>
+                                <button onclick={() => (isPaymentModalOpen = false)} class="rounded-sm p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 cursor-pointer" aria-label="Tutup">
+                                        <Plus class="h-4 w-4 rotate-45" />
+                                </button>
+                        </div>
 
-			<!-- Input Nama Pelanggan -->
-			<div class="mb-4">
-				<label for="customerName" class="block text-xs font-semibold text-gray-700 mb-1">Nama Pelanggan (Opsional)</label>
-				<input
-					id="customerName"
-					type="text"
-					bind:value={customerName}
-					placeholder="Contoh: Pak Anton / Meja 05"
-					class="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm focus:outline-hidden focus:border-emerald-500"
-				/>
-			</div>
+                        <div class="space-y-5 px-6 py-5">
+                                <div>
+                                        <label for="customerName" class="eyebrow mb-1.5 block text-[9px] text-gray-400">Nama Pelanggan (Opsional)</label>
+                                        <input
+                                                id="customerName"
+                                                type="text"
+                                                bind:value={customerName}
+                                                placeholder="Contoh: Pak Anton / Meja 05"
+                                                class="w-full rounded-md border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 focus:outline-hidden"
+                                        />
+                                </div>
 
-			<!-- Pilihan Metode Pembayaran -->
-			<div class="mb-5">
-				<span class="block text-xs font-semibold text-gray-700 mb-2">Metode Pembayaran</span>
-				<div class="grid grid-cols-3 gap-3">
-					<button
-						onclick={() => paymentMethod = 'cash'}
-						class="flex flex-col items-center justify-center p-3 rounded-xl border transition {paymentMethod === 'cash' ? 'border-emerald-600 bg-emerald-50 text-emerald-700 font-bold' : 'border-gray-200 hover:bg-gray-50 text-gray-700'}"
-					>
-						<Banknote class="h-5 w-5 mb-1" />
-						<span class="text-xs">Tunai (Cash)</span>
-					</button>
-					{#if qrisEnabled}
-					<button
-						onclick={() => paymentMethod = 'qris'}
-						class="flex flex-col items-center justify-center p-3 rounded-xl border transition {paymentMethod === 'qris' ? 'border-emerald-600 bg-emerald-50 text-emerald-700 font-bold' : 'border-gray-200 hover:bg-gray-50 text-gray-700'}"
-					>
-						<QrCode class="h-5 w-5 mb-1" />
-						<span class="text-xs">QRIS</span>
-					</button>
-					{/if}
-					{#if transferEnabled}
-					<button
-						onclick={() => paymentMethod = 'transfer'}
-						class="flex flex-col items-center justify-center p-3 rounded-xl border transition {paymentMethod === 'transfer' ? 'border-emerald-600 bg-emerald-50 text-emerald-700 font-bold' : 'border-gray-200 hover:bg-gray-50 text-gray-700'}"
-					>
-						<CreditCard class="h-5 w-5 mb-1" />
-						<span class="text-xs">Transfer Bank</span>
-					</button>
-					{/if}
-				</div>
-			</div>
+                                <div>
+                                        <span class="eyebrow mb-2 block text-[9px] text-gray-400">Metode Pembayaran</span>
+                                        <div class="grid grid-cols-3 gap-2">
+                                                <button
+                                                        onclick={() => paymentMethod = 'cash'}
+                                                        class="flex flex-col items-center justify-center gap-1 rounded-md border px-2 py-3 text-[11px] transition {paymentMethod === 'cash' ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-900' : 'border-gray-300 text-gray-600 hover:border-gray-400'}"
+                                                >
+                                                        <Banknote class="h-5 w-5" />
+                                                        <span>Tunai</span>
+                                                </button>
+                                                {#if qrisEnabled}
+                                                        <button
+                                                                onclick={() => paymentMethod = 'qris'}
+                                                                class="flex flex-col items-center justify-center gap-1 rounded-md border px-2 py-3 text-[11px] transition {paymentMethod === 'qris' ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-900' : 'border-gray-300 text-gray-600 hover:border-gray-400'}"
+                                                        >
+                                                                <QrCode class="h-5 w-5" />
+                                                                <span>QRIS</span>
+                                                        </button>
+                                                {/if}
+                                                {#if transferEnabled}
+                                                        <button
+                                                                onclick={() => paymentMethod = 'transfer'}
+                                                                class="flex flex-col items-center justify-center gap-1 rounded-md border px-2 py-3 text-[11px] transition {paymentMethod === 'transfer' ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-900' : 'border-gray-300 text-gray-600 hover:border-gray-400'}"
+                                                        >
+                                                                <CreditCard class="h-5 w-5" />
+                                                                <span>Transfer</span>
+                                                        </button>
+                                                {/if}
+                                        </div>
+                                </div>
 
-			<!-- Rincian Tunai -->
-			{#if paymentMethod === 'cash'}
-				<div class="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4">
-					<div>
-						<label for="amountPaid" class="block text-xs font-semibold text-gray-700 mb-1">Nominal Uang Diterima</label>
-						<input
-							id="amountPaid"
-							type="number"
-							bind:value={amountPaid}
-							class="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-lg font-bold text-gray-900 focus:outline-hidden focus:border-emerald-500"
-						/>
-					</div>
+                                {#if paymentMethod === 'cash'}
+                                        <div class="border border-gray-200 bg-gray-50 px-4 py-4">
+                                                <label for="amountPaid" class="eyebrow mb-1.5 block text-[9px] text-gray-400">Uang Diterima</label>
+                                                <input
+                                                        id="amountPaid"
+                                                        type="number"
+                                                        bind:value={amountPaid}
+                                                        class="num w-full rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-lg font-semibold text-gray-900 transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 focus:outline-hidden"
+                                                />
 
-					<!-- Tombol Cepat Pecahan Uang -->
-					<div class="flex flex-wrap gap-1.5">
-						<button
-							onclick={() => amountPaid = totalAmount}
-							class="px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition"
-						>
-							Uang Pas
-						</button>
-						<button
-							onclick={() => amountPaid = 50000}
-							class="px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition"
-						>
-							Rp 50.000
-						</button>
-						<button
-							onclick={() => amountPaid = 100000}
-							class="px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition"
-						>
-							Rp 100.000
-						</button>
-						<button
-							onclick={() => amountPaid = 200000}
-							class="px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition"
-						>
-							Rp 200.000
-						</button>
-					</div>
+                                                <div class="mt-2 flex flex-wrap gap-1.5">
+                                                        <button
+                                                                onclick={() => amountPaid = totalAmount}
+                                                                class="rounded-sm border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 transition hover:border-emerald-600 hover:text-emerald-800"
+                                                        >
+                                                                Uang pas
+                                                        </button>
+                                                        <button
+                                                                onclick={() => amountPaid = 50000}
+                                                                class="num rounded-sm border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 transition hover:border-emerald-600 hover:text-emerald-800"
+                                                        >
+                                                                50.000
+                                                        </button>
+                                                        <button
+                                                                onclick={() => amountPaid = 100000}
+                                                                class="num rounded-sm border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 transition hover:border-emerald-600 hover:text-emerald-800"
+                                                        >
+                                                                100.000
+                                                        </button>
+                                                        <button
+                                                                onclick={() => amountPaid = 200000}
+                                                                class="num rounded-sm border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 transition hover:border-emerald-600 hover:text-emerald-800"
+                                                        >
+                                                                200.000
+                                                        </button>
+                                                </div>
 
-					<div class="flex justify-between items-center pt-2 border-t border-gray-200 text-sm font-semibold">
-						<span class="text-gray-600">Kembalian:</span>
-						<span class="{changeAmount < 0 ? 'text-rose-600' : 'text-emerald-700'} text-base font-bold">
-							{formatRupiah(changeAmount)}
-						</span>
-					</div>
-				</div>
-			{:else if paymentMethod === 'qris'}
-				{#if paymentSettings?.qris?.image}
-					<div class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-xl border border-gray-200 mb-4 text-center">
-						<img
-							src={paymentSettings.qris.image}
-							alt="QRIS Merchant"
-							class="h-44 w-44 bg-white p-2 rounded-xl border border-gray-300 object-contain shadow-xs mb-2"
-						/>
-						{#if paymentSettings.qris.merchant_name}
-							<p class="text-xs font-bold text-gray-900">{paymentSettings.qris.merchant_name}</p>
-						{/if}
-						<p class="text-xs font-semibold text-gray-800 mt-1">Minta pelanggan memindai QRIS dan membayar sesuai nominal</p>
-						<p class="text-[11px] text-gray-500 mt-1">Total: <span class="font-bold text-emerald-700">{formatRupiah(totalAmount)}</span></p>
-						<p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2">Pastikan notifikasi dana masuk terlihat sebelum menekan konfirmasi.</p>
-					</div>
-				{:else}
-					<div class="flex flex-col items-center justify-center p-6 bg-amber-50 rounded-xl border border-amber-200 mb-4 text-center">
-						<QrCode class="h-10 w-10 text-amber-500 mb-2" />
-						<p class="text-xs font-semibold text-amber-800">QRIS statis belum diatur oleh Admin</p>
-						<p class="text-[11px] text-amber-700 mt-1">Atur gambar QR di menu Metode Pembayaran (Admin) atau gunakan metode lain.</p>
-					</div>
-				{/if}
-			{:else if paymentMethod === 'transfer'}
-				<div class="p-4 bg-gray-50 rounded-xl border border-gray-200 mb-4 text-xs space-y-2 text-gray-700">
-					<div class="font-semibold text-gray-900">Rekening Tujuan Toko:</div>
-					{#if paymentSettings?.transfer?.bank_name || paymentSettings?.transfer?.account_number}
-						<div class="flex justify-between">
-							<span>{paymentSettings?.transfer?.bank_name || 'Bank'}:</span>
-							<span class="font-bold">{paymentSettings?.transfer?.account_number}</span>
-						</div>
-						{#if paymentSettings?.transfer?.account_name}
-							<div class="flex justify-between">
-								<span>Atas Nama:</span>
-								<span class="font-bold">{paymentSettings.transfer.account_name}</span>
-							</div>
-						{/if}
-					{:else}
-						<p class="text-amber-700">Rekening transfer belum diatur oleh Admin.</p>
-					{/if}
-				</div>
-			{/if}
+                                                <div class="leader mt-3 border-t border-gray-200 pt-2.5">
+                                                        <span class="text-xs font-medium text-gray-600">Kembalian</span>
+                                                        <span class="num text-base font-semibold {changeAmount < 0 ? 'text-rose-600' : 'text-emerald-800'}">
+                                                                {formatRupiah(changeAmount)}
+                                                        </span>
+                                                </div>
+                                        </div>
+                                {:else if paymentMethod === 'qris'}
+                                        {#if paymentSettings?.qris?.image}
+                                                <div class="flex flex-col items-center justify-center border border-gray-200 bg-gray-50 px-6 py-5 text-center">
+                                                        <img
+                                                                src={paymentSettings.qris.image}
+                                                                alt="QRIS Merchant"
+                                                                class="mb-2 h-44 w-44 rounded-md border border-gray-300 bg-white object-contain p-2"
+                                                        />
+                                                        {#if paymentSettings.qris.merchant_name}
+                                                                <p class="text-xs font-semibold text-gray-900">{paymentSettings.qris.merchant_name}</p>
+                                                        {/if}
+                                                        <p class="mt-1 text-xs text-gray-600">Minta pelanggan memindai QRIS dan membayar sesuai nominal</p>
+                                                        <p class="mt-1 font-mono text-[11px] text-gray-500">Total <span class="font-semibold text-emerald-800">{formatRupiah(totalAmount)}</span></p>
+                                                        <p class="mt-2 border-l-2 border-amber-500 bg-amber-50 px-2.5 py-1.5 text-left text-[11px] text-amber-800">Pastikan notifikasi dana masuk terlihat sebelum menekan konfirmasi.</p>
+                                                </div>
+                                        {:else}
+                                                <div class="flex flex-col items-center justify-center border border-amber-300 bg-amber-50 px-6 py-5 text-center">
+                                                        <QrCode class="mb-2 h-9 w-9 text-amber-600" />
+                                                        <p class="text-xs font-semibold text-amber-900">QRIS statis belum diatur oleh Admin</p>
+                                                        <p class="mt-1 text-[11px] text-amber-800">Atur gambar QR di menu Metode Pembayaran (Admin) atau gunakan metode lain.</p>
+                                                </div>
+                                        {/if}
+                                {:else if paymentMethod === 'transfer'}
+                                        <div class="space-y-2 border border-gray-200 bg-gray-50 px-4 py-3.5 text-xs text-gray-700">
+                                                <div class="eyebrow text-[9px] text-gray-400">Rekening tujuan toko</div>
+                                                {#if paymentSettings?.transfer?.bank_name || paymentSettings?.transfer?.account_number}
+                                                        <div class="leader">
+                                                                <span>{paymentSettings?.transfer?.bank_name || 'Bank'}</span>
+                                                                <span class="num font-semibold text-gray-900">{paymentSettings?.transfer?.account_number}</span>
+                                                        </div>
+                                                        {#if paymentSettings?.transfer?.account_name}
+                                                                <div class="leader">
+                                                                        <span>Atas nama</span>
+                                                                        <span class="font-semibold text-gray-900">{paymentSettings.transfer.account_name}</span>
+                                                                </div>
+                                                        {/if}
+                                                {:else}
+                                                        <p class="text-amber-800">Rekening transfer belum diatur oleh Admin.</p>
+                                                {/if}
+                                        </div>
+                                {/if}
 
-			{#if paymentError}
-				<div class="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200 mb-4">
-					<AlertCircle class="h-4 w-4 shrink-0" />
-					<span>{paymentError}</span>
-				</div>
-			{/if}
+                                {#if paymentError}
+                                        <div class="flex items-center gap-2 border-l-2 border-rose-500 bg-rose-50 px-3 py-2.5 text-xs text-rose-800">
+                                                <AlertCircle class="h-4 w-4 shrink-0" />
+                                                <span>{paymentError}</span>
+                                        </div>
+                                {/if}
+                        </div>
 
-			<div class="flex items-center justify-end gap-3 pt-2">
-				<button
-					onclick={() => isPaymentModalOpen = false}
-					class="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold transition"
-				>
-					Batal
-				</button>
-				<button
-					onclick={processTransaction}
-					class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/30 transition cursor-pointer"
-				>
-					<CheckCircle class="h-4 w-4" />
-					<span>Konfirmasi Pembayaran</span>
-				</button>
-			</div>
-		</div>
-	</div>
+                        <div class="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                                <button
+                                        onclick={() => isPaymentModalOpen = false}
+                                        class="rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 cursor-pointer"
+                                >
+                                        Batal
+                                </button>
+                                <button
+                                        onclick={processTransaction}
+                                        class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:translate-y-px cursor-pointer"
+                                >
+                                        <CheckCircle class="h-4 w-4" />
+                                        <span>Konfirmasi Pembayaran</span>
+                                </button>
+                        </div>
+                </div>
+        </div>
 {/if}
 
-<!-- Modal Struk Transaksi Sukses -->
+<!-- Modal struk transaksi sukses -->
 <ReceiptModal
-	transaction={completedTransaction}
-	onClose={() => completedTransaction = null}
+        transaction={completedTransaction}
+        onClose={() => completedTransaction = null}
 />
-

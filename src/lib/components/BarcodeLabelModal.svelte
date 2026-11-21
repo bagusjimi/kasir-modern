@@ -185,7 +185,7 @@
 						</div>
 						<div class="sm:ml-auto text-right">
 							<p class="text-xs text-gray-500">Total label</p>
-							<p class="text-xl font-black text-emerald-600">{labelItems.length}</p>
+							<p class="text-xl font-semibold text-emerald-600">{labelItems.length}</p>
 						</div>
 					</div>
 

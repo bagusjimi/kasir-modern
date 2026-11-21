@@ -54,3 +54,14 @@ Output:
 - jspdf-autotable diekspor sebagai default CJS; impornya dinormalkan (`typeof x === 'function' ? x : x.default`) karena interop Vite dan Node berbeda.
 - Berkas PDF dibentuk sepenuhnya di sisi klien, jadi tetap berfungsi saat offline (PWA). Service worker mem-precache chunk JS termasuk jsPDF (~200 KB).
 - `store_settings` (nama/alamat/telp toko) dibaca dari `db.app_settings.get('store_settings')` untuk kop laporan.
+
+### Sistem Visual "Buku Kas" (redesign antarmuka)
+- Seluruh tema ada di `src/app.css`: kertas hangat (`--color-paper`), tinta (`--color-ink`), vermilion (`--color-stamp`), hijau pinus untuk uang masuk. Token Tailwind di-override di blok `@theme`, jadi kelas lama seperti `bg-white`, `text-gray-900`, dan `border-gray-200` otomatis ikut bernuansa kertas — jangan menambah palet baru (gray/zinc/emerald mentah) di komponen.
+- Tipografi: `Fraunces` (judul, via `--font-display`), `IBM Plex Sans` (isi), `IBM Plex Mono` (angka & label). Gunakan utilitas `eyebrow` (label kecil mono uppercase) dan `num` (angka mono) yang didefinisikan lewat `@utility`.
+- Komponen khas: `nota` (kartu kertas bergerigi untuk struk/modal kas), `stamp` (bingkai vermilion miring seperti cap), `leader` (baris label–titik–nilai), `reveal` (animasi masuk bertahap).
+- Pola header halaman: eyebrow kecil, judul serif `text-2xl/3xl font-semibold tracking-tight`, subjudul satu baris, aksi di kanan. Kartu KPI: label eyebrow + garis rambut + angka `num`, dengan nomor urut mono di pojok.
+- Gaya tabel global: `thead th` mono uppercase bertitik-renggang, garis rambut, tanpa zebra.
+
+### Catatan QA UI
+- Service worker PWA bisa menyajikan bundel lama setelah rebuild sehingga UI "tidak berubah". Saat menguji, lepas service worker + cache (DevTools → Application → Unregister, atau mode incognito), lalu muat ulang.
+- Verifikasi wajib: `npm run check` (0 error/0 warning) dan `npm run build`; alur uji utama: aktivasi perangkat → buka shift (PIN) → transaksi → tutup shift (Z-Report) → lepas perangkat → masuk admin → Beranda/Pemantauan/Laporan.

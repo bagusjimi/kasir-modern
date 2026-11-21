@@ -216,7 +216,7 @@
 				<Tags class="h-6 w-6" />
 			</div>
 			<div>
-				<h1 class="text-2xl font-black text-gray-900 tracking-tight">Manajemen Kategori</h1>
+				<h1 class="text-3xl font-semibold tracking-tight text-gray-900">Manajemen Kategori</h1>
 				<p class="text-xs text-gray-500">Kelola daftar kategori produk agar konsisten di semua cabang dan mudah dianalisis.</p>
 			</div>
 		</div>

@@ -441,7 +441,7 @@
 					<ReceiptText class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-xl font-bold text-gray-900 tracking-tight">Pengelolaan Pengeluaran & Biaya Operasional</h2>
+					<h2 class="text-2xl font-semibold tracking-tight text-gray-900">Pengelolaan Pengeluaran & Biaya Operasional</h2>
 					<p class="text-xs text-gray-500 mt-0.5">
 						Pencatatan beban operasional minimarket (listrik, gaji karyawan, sewa, kebersihan, kantong belanja, dll.)
 					</p>
@@ -480,29 +480,29 @@
 	<!-- KPI Summary Cards -->
 	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 		<!-- Total Pengeluaran -->
-		<div class="bg-gradient-to-tr from-rose-600 to-pink-600 rounded-2xl p-5 text-white shadow-lg shadow-rose-600/20">
+		<div class="relative rounded-lg border border-rose-800 bg-rose-800 px-5 py-4 text-white shadow-xs">
 			<div class="flex items-center justify-between">
 				<p class="text-xs font-semibold text-rose-100">Total Biaya Operasional</p>
 				<TrendingDown class="h-5 w-5 text-rose-200" />
 			</div>
-			<p class="text-2xl font-black mt-2">{formatRupiah(totalExpenseAmount)}</p>
-			<p class="text-[11px] text-rose-100 mt-1">Akumulasi dari {totalExpenseCount} transaksi beban</p>
+			<p class="num mt-2 text-xl font-semibold">{formatRupiah(totalExpenseAmount)}</p>
+			<p class="mt-1 font-mono text-[10px] text-rose-100/80">Akumulasi dari {totalExpenseCount} transaksi beban</p>
 		</div>
 
 		<!-- Jumlah Transaksi Pengeluaran -->
-		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<div class="relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Frekuensi Pengeluaran</p>
+				<p class="eyebrow text-[9px] text-gray-400">Frekuensi Pengeluaran</p>
 				<ReceiptText class="h-5 w-5 text-gray-400" />
 			</div>
-			<p class="text-2xl font-black text-gray-900 mt-2">{totalExpenseCount} Catatan</p>
-			<p class="text-[11px] text-gray-500 mt-1">Rata-rata: {formatRupiah(averageExpenseAmount)} per entri</p>
+			<p class="num mt-2 text-xl font-semibold text-gray-900">{totalExpenseCount} Catatan</p>
+			<p class="mt-1 font-mono text-[10px] text-gray-400">Rata-rata: {formatRupiah(averageExpenseAmount)} per entri</p>
 		</div>
 
 		<!-- Kategori Terbesar -->
-		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<div class="relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Kategori Biaya Terbesar</p>
+				<p class="eyebrow text-[9px] text-gray-400">Kategori Biaya Terbesar</p>
 				<PieChart class="h-5 w-5 text-rose-500" />
 			</div>
 			{#if categoryBreakdown.length > 0}
@@ -513,7 +513,7 @@
 			{:else}
 				<p class="text-sm font-semibold text-gray-400 mt-2">Belum ada data biaya</p>
 			{/if}
-			<p class="text-[11px] text-gray-500 mt-1">Beban tertinggi dalam periode terpilih</p>
+			<p class="mt-1 font-mono text-[10px] text-gray-400">Beban tertinggi dalam periode terpilih</p>
 		</div>
 	</div>
 

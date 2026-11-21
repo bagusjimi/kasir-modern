@@ -555,82 +555,74 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Top Bar -->
-	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs">
-		<div>
-			<h2 class="text-lg font-bold text-gray-900">Manajemen Produk & Stok</h2>
-			<p class="text-xs text-gray-500 mt-0.5">Kelola ketersediaan inventaris cabang {authState.branch?.name || '-'}</p>
-		</div>
+        <!-- Kepala halaman -->
+        <div class="flex flex-col justify-between gap-4 border-b border-gray-300/70 pb-5 lg:flex-row lg:items-end">
+                <div>
+                        <p class="eyebrow text-gray-400">Inventaris · {authState.branch?.name || 'semua cabang'}</p>
+                        <h1 class="mt-1.5 text-3xl font-semibold tracking-tight text-gray-900">Produk & stok</h1>
+                        <p class="mt-1 text-xs text-gray-500">Katalog barang, harga jual, dan ketersediaan rak cabang ini.</p>
+                </div>
 
-		<div class="flex items-center gap-3">
-			{#if selectedProducts.length > 0}
-				<button
-					onclick={() => (isLabelModalOpen = true)}
-					class="inline-flex items-center gap-2 rounded-xl bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-4 py-2 text-xs font-bold shadow-xs active:scale-95 transition cursor-pointer"
-				>
-					<Tags class="h-4 w-4" />
-					<span>Cetak Label ({selectedProducts.length})</span>
-				</button>
-			{/if}
-			<div class="relative flex-1 sm:w-64">
-				<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-				<input
-					type="text"
-					bind:value={searchQuery}
-					placeholder="Cari nama / SKU..."
-					class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
-				/>
-			</div>
+                <div class="flex flex-wrap items-center gap-2">
+                        {#if selectedProducts.length > 0}
+                                <button
+                                        onclick={() => (isLabelModalOpen = true)}
+                                        class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-xs transition hover:border-gray-400 hover:bg-gray-50"
+                                >
+                                        <Tags class="h-3.5 w-3.5" />
+                                        <span>Label ({selectedProducts.length})</span>
+                                </button>
+                        {/if}
+                        <div class="relative">
+                                <Search class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                <input
+                                        type="text"
+                                        bind:value={searchQuery}
+                                        placeholder="Cari nama atau SKU"
+                                        class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-xs shadow-xs transition focus:border-emerald-600 focus:outline-hidden sm:w-60"
+                                />
+                        </div>
+                        <button
+                                onclick={openAddModal}
+                                class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
+                        >
+                                <Plus class="h-3.5 w-3.5" />
+                                <span>Tambah produk</span>
+                        </button>
+                </div>
+        </div>
 
-			<button
-				onclick={openAddModal}
-				class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
-			>
-				<Plus class="h-4 w-4" />
-				<span>Tambah Produk</span>
-			</button>
-		</div>
-	</div>
-
-	<!-- Ringkasan Total Stok -->
-	<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-			<div class="flex items-center justify-between">
-				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Jenis Produk</span>
-				<Package class="h-4 w-4 text-emerald-500" />
-			</div>
-			<p class="mt-2 text-xl font-black text-gray-900">{products.length}</p>
-		</div>
-		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-			<div class="flex items-center justify-between">
-				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Unit Stok</span>
-				<Boxes class="h-4 w-4 text-emerald-500" />
-			</div>
-			<p class="mt-2 text-xl font-black text-gray-900">{totalStockUnits}</p>
-		</div>
-		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-			<div class="flex items-center justify-between">
-				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Nilai Stok (Modal)</span>
-				<Coins class="h-4 w-4 text-emerald-500" />
-			</div>
-			<p class="mt-2 text-xl font-black text-gray-900">{formatRupiah(totalStockCost)}</p>
-			<p class="text-[10px] text-gray-500 mt-0.5">Potensi penjualan: {formatRupiah(totalStockRetail)}</p>
-		</div>
-		<div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
-			<div class="flex items-center justify-between">
-				<span class="text-xs font-bold uppercase tracking-wider text-gray-400">Perlu Penambahan Stok</span>
-				<AlertTriangle class="h-4 w-4 {lowStockCount > 0 ? 'text-amber-500' : 'text-gray-300'}" />
-			</div>
-			<p class="mt-2 text-xl font-black {lowStockCount > 0 ? 'text-amber-600' : 'text-gray-900'}">{lowStockCount}</p>
-			<p class="text-[10px] text-gray-500 mt-0.5">produk pada atau di bawah batas minimum</p>
-		</div>
-	</div>
+        <!-- Ringkasan inventaris -->
+        <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <div class="reveal relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs" style="--i: 0">
+                        <span class="absolute right-4 top-3 font-mono text-[10px] text-gray-300">01</span>
+                        <dt class="eyebrow text-[9px] text-gray-400">Jenis produk</dt>
+                        <dd class="num mt-2 text-xl font-semibold text-gray-900">{products.length}</dd>
+                </div>
+                <div class="reveal relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs" style="--i: 1">
+                        <span class="absolute right-4 top-3 font-mono text-[10px] text-gray-300">02</span>
+                        <dt class="eyebrow text-[9px] text-gray-400">Total unit</dt>
+                        <dd class="num mt-2 text-xl font-semibold text-gray-900">{totalStockUnits}</dd>
+                </div>
+                <div class="reveal relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs" style="--i: 2">
+                        <span class="absolute right-4 top-3 font-mono text-[10px] text-gray-300">03</span>
+                        <dt class="eyebrow text-[9px] text-gray-400">Nilai stok (modal)</dt>
+                        <dd class="num mt-2 text-xl font-semibold text-gray-900">{formatRupiah(totalStockCost)}</dd>
+                        <p class="mt-1 font-mono text-[10px] text-gray-400">jual {formatRupiah(totalStockRetail)}</p>
+                </div>
+                <div class="reveal relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs" style="--i: 3">
+                        <span class="absolute right-4 top-3 font-mono text-[10px] text-gray-300">04</span>
+                        <dt class="eyebrow text-[9px] {lowStockCount > 0 ? 'text-amber-700' : 'text-gray-400'}">Perlu tambah stok</dt>
+                        <dd class="num mt-2 text-xl font-semibold {lowStockCount > 0 ? 'text-amber-700' : 'text-gray-900'}">{lowStockCount}</dd>
+                        <p class="mt-1 font-mono text-[10px] text-gray-400">pada / di bawah minimum</p>
+                </div>
+        </dl>
 
 	<!-- Tabel Produk -->
-	<div class="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+	<div class="rounded-lg border border-gray-200 bg-white shadow-xs overflow-hidden">
 		<div class="overflow-x-auto">
 			<table class="w-full text-left text-xs">
-				<thead class="bg-gray-50/80 text-gray-500 font-semibold border-b border-gray-100">
+				<thead class="border-b border-gray-900/15">
 					<tr>
 						<th class="px-3 py-3.5 w-10">
 							<input

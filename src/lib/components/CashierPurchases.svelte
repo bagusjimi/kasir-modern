@@ -215,7 +215,7 @@
 	<!-- Header -->
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 		<div>
-			<h1 class="text-xl font-black text-zinc-900 flex items-center gap-2">
+			<h1 class="text-2xl font-semibold tracking-tight text-zinc-900 flex items-center gap-2">
 				<Truck class="h-5 w-5 text-emerald-600" />
 				Pembelian Stok (Pemasok)
 			</h1>
@@ -259,7 +259,7 @@
 									{#if po.supplier_phone}<span class="inline-flex items-center gap-1 ml-1"><Phone class="h-3 w-3" />{po.supplier_phone}</span>{/if}
 								</p>
 							</div>
-							<p class="text-sm font-black text-emerald-700 whitespace-nowrap">{formatRupiah(po.total)}</p>
+							<p class="text-sm font-semibold text-emerald-700 whitespace-nowrap">{formatRupiah(po.total)}</p>
 						</div>
 						<div class="mt-2 flex flex-wrap gap-1.5">
 							{#each po.items as it}
@@ -377,7 +377,7 @@
 
 			<div class="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 mb-3">
 				<span class="text-xs font-bold text-emerald-800 uppercase tracking-wide">Total Pembelian</span>
-				<span class="text-lg font-black text-emerald-700">{formatRupiah(draftTotal)}</span>
+				<span class="text-lg font-semibold text-emerald-700">{formatRupiah(draftTotal)}</span>
 			</div>
 
 			{#if formError}

@@ -187,7 +187,7 @@
 	<!-- Header -->
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 		<div>
-			<h1 class="text-xl font-black text-zinc-900 flex items-center gap-2">
+			<h1 class="text-2xl font-semibold tracking-tight text-zinc-900 flex items-center gap-2">
 				<ClipboardList class="h-5 w-5 text-emerald-600" />
 				Stok Opname
 			</h1>
@@ -272,7 +272,7 @@
 										class="w-20 mx-auto px-2 py-1 rounded-lg border border-zinc-200 text-xs font-semibold text-center focus:outline-hidden focus:border-emerald-500 {diff !== null && diff !== 0 ? 'border-amber-400 bg-amber-50' : ''}"
 									/>
 								</td>
-								<td class="px-5 py-2.5 text-center text-xs font-black {diff === null || diff === 0 ? 'text-zinc-300' : diff > 0 ? 'text-emerald-600' : 'text-rose-600'}">
+								<td class="px-5 py-2.5 text-center text-xs font-semibold {diff === null || diff === 0 ? 'text-zinc-300' : diff > 0 ? 'text-emerald-600' : 'text-rose-600'}">
 									{diff === null || diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${diff}`}
 								</td>
 							</tr>
@@ -326,7 +326,7 @@
 								</p>
 								<p class="text-[11px] text-zinc-400 mt-0.5">{sc.items.length} produk disesuaikan</p>
 							</div>
-							<span class="text-xs font-black {sc.total_difference_qty === 0 ? 'text-emerald-600' : 'text-rose-600'} whitespace-nowrap">
+							<span class="text-xs font-semibold {sc.total_difference_qty === 0 ? 'text-emerald-600' : 'text-rose-600'} whitespace-nowrap">
 								Total selisih: {sc.total_difference_qty > 0 ? '+' : ''}{sc.total_difference_qty}
 							</span>
 						</div>
