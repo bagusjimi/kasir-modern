@@ -147,313 +147,336 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Header -->
-	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-		<div>
-			<h1 class="text-xl font-black text-zinc-900 flex items-center gap-2">
-				<Clock class="h-5 w-5 text-emerald-600" />
-				Shift Kasir
-			</h1>
-			<p class="text-xs text-zinc-500 mt-0.5">Kelola setoran awal, tutup shift dengan Z-Report, dan pantau selisih kas.</p>
-		</div>
-		{#if !openShift && !isLoading}
-			<button
-				onclick={openOpenModal}
-				class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-600/30 transition cursor-pointer"
-			>
-				<Play class="h-4 w-4" />
-				<span>Buka Shift</span>
-			</button>
-		{:else if openShift}
-			<button
-				onclick={openCloseModal}
-				class="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-rose-600/30 transition cursor-pointer"
-			>
-				<Square class="h-4 w-4" />
-				<span>Tutup Shift</span>
-			</button>
-		{/if}
-	</div>
+        <div class="flex flex-col justify-between gap-4 border-b border-gray-300/70 pb-5 sm:flex-row sm:items-end">
+                <div>
+                        <p class="eyebrow text-gray-400">Operasional · laci kas</p>
+                        <h1 class="mt-1.5 text-3xl font-semibold tracking-tight text-gray-900">Shift kasir</h1>
+                        <p class="mt-1 text-xs text-gray-500">Setoran awal, tutup shift dengan Z-Report, dan selisih kas tiap shift.</p>
+                </div>
+                {#if !openShift && !isLoading}
+                        <button
+                                onclick={openOpenModal}
+                                class="inline-flex cursor-pointer items-center gap-2 self-start rounded-md bg-emerald-700 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-800 sm:self-auto"
+                        >
+                                <Play class="h-3.5 w-3.5" />
+                                <span>Buka shift</span>
+                        </button>
+                {:else if openShift}
+                        <button
+                                onclick={openCloseModal}
+                                class="inline-flex cursor-pointer items-center gap-2 self-start rounded-md border border-rose-300 bg-white px-4 py-2.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 sm:self-auto"
+                        >
+                                <Square class="h-3.5 w-3.5" />
+                                <span>Tutup shift</span>
+                        </button>
+                {/if}
+        </div>
 
-	<!-- Kartu Shift Aktif -->
-	{#if openShift}
-		<div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
-			<div class="flex items-center gap-2 mb-3">
-				<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white">
-					<span class="h-1.5 w-1.5 rounded-full bg-white animate-pulse"></span>
-					SHIFT AKTIF
-				</span>
-				<span class="text-xs text-zinc-500">Dibuka {formatDateTime(openShift.opened_at)}</span>
-			</div>
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-				<div class="rounded-xl bg-white p-3 border border-emerald-100">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Setoran Awal</p>
-					<p class="text-sm font-black text-zinc-900 mt-1">{formatRupiah(openShift.opening_cash)}</p>
-				</div>
-				<div class="rounded-xl bg-white p-3 border border-emerald-100">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Kasir</p>
-					<p class="text-sm font-black text-zinc-900 mt-1 truncate">{openShift.cashier_name}</p>
-				</div>
-				<div class="rounded-xl bg-white p-3 border border-emerald-100">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Cabang</p>
-					<p class="text-sm font-black text-zinc-900 mt-1 truncate">{openShift.branch_name || '-'}</p>
-				</div>
-				<div class="rounded-xl bg-white p-3 border border-emerald-100">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Durasi</p>
-					<p class="text-sm font-black text-emerald-700 mt-1">
-						{Math.max(0, Math.floor((Date.now() - new Date(openShift.opened_at).getTime()) / 60000))} menit
-					</p>
-				</div>
-			</div>
-		</div>
-	{:else if !isLoading}
-		<div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-3">
-			<AlertCircle class="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-			<div>
-				<p class="text-sm font-bold text-amber-800">Belum ada shift aktif</p>
-				<p class="text-xs text-amber-700 mt-0.5">Buka shift dengan setoran awal sebelum memproses transaksi kasir. Transaksi POS dinonaktifkan sampai shift dibuka.</p>
-			</div>
-		</div>
-	{/if}
+        {#if openShift}
+                <div class="reveal overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-dashed border-gray-200 px-5 py-3.5">
+                                <div class="flex flex-wrap items-center gap-3">
+                                        <span class="stamp inline-flex items-center gap-1.5 px-2 py-1 text-[9px] text-emerald-800">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+                                                shift aktif
+                                        </span>
+                                        <span class="num text-[11px] text-gray-500">dibuka {formatDateTime(openShift.opened_at)}</span>
+                                </div>
+                                <span class="num text-[11px] text-gray-400">
+                                        durasi
+                                        <span class="font-semibold text-gray-800">
+                                                {Math.max(0, Math.floor((Date.now() - new Date(openShift.opened_at).getTime()) / 60000))} menit
+                                        </span>
+                                </span>
+                        </div>
+                        <dl class="grid grid-cols-2 sm:grid-cols-4 sm:divide-x sm:divide-gray-200">
+                                <div class="border-b border-gray-100 px-5 py-4 sm:border-b-0">
+                                        <dt class="eyebrow text-[9px] text-gray-400">Setoran awal</dt>
+                                        <dd class="num mt-1.5 text-lg font-semibold text-gray-900">{formatRupiah(openShift.opening_cash)}</dd>
+                                </div>
+                                <div class="border-b border-gray-100 px-5 py-4 sm:border-b-0">
+                                        <dt class="eyebrow text-[9px] text-gray-400">Kasir</dt>
+                                        <dd class="mt-1.5 truncate text-sm font-semibold text-gray-900">{openShift.cashier_name}</dd>
+                                </div>
+                                <div class="px-5 py-4">
+                                        <dt class="eyebrow text-[9px] text-gray-400">Cabang</dt>
+                                        <dd class="mt-1.5 truncate text-sm font-semibold text-gray-900">{openShift.branch_name || '—'}</dd>
+                                </div>
+                                <div class="px-5 py-4">
+                                        <dt class="eyebrow text-[9px] text-gray-400">Perangkat</dt>
+                                        <dd class="mt-1.5 truncate text-sm font-semibold text-gray-900">{openShift.device_name || authState.device?.name || '—'}</dd>
+                                </div>
+                        </dl>
+                </div>
+        {:else if !isLoading}
+                <div class="flex items-start gap-3 rounded-lg border border-dashed border-amber-400 bg-amber-50/70 px-5 py-4">
+                        <AlertCircle class="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                        <div>
+                                <p class="text-xs font-semibold text-amber-900">Belum ada shift aktif</p>
+                                <p class="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+                                        Buka shift dengan setoran awal sebelum memproses transaksi. POS dinonaktifkan sampai shift dibuka.
+                                </p>
+                        </div>
+                </div>
+        {/if}
 
-	<!-- Riwayat Shift -->
-	<div class="rounded-2xl border border-zinc-200 bg-white overflow-hidden">
-		<div class="flex items-center gap-2 px-5 py-3.5 border-b border-zinc-100 bg-zinc-50/70">
-			<HistoryIcon class="h-4 w-4 text-zinc-400" />
-			<h2 class="text-sm font-bold text-zinc-800">Riwayat Shift</h2>
-		</div>
-		{#if shiftHistory.length === 0}
-			<div class="p-8 text-center text-zinc-400">
-				<Clock class="h-10 w-10 mx-auto mb-2 stroke-1" />
-				<p class="text-sm font-medium">Belum ada riwayat shift</p>
-			</div>
-		{:else}
-			<div class="overflow-x-auto">
-				<table class="w-full text-sm">
-					<thead>
-						<tr class="text-left text-[11px] uppercase tracking-wide text-zinc-400 border-b border-zinc-100">
-							<th class="px-5 py-2.5 font-semibold">Dibuka</th>
-							<th class="px-5 py-2.5 font-semibold">Ditutup</th>
-							<th class="px-5 py-2.5 font-semibold">Setoran Awal</th>
-							<th class="px-5 py-2.5 font-semibold">Penjualan</th>
-							<th class="px-5 py-2.5 font-semibold">Kas Diharapkan</th>
-							<th class="px-5 py-2.5 font-semibold">Selisih</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-zinc-100">
-						{#each shiftHistory as sh}
-							<tr class="hover:bg-zinc-50/60">
-								<td class="px-5 py-3 text-zinc-700 whitespace-nowrap">{formatDateTime(sh.opened_at)}</td>
-								<td class="px-5 py-3 text-zinc-700 whitespace-nowrap">{sh.closed_at ? formatDateTime(sh.closed_at) : '-'}</td>
-								<td class="px-5 py-3 text-zinc-700">{formatRupiah(sh.opening_cash)}</td>
-								<td class="px-5 py-3 text-zinc-900 font-semibold">{formatRupiah(sh.total_sales || 0)}</td>
-								<td class="px-5 py-3 text-zinc-700">{formatRupiah(sh.expected_cash || 0)}</td>
-								<td class="px-5 py-3 font-bold {(sh.cash_difference || 0) === 0 ? 'text-emerald-600' : 'text-rose-600'}">
-									{(sh.cash_difference || 0) > 0 ? '+' : ''}{formatRupiah(sh.cash_difference || 0)}
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
-	</div>
+        <div class="rounded-lg border border-gray-200 bg-white shadow-xs">
+                <div class="flex items-center justify-between gap-3 border-b border-dashed border-gray-200 px-5 py-3.5">
+                        <div class="flex items-center gap-2">
+                                <HistoryIcon class="h-3.5 w-3.5 text-gray-400" />
+                                <h2 class="text-base font-semibold text-gray-900">Riwayat shift</h2>
+                        </div>
+                        <span class="eyebrow text-[9px] text-gray-400">{shiftHistory.length} catatan</span>
+                </div>
+                {#if shiftHistory.length === 0}
+                        <div class="px-5 py-12 text-center">
+                                <Clock class="mx-auto h-8 w-8 stroke-1 text-gray-300" />
+                                <p class="mt-2 text-xs text-gray-400">Belum ada riwayat shift di perangkat ini.</p>
+                        </div>
+                {:else}
+                        <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs">
+                                        <thead>
+                                                <tr class="border-b border-gray-900/15">
+                                                        <th class="px-5 py-2.5 font-medium">Dibuka</th>
+                                                        <th class="px-5 py-2.5 font-medium">Ditutup</th>
+                                                        <th class="px-5 py-2.5 font-medium">Setoran awal</th>
+                                                        <th class="px-5 py-2.5 font-medium">Penjualan</th>
+                                                        <th class="px-5 py-2.5 font-medium">Kas diharapkan</th>
+                                                        <th class="px-5 py-2.5 text-right font-medium">Selisih</th>
+                                                </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100">
+                                                {#each shiftHistory as sh}
+                                                        <tr class="transition hover:bg-gray-50">
+                                                                <td class="num whitespace-nowrap px-5 py-3 text-gray-600">{formatDateTime(sh.opened_at)}</td>
+                                                                <td class="num whitespace-nowrap px-5 py-3 text-gray-600">{sh.closed_at ? formatDateTime(sh.closed_at) : '—'}</td>
+                                                                <td class="num px-5 py-3 text-gray-700">{formatRupiah(sh.opening_cash)}</td>
+                                                                <td class="num px-5 py-3 font-semibold text-gray-900">{formatRupiah(sh.total_sales || 0)}</td>
+                                                                <td class="num px-5 py-3 text-gray-700">{formatRupiah(sh.expected_cash || 0)}</td>
+                                                                <td class="num px-5 py-3 text-right font-semibold {(sh.cash_difference || 0) === 0 ? 'text-gray-400' : 'text-rose-700'}">
+                                                                        {(sh.cash_difference || 0) > 0 ? '+' : ''}{formatRupiah(sh.cash_difference || 0)}
+                                                                </td>
+                                                        </tr>
+                                                {/each}
+                                        </tbody>
+                                </table>
+                        </div>
+                {/if}
+        </div>
 </div>
 
 <!-- Modal Buka Shift -->
 {#if isOpenModalOpen}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-		<div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-			<div class="flex items-center gap-2 border-b border-zinc-100 pb-3 mb-4">
-				<Play class="h-5 w-5 text-emerald-600" />
-				<h3 class="text-lg font-bold text-zinc-900">Buka Shift Baru</h3>
-			</div>
+        <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-xs">
+                <div class="nota relative my-8 w-full max-w-md rounded-sm border border-gray-300 p-6 shadow-2xl">
+                        <div class="flex items-start justify-between gap-3 border-b border-dashed border-gray-300 pb-3">
+                                <div>
+                                        <p class="eyebrow text-[9px] text-gray-400">Mulai sesi</p>
+                                        <h2 class="mt-1 text-xl font-semibold tracking-tight text-gray-900">Buka shift baru</h2>
+                                </div>
+                                <Play class="mt-1 h-4 w-4 shrink-0 text-emerald-700" />
+                        </div>
 
-			<div class="space-y-4">
-				<div>
-					<label for="operatorSelect" class="block text-xs font-semibold text-zinc-700 mb-1">Operator (Pemegang Laci)</label>
-					<div class="relative">
-						<UserCircle2 class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-						<select
-							id="operatorSelect"
-							bind:value={selectedOperatorId}
-							class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-zinc-300 text-sm font-semibold text-zinc-900 bg-white focus:outline-hidden focus:border-emerald-500"
-						>
-							{#if operators.length === 0}
-								<option value="">Belum ada akun kasir di cabang ini</option>
-							{:else}
-								{#each operators as op}
-									<option value={op.id}>{op.name}</option>
-								{/each}
-							{/if}
-						</select>
-					</div>
-					<p class="text-[11px] text-zinc-400 mt-1">Pilih siapa yang memegang uang laci. Admin dapat menambah akun kasir di menu Pengguna.</p>
-				</div>
+                        <div class="mt-4 space-y-4">
+                                <div>
+                                        <label for="operatorSelect" class="eyebrow block text-[9px] text-gray-400">Operator pemegang laci</label>
+                                        <div class="relative mt-1">
+                                                <UserCircle2 class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                                <select
+                                                        id="operatorSelect"
+                                                        bind:value={selectedOperatorId}
+                                                        class="w-full cursor-pointer rounded-sm border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm font-medium text-gray-900 transition focus:border-emerald-600 focus:outline-hidden"
+                                                >
+                                                        {#if operators.length === 0}
+                                                                <option value="">Belum ada akun kasir di cabang ini</option>
+                                                        {:else}
+                                                                {#each operators as op}
+                                                                        <option value={op.id}>{op.name}</option>
+                                                                {/each}
+                                                        {/if}
+                                                </select>
+                                        </div>
+                                        <p class="mt-1 text-[10px] leading-relaxed text-gray-400">Admin dapat menambah akun kasir di menu Pengguna.</p>
+                                </div>
 
-				<div>
-					<label for="operatorPin" class="block text-xs font-semibold text-zinc-700 mb-1">PIN Operator</label>
-					<div class="relative">
-						<KeyRound class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-						<input
-							id="operatorPin"
-							type="password"
-							bind:value={operatorPin}
-							placeholder="PIN pribadi operator"
-							class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-zinc-300 text-sm font-mono tracking-widest focus:outline-hidden focus:border-emerald-500"
-						/>
-					</div>
-					<p class="text-[11px] text-zinc-400 mt-1">PIN ini membuktikan siapa yang bertanggung jawab atas kas selama shift.</p>
-				</div>
+                                <div>
+                                        <label for="operatorPin" class="eyebrow block text-[9px] text-gray-400">PIN operator</label>
+                                        <div class="relative mt-1">
+                                                <KeyRound class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                                <input
+                                                        id="operatorPin"
+                                                        type="password"
+                                                        bind:value={operatorPin}
+                                                        placeholder="••••"
+                                                        class="num w-full rounded-sm border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm tracking-[0.4em] transition focus:border-emerald-600 focus:outline-hidden"
+                                                />
+                                        </div>
+                                        <p class="mt-1 text-[10px] leading-relaxed text-gray-400">PIN menandai siapa yang bertanggung jawab atas kas selama shift.</p>
+                                </div>
 
-				<div>
-					<label for="openingCash" class="block text-xs font-semibold text-zinc-700 mb-1">Setoran Awal (Modal Laci)</label>
-					<input
-						id="openingCash"
-						type="number"
-						bind:value={openingCash}
-						min="0"
-						class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 text-lg font-bold text-zinc-900 focus:outline-hidden focus:border-emerald-500"
-					/>
-					<p class="text-[11px] text-zinc-400 mt-1">Masukkan jumlah uang fisik yang disetor ke laci kasir saat membuka shift.</p>
-				</div>
+                                <div>
+                                        <label for="openingCash" class="eyebrow block text-[9px] text-gray-400">Setoran awal (modal laci)</label>
+                                        <div class="relative mt-1">
+                                                <span class="num absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">Rp</span>
+                                                <input
+                                                        id="openingCash"
+                                                        type="number"
+                                                        bind:value={openingCash}
+                                                        min="0"
+                                                        class="num w-full rounded-sm border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-lg font-semibold text-gray-900 transition focus:border-emerald-600 focus:outline-hidden"
+                                                />
+                                        </div>
+                                </div>
 
-				{#if openError}
-					<div class="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200">
-						<AlertCircle class="h-4 w-4 shrink-0" />
-						<span>{openError}</span>
-					</div>
-				{/if}
-			</div>
+                                {#if openError}
+                                        <div class="flex items-center gap-2 rounded-sm border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                                                <AlertCircle class="h-4 w-4 shrink-0" />
+                                                <span>{openError}</span>
+                                        </div>
+                                {/if}
+                        </div>
 
-			<div class="flex items-center justify-end gap-3 pt-4">
-				<button
-					onclick={() => isOpenModalOpen = false}
-					class="px-4 py-2.5 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-50 text-sm font-semibold transition"
-				>
-					Batal
-				</button>
-				<button
-					onclick={confirmOpenShift}
-					class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/30 transition cursor-pointer"
-				>
-					<CheckCircle2 class="h-4 w-4" />
-					<span>Buka Shift</span>
-				</button>
-			</div>
-		</div>
-	</div>
+                        <div class="mt-5 flex items-center justify-end gap-2 border-t border-dashed border-gray-300 pt-4">
+                                <button
+                                        onclick={() => (isOpenModalOpen = false)}
+                                        class="cursor-pointer rounded-md border border-gray-300 px-4 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                                >
+                                        Batal
+                                </button>
+                                <button
+                                        onclick={confirmOpenShift}
+                                        class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-emerald-700 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-800"
+                                >
+                                        <CheckCircle2 class="h-3.5 w-3.5" />
+                                        <span>Buka shift</span>
+                                </button>
+                        </div>
+                </div>
+        </div>
 {/if}
 
 <!-- Modal Tutup Shift (Z-Report) -->
 {#if isCloseModalOpen && openShift && summary}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto">
-		<div class="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl my-8">
-			<div class="flex items-center gap-2 border-b border-zinc-100 pb-3 mb-4">
-				<FileText class="h-5 w-5 text-rose-600" />
-				<h3 class="text-lg font-bold text-zinc-900">Z-Report: Tutup Shift</h3>
-			</div>
+        <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-xs sm:items-center">
+                <div class="nota relative my-8 w-full max-w-lg rounded-sm border border-gray-300 p-6 shadow-2xl">
+                        <div class="flex items-start justify-between gap-3 border-b border-dashed border-gray-300 pb-3">
+                                <div>
+                                        <p class="eyebrow text-[9px] text-gray-400">Z-Report</p>
+                                        <h2 class="mt-1 text-xl font-semibold tracking-tight text-gray-900">Tutup shift</h2>
+                                </div>
+                                <span class="stamp shrink-0 px-2 py-1 text-[9px] text-rose-700">kas akhir</span>
+                        </div>
 
-			<!-- Ringkasan Penjualan -->
-			<div class="grid grid-cols-2 gap-3 mb-4">
-				<div class="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-1">
-						<TrendingUp class="h-3 w-3" /> Total Penjualan
-					</p>
-					<p class="text-base font-black text-zinc-900 mt-1">{formatRupiah(summary.totalSales)}</p>
-					<p class="text-[10px] text-zinc-400">{summary.totalTransactions} transaksi selesai</p>
-				</div>
-				<div class="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-1">
-						<Wallet class="h-3 w-3" /> Penjualan Tunai
-					</p>
-					<p class="text-base font-black text-zinc-900 mt-1">{formatRupiah(summary.cashSales)}</p>
-					<p class="text-[10px] text-zinc-400">Non-tunai: {formatRupiah(summary.nonCashSales)}</p>
-				</div>
-			</div>
+                        <p class="mt-3 num text-[11px] leading-relaxed text-gray-500">
+                                {openShift.cashier_name} · {openShift.branch_name || '—'}<br />
+                                dibuka {formatDateTime(openShift.opened_at)}
+                        </p>
 
-			<!-- Rincian Kas -->
-			<div class="rounded-xl border border-zinc-200 divide-y divide-zinc-100 mb-4 text-sm">
-				<div class="flex justify-between px-4 py-2.5 text-zinc-600">
-					<span>Setoran awal</span>
-					<span class="font-semibold text-zinc-900">{formatRupiah(openShift.opening_cash)}</span>
-				</div>
-				<div class="flex justify-between px-4 py-2.5 text-zinc-600">
-					<span>+ Penjualan tunai</span>
-					<span class="font-semibold text-emerald-700">{formatRupiah(summary.cashSales)}</span>
-				</div>
-				<div class="flex justify-between px-4 py-2.5 text-zinc-600">
-					<span>- Retur tunai</span>
-					<span class="font-semibold text-rose-600">{formatRupiah(summary.refundedCash)}</span>
-				</div>
-				<div class="flex justify-between px-4 py-2.5 bg-emerald-50/60">
-					<span class="font-bold text-zinc-800">Kas seharusnya di laci</span>
-					<span class="font-black text-emerald-700">{formatRupiah(summary.expectedCash)}</span>
-				</div>
-			</div>
+                        <!-- Ringkasan penjualan -->
+                        <div class="mt-4 space-y-2 text-xs">
+                                <div class="leader text-gray-600">
+                                        <span>Total penjualan</span>
+                                        <span class="num font-semibold text-gray-900">{formatRupiah(summary.totalSales)}</span>
+                                </div>
+                                <div class="leader text-gray-600">
+                                        <span>Penjualan tunai</span>
+                                        <span class="num text-gray-800">{formatRupiah(summary.cashSales)}</span>
+                                </div>
+                                <div class="leader text-gray-600">
+                                        <span>Non-tunai</span>
+                                        <span class="num text-gray-800">{formatRupiah(summary.nonCashSales)}</span>
+                                </div>
+                                <p class="num pt-1 text-[10px] text-gray-400">{summary.totalTransactions} transaksi selesai</p>
+                        </div>
 
-			<div class="grid grid-cols-2 gap-3 mb-4 text-xs">
-				<div class="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-1">
-						<CreditCard class="h-3 w-3" /> Void / Retur
-					</p>
-					<p class="text-sm font-bold text-zinc-800 mt-1">{summary.voidedCount} void, {summary.refundedCount} retur</p>
-				</div>
-				<div class="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
-					<p class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-1">
-						<Coins class="h-3 w-3" /> Selisih (Otomatis)
-					</p>
-					<p class="text-sm font-black {(cashDifference) === 0 ? 'text-emerald-600' : 'text-rose-600'} mt-1">
-						{cashDifference > 0 ? '+' : ''}{formatRupiah(cashDifference)}
-					</p>
-				</div>
-			</div>
+                        <!-- Rincian kas -->
+                        <div class="mt-4 border-y border-dashed border-gray-300 py-3">
+                                <div class="space-y-2 text-xs">
+                                        <div class="leader text-gray-600">
+                                                <span>Setoran awal</span>
+                                                <span class="num text-gray-800">{formatRupiah(openShift.opening_cash)}</span>
+                                        </div>
+                                        <div class="leader text-gray-600">
+                                                <span>+ Penjualan tunai</span>
+                                                <span class="num text-emerald-800">{formatRupiah(summary.cashSales)}</span>
+                                        </div>
+                                        <div class="leader text-gray-600">
+                                                <span>− Retur tunai</span>
+                                                <span class="num text-rose-700">{formatRupiah(summary.refundedCash)}</span>
+                                        </div>
+                                </div>
+                                <div class="mt-3 flex items-baseline justify-between gap-3 border-t border-gray-900/70 pt-2">
+                                        <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-600">Kas seharusnya</span>
+                                        <span class="num text-lg font-semibold text-gray-900">{formatRupiah(summary.expectedCash)}</span>
+                                </div>
+                        </div>
 
-			<div class="space-y-3">
-				<div>
-					<label for="closingCash" class="block text-xs font-semibold text-zinc-700 mb-1">Uang Fisik Dihitung di Laci</label>
-					<input
-						id="closingCash"
-						type="number"
-						bind:value={closingCash}
-						min="0"
-						class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 text-lg font-bold text-zinc-900 focus:outline-hidden focus:border-rose-500"
-					/>
-				</div>
-				<div>
-					<label for="closeNote" class="block text-xs font-semibold text-zinc-700 mb-1">Catatan (opsional)</label>
-					<input
-						id="closeNote"
-						type="text"
-						bind:value={closeNote}
-						placeholder="Contoh: selisih karena kembalian kurang Rp 500"
-						class="w-full px-3.5 py-2 rounded-xl border border-zinc-200 text-sm focus:outline-hidden focus:border-emerald-500"
-					/>
-				</div>
+                        <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
+                                <div class="rounded-sm border border-gray-200 px-3 py-2">
+                                        <p class="eyebrow flex items-center gap-1 text-[9px] text-gray-400">
+                                                <CreditCard class="h-3 w-3" /> void / retur
+                                        </p>
+                                        <p class="num mt-1 font-semibold text-gray-800">{summary.voidedCount} void · {summary.refundedCount} retur</p>
+                                </div>
+                                <div class="rounded-sm border border-gray-200 px-3 py-2">
+                                        <p class="eyebrow flex items-center gap-1 text-[9px] text-gray-400">
+                                                <Coins class="h-3 w-3" /> selisih otomatis
+                                        </p>
+                                        <p class="num mt-1 font-semibold {cashDifference === 0 ? 'text-emerald-800' : 'text-rose-700'}">
+                                                {cashDifference > 0 ? '+' : ''}{formatRupiah(cashDifference)}
+                                        </p>
+                                </div>
+                        </div>
 
-				{#if closeError}
-					<div class="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200">
-						<AlertCircle class="h-4 w-4 shrink-0" />
-						<span>{closeError}</span>
-					</div>
-				{/if}
-			</div>
+                        <div class="mt-4 space-y-3">
+                                <div>
+                                        <label for="closingCash" class="eyebrow block text-[9px] text-gray-400">Uang fisik di laci</label>
+                                        <div class="relative mt-1">
+                                                <span class="num absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">Rp</span>
+                                                <input
+                                                        id="closingCash"
+                                                        type="number"
+                                                        bind:value={closingCash}
+                                                        min="0"
+                                                        class="num w-full rounded-sm border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-lg font-semibold text-gray-900 transition focus:border-rose-500 focus:outline-hidden"
+                                                />
+                                        </div>
+                                </div>
+                                <div>
+                                        <label for="closeNote" class="eyebrow block text-[9px] text-gray-400">Catatan (opsional)</label>
+                                        <input
+                                                id="closeNote"
+                                                type="text"
+                                                bind:value={closeNote}
+                                                placeholder="Contoh: selisih karena kembalian kurang Rp 500"
+                                                class="mt-1 w-full rounded-sm border border-gray-300 bg-white px-3 py-2 text-xs transition focus:border-emerald-600 focus:outline-hidden"
+                                        />
+                                </div>
 
-			<div class="flex items-center justify-end gap-3 pt-4">
-				<button
-					onclick={() => isCloseModalOpen = false}
-					class="px-4 py-2.5 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-50 text-sm font-semibold transition"
-				>
-					Batal
-				</button>
-				<button
-					onclick={confirmCloseShift}
-					class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold shadow-md shadow-rose-600/30 transition cursor-pointer"
-				>
-					<Square class="h-4 w-4" />
-					<span>Tutup Shift</span>
-				</button>
-			</div>
-		</div>
-	</div>
+                                {#if closeError}
+                                        <div class="flex items-center gap-2 rounded-sm border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                                                <AlertCircle class="h-4 w-4 shrink-0" />
+                                                <span>{closeError}</span>
+                                        </div>
+                                {/if}
+                        </div>
+
+                        <div class="mt-5 flex items-center justify-end gap-2 border-t border-dashed border-gray-300 pt-4">
+                                <button
+                                        onclick={() => (isCloseModalOpen = false)}
+                                        class="cursor-pointer rounded-md border border-gray-300 px-4 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                                >
+                                        Batal
+                                </button>
+                                <button
+                                        onclick={confirmCloseShift}
+                                        class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-rose-600 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-rose-700"
+                                >
+                                        <Square class="h-3.5 w-3.5" />
+                                        <span>Tutup shift</span>
+                                </button>
+                        </div>
+                </div>
+        </div>
 {/if}

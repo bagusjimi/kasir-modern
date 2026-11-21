@@ -1,109 +1,443 @@
-@import "tailwindcss";
+@import '@fontsource-variable/fraunces/wght.css';
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-sans/latin-700.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import 'tailwindcss';
+
+/*
+ * Buku Kas — sistem visual aplikasi kasir.
+ * Kertas hangat, tinta pekat, cap vermilion. Warna lama (gray/zinc/emerald/rose/amber)
+ * dipetakan ulang di level token agar seluruh komponen ikut satu palet.
+ */
+@theme {
+        --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+        --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+        --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+        --color-white: #fdfbf5;
+        --color-black: #14120e;
+
+        /* Kertas & tinta */
+        --color-gray-50: #fbf8f1;
+        --color-gray-100: #f5f0e5;
+        --color-gray-200: #eae3d4;
+        --color-gray-300: #d9d0be;
+        --color-gray-400: #b0a693;
+        --color-gray-500: #877d6b;
+        --color-gray-600: #675f51;
+        --color-gray-700: #4e483d;
+        --color-gray-800: #332f28;
+        --color-gray-900: #1e1b16;
+        --color-gray-950: #14120e;
+
+        --color-zinc-50: #fbf8f1;
+        --color-zinc-100: #f5f0e5;
+        --color-zinc-200: #eae3d4;
+        --color-zinc-300: #d9d0be;
+        --color-zinc-400: #b0a693;
+        --color-zinc-500: #877d6b;
+        --color-zinc-600: #675f51;
+        --color-zinc-700: #4e483d;
+        --color-zinc-800: #332f28;
+        --color-zinc-900: #1e1b16;
+        --color-zinc-950: #14120e;
+
+        --color-slate-50: #f7f4ed;
+        --color-slate-100: #efe9de;
+        --color-slate-200: #ded5c5;
+        --color-slate-300: #c4b9a5;
+        --color-slate-400: #9c927f;
+        --color-slate-500: #77705f;
+        --color-slate-600: #585245;
+        --color-slate-700: #423d33;
+        --color-slate-800: #2a2620;
+        --color-slate-900: #1a1712;
+        --color-slate-950: #100e0a;
+
+        /* Hijau botol — uang, stabilitas, aksi utama */
+        --color-emerald-50: #eef4f0;
+        --color-emerald-100: #d9e7df;
+        --color-emerald-200: #b2cdbe;
+        --color-emerald-300: #84ad98;
+        --color-emerald-400: #568b74;
+        --color-emerald-500: #356b57;
+        --color-emerald-600: #1f4e3e;
+        --color-emerald-700: #193f32;
+        --color-emerald-800: #143329;
+        --color-emerald-900: #0f271f;
+        --color-emerald-950: #081711;
+
+        --color-teal-400: #568b74;
+        --color-teal-500: #356b57;
+        --color-teal-950: #081711;
+
+        /* Vermilion — cap, koreksi, penanda penting */
+        --color-rose-50: #fceee9;
+        --color-rose-100: #f8d9cf;
+        --color-rose-200: #f0b3a0;
+        --color-rose-300: #e68a72;
+        --color-rose-400: #d9634a;
+        --color-rose-500: #c1402b;
+        --color-rose-600: #a63421;
+        --color-rose-700: #85291a;
+        --color-rose-800: #652014;
+        --color-rose-900: #4a170e;
+        --color-rose-950: #2e0d08;
+
+        --color-red-500: #c1402b;
+        --color-red-600: #a63421;
+
+        /* Kuning kunyit — catatan, stok menipis */
+        --color-amber-50: #fbf3e2;
+        --color-amber-100: #f6e6c4;
+        --color-amber-200: #edce8e;
+        --color-amber-300: #e0b258;
+        --color-amber-400: #ce9634;
+        --color-amber-500: #b27a20;
+        --color-amber-600: #93621a;
+        --color-amber-700: #754c17;
+        --color-amber-800: #583914;
+        --color-amber-900: #3e2810;
+
+        --radius-xs: 0.125rem;
+        --radius-sm: 0.1875rem;
+        --radius-md: 0.3125rem;
+        --radius-lg: 0.375rem;
+        --radius-xl: 0.5rem;
+        --radius-2xl: 0.625rem;
+        --radius-3xl: 0.875rem;
+        --radius-4xl: 1.25rem;
+
+        --shadow-2xs: 0 1px 0 rgb(28 26 22 / 0.04);
+        --shadow-xs: 0 1px 0 rgb(28 26 22 / 0.05), 0 1px 2px rgb(28 26 22 / 0.05);
+        --shadow-sm: 0 1px 1px rgb(28 26 22 / 0.05), 0 3px 8px -3px rgb(28 26 22 / 0.1);
+        --shadow-md: 0 2px 3px rgb(28 26 22 / 0.05), 0 10px 22px -8px rgb(28 26 22 / 0.16);
+        --shadow-lg: 0 3px 6px rgb(28 26 22 / 0.06), 0 18px 38px -12px rgb(28 26 22 / 0.2);
+        --shadow-xl: 0 8px 16px rgb(28 26 22 / 0.07), 0 30px 60px -18px rgb(28 26 22 / 0.24);
+        --shadow-2xl: 0 16px 32px rgb(28 26 22 / 0.09), 0 56px 100px -24px rgb(28 26 22 / 0.3);
+}
 
 @layer base {
-	* {
-		box-sizing: border-box;
-	}
-	body {
-		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-		-webkit-tap-highlight-color: transparent;
-	}
+        *,
+        *::before,
+        *::after {
+                box-sizing: border-box;
+        }
 
-	/* Scrollbar tipis bergaya aplikasi native (bukan scrollbar lebar browser) */
-	* {
-		scrollbar-width: thin;
-		scrollbar-color: #d4d4d8 transparent;
-	}
-	::-webkit-scrollbar {
-		width: 8px;
-		height: 8px;
-	}
-	::-webkit-scrollbar-track {
-		background: transparent;
-	}
-	::-webkit-scrollbar-thumb {
-		background: #d4d4d8;
-		border-radius: 9999px;
-	}
-	::-webkit-scrollbar-thumb:hover {
-		background: #a1a1aa;
-	}
-	::-webkit-scrollbar-corner {
-		background: transparent;
-	}
+        html {
+                -webkit-text-size-adjust: 100%;
+        }
+
+        body {
+                font-family: var(--font-sans);
+                color: var(--color-gray-900);
+                background-color: #f5f0e5;
+                background-image:
+                        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
+                        radial-gradient(1100px 520px at 12% -8%, #fdfaf3 0%, transparent 62%),
+                        linear-gradient(180deg, #f6f1e6 0%, #f1ebdd 100%);
+                background-attachment: fixed;
+                -webkit-tap-highlight-color: transparent;
+                -webkit-font-smoothing: antialiased;
+        }
+
+        /* Judul memakai huruf berkarakter; teks UI tetap sans yang tenang. */
+        h1,
+        h2 {
+                font-family: var(--font-display);
+                font-weight: 600;
+                letter-spacing: -0.018em;
+                font-optical-sizing: auto;
+        }
+
+        ::selection {
+                background: var(--color-rose-500);
+                color: #fdfbf5;
+        }
+
+        :focus-visible {
+                outline: 2px solid var(--color-rose-500);
+                outline-offset: 2px;
+        }
+
+        * {
+                scrollbar-width: thin;
+                scrollbar-color: #cfc5b2 transparent;
+        }
+        ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+                background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+                background: #cfc5b2;
+                border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+                background: #b0a693;
+        }
+        ::-webkit-scrollbar-corner {
+                background: transparent;
+        }
+
+        input,
+        select,
+        textarea {
+                font-family: inherit;
+        }
+
+        /* Kepala tabel mengikuti label buku besar: mono, renggang, huruf kecil semua. */
+        thead th {
+                font-family: var(--font-mono);
+                font-size: 0.6875rem;
+                font-weight: 500;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: var(--color-gray-500);
+        }
+
+        tbody td {
+                vertical-align: middle;
+        }
+
+        /* Angka rupiah selalu rata kanan di kolom tabel agar mudah dibandingkan. */
+        td.num,
+        th.num {
+                font-variant-numeric: tabular-nums;
+        }
+}
+
+/* ---------- Utilitas khas Buku Kas ---------- */
+
+@utility font-display {
+        font-family: var(--font-display);
+        font-optical-sizing: auto;
+}
+
+@utility num {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.015em;
+}
+
+@utility eyebrow {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        line-height: 1.2;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 500;
+}
+
+/* Garis buku besar: kertas bergaris tipis untuk area konten panjang */
+@utility ledger {
+        background-image: repeating-linear-gradient(
+                to bottom,
+                transparent 0 27px,
+                rgb(30 27 22 / 0.045) 27px 28px
+        );
+}
+
+/* Nota: tepi bergerigi di atas & bawah seperti kertas struk */
+@layer components {
+        .nota {
+                position: relative;
+                background-color: var(--color-white);
+        }
+        .nota::before,
+        .nota::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                height: 7px;
+                background-image: radial-gradient(
+                        circle at 4px 4px,
+                        transparent 4px,
+                        var(--color-white) 4.2px
+                );
+                background-size: 13px 7px;
+                background-repeat: repeat-x;
+                pointer-events: none;
+        }
+        .nota::before {
+                top: -7px;
+        }
+        .nota::after {
+                bottom: -7px;
+                transform: rotate(180deg);
+        }
+
+        /* Cap/stempel: bingkai ganda, huruf renggang, sedikit miring */
+        .stamp {
+                font-family: var(--font-mono);
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.18em;
+                border: 1.5px solid currentColor;
+                box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 45%, transparent);
+                transform: rotate(-2deg);
+        }
+
+        /* Baris total bergaya struk: label … nominal */
+        .leader {
+                display: flex;
+                align-items: baseline;
+                gap: 0.5rem;
+        }
+        .leader::before {
+                content: '';
+                flex: 1 1 auto;
+                order: 1;
+                border-bottom: 1px dotted rgb(30 27 22 / 0.28);
+                transform: translateY(-0.25rem);
+        }
+        .leader > :first-child {
+                order: 0;
+        }
+        .leader > :last-child {
+                order: 2;
+        }
+}
+
+/* ---------- Gerak ---------- */
+
+@keyframes rise {
+        from {
+                opacity: 0;
+                transform: translateY(10px);
+        }
+        to {
+                opacity: 1;
+                transform: none;
+        }
+}
+
+@keyframes stamp-in {
+        0% {
+                opacity: 0;
+                transform: scale(1.4) rotate(-8deg);
+        }
+        65% {
+                opacity: 1;
+                transform: scale(0.97) rotate(-2deg);
+        }
+        100% {
+                opacity: 1;
+                transform: scale(1) rotate(-2deg);
+        }
+}
+
+@keyframes sweep {
+        from {
+                transform: scaleX(0);
+        }
+        to {
+                transform: scaleX(1);
+        }
+}
+
+@layer components {
+        .reveal {
+                animation: rise 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+                animation-delay: calc(var(--i, 0) * 55ms);
+        }
+        .stamp-in {
+                animation: stamp-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+        }
+        .sweep {
+                transform-origin: left;
+                animation: sweep 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+                animation-delay: calc(var(--i, 0) * 45ms + 120ms);
+        }
+}
+
+@media (prefers-reduced-motion: reduce) {
+        .reveal,
+        .stamp-in,
+        .sweep {
+                animation: none !important;
+        }
 }
 
 /* Utilitas: sembunyikan scrollbar penuh, konten tetap bisa digulir */
 @utility scrollbar-none {
-	scrollbar-width: none;
-	-ms-overflow-style: none;
-	&::-webkit-scrollbar {
-		display: none;
-	}
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        &::-webkit-scrollbar {
+                display: none;
+        }
 }
 
 /* Print styling khusus struk thermal kasir (58mm - 80mm) */
 @media print {
-	body * {
-		visibility: hidden;
-	}
-	#thermal-receipt, #thermal-receipt * {
-		visibility: visible;
-	}
-	#transfer-document, #transfer-document * {
-		visibility: visible;
-	}
-	#barcode-labels, #barcode-labels * {
-		visibility: visible;
-	}
-	#barcode-labels {
-		position: absolute;
-		left: 0;
-		top: 0;
-		width: 100%;
-		display: flex;
-		flex-wrap: wrap;
-		align-content: flex-start;
-		gap: 3mm;
-		padding: 8mm;
-		background: #fff;
-	}
-	#barcode-labels .barcode-label {
-		border: none;
-		break-inside: avoid;
-		page-break-inside: avoid;
-	}
-	#transfer-document {
-		position: absolute;
-		left: 0;
-		top: 0;
-		width: 100%;
-		max-width: 190mm;
-		margin: 0 auto;
-		padding: 24px;
-		color: #000;
-		background: #fff;
-		font-size: 12px;
-		border: none;
-		border-radius: 0;
-		box-shadow: none;
-	}
-	#thermal-receipt {
-		position: absolute;
-		left: 0;
-		top: 0;
-		width: 100%;
-		max-width: 80mm;
-		margin: 0 auto;
-		padding: 10px;
-		color: #000;
-		background: #fff;
-		font-family: 'Courier New', Courier, monospace;
-		font-size: 12px;
-	}
-	@page {
-		margin: 0;
-		size: auto;
-	}
+        body * {
+                visibility: hidden;
+        }
+        #thermal-receipt,
+        #thermal-receipt * {
+                visibility: visible;
+        }
+        #transfer-document,
+        #transfer-document * {
+                visibility: visible;
+        }
+        #barcode-labels,
+        #barcode-labels * {
+                visibility: visible;
+        }
+        #barcode-labels {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                align-content: flex-start;
+                gap: 3mm;
+                padding: 8mm;
+                background: #fff;
+        }
+        #barcode-labels .barcode-label {
+                border: none;
+                break-inside: avoid;
+                page-break-inside: avoid;
+        }
+        #transfer-document {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                max-width: 190mm;
+                margin: 0 auto;
+                padding: 24px;
+                color: #000;
+                background: #fff;
+                font-size: 12px;
+                border: none;
+                border-radius: 0;
+                box-shadow: none;
+        }
+        #thermal-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                max-width: 80mm;
+                margin: 0 auto;
+                padding: 10px;
+                color: #000;
+                background: #fff;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 12px;
+        }
+        @page {
+                margin: 0;
+                size: auto;
+        }
 }
-

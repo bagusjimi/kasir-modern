@@ -255,37 +255,37 @@
 
 	<!-- Ringkasan Metrik Semua Cabang -->
 	<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-		<div class="bg-gradient-to-tr from-emerald-700 to-emerald-500 rounded-2xl p-5 text-white shadow-lg shadow-emerald-600/20">
+		<div class="relative rounded-lg border border-emerald-800 bg-emerald-800 px-5 py-4 text-white shadow-xs">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-emerald-100">Total Omset Seluruh Cabang</p>
+				<p class="eyebrow text-[9px] text-emerald-200">Total Omset Seluruh Cabang</p>
 				<DollarSign class="h-5 w-5 text-emerald-200" />
 			</div>
-			<p class="text-2xl font-black mt-2">{formatRupiah(totalNetworkRevenue)}</p>
-			<p class="text-[11px] text-emerald-100 mt-1">{totalNetworkTransactions} transaksi tercatat</p>
+			<p class="num mt-2 text-xl font-semibold">{formatRupiah(totalNetworkRevenue)}</p>
+			<p class="mt-1 font-mono text-[10px] text-emerald-200/80">{totalNetworkTransactions} transaksi tercatat</p>
 		</div>
 
-		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<div class="relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Cabang Terdaftar</p>
+				<p class="eyebrow text-[9px] text-gray-400">Cabang Terdaftar</p>
 				<Building2 class="h-5 w-5 text-gray-400" />
 			</div>
-			<p class="text-2xl font-bold text-gray-900 mt-2">{branches.length} Cabang</p>
-			<p class="text-[11px] text-emerald-600 font-semibold mt-1">Semua status operasional aktif</p>
+			<p class="num mt-2 text-xl font-semibold text-gray-900">{branches.length} Cabang</p>
+			<p class="mt-1 font-mono text-[10px] text-emerald-800">Semua status operasional aktif</p>
 		</div>
 
-		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<div class="relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Aktivitas Terpantau</p>
+				<p class="eyebrow text-[9px] text-gray-400">Aktivitas Terpantau</p>
 				<TrendingUp class="h-5 w-5 text-gray-400" />
 			</div>
-			<p class="text-2xl font-bold text-gray-900 mt-2">{activityLogs.length} Peristiwa</p>
-			<p class="text-[11px] text-gray-500 mt-1">Catatan aktivitas tersinkronisasi secara langsung</p>
+			<p class="num mt-2 text-xl font-semibold text-gray-900">{activityLogs.length} Peristiwa</p>
+			<p class="mt-1 font-mono text-[10px] text-gray-400">Catatan aktivitas tersinkronisasi secara langsung</p>
 		</div>
 	</div>
 
 	<!-- Kartu Ringkasan Per Cabang -->
 	<div>
-		<h3 class="text-sm font-bold text-gray-800 mb-3">Ringkasan Kinerja Cabang</h3>
+		<h3 class="mb-3 text-lg font-semibold tracking-tight text-gray-900">Ringkasan Kinerja Cabang</h3>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			{#each branches as b}
 				{@const stat = branchStats[b.id] || { txCount: 0, totalRevenue: 0, lastActivity: '-' }}
@@ -320,7 +320,7 @@
 		<div class="p-4 border-b border-gray-100 flex items-center justify-between">
 			<div class="flex items-center gap-2">
 				<Activity class="h-4 w-4 text-emerald-600" />
-				<h3 class="font-bold text-gray-900 text-sm">Catatan Aktivitas Kasir & Transaksi</h3>
+				<h3 class="text-lg font-semibold tracking-tight text-gray-900">Catatan Aktivitas Kasir & Transaksi</h3>
 			</div>
 			<span class="text-xs text-gray-400">Terakhir disinkronkan: baru saja</span>
 		</div>

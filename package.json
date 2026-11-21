@@ -32,6 +32,9 @@
     "#lib/*": "./src/lib/*"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "@lucide/svelte": "^1.70.0",
     "dexie": "^4.4.7",
     "jspdf": "^2.5.2",

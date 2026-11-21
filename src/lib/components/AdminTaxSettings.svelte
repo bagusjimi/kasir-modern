@@ -211,7 +211,7 @@
 					<Receipt class="h-6 w-6" />
 				</div>
 				<div>
-					<h1 class="text-2xl font-black text-gray-900 tracking-tight">Pengaturan Usaha &amp; Pajak</h1>
+					<h1 class="text-3xl font-semibold tracking-tight text-gray-900">Pengaturan Usaha &amp; Pajak</h1>
 					<p class="text-xs text-gray-500">Atur nama usaha (kantor pusat) yang tampil di header struk, serta apakah pajak diberlakukan pada kasir, persentase tarif, dan label pajak.</p>
 				</div>
 			</div>
@@ -424,7 +424,7 @@
 
 					<div class="pt-3 border-t border-slate-800 flex justify-between items-center">
 						<span class="font-bold text-white text-sm">Total Tagihan:</span>
-						<span class="font-black text-emerald-400 text-base">{formatRupiah(computedTotal)}</span>
+						<span class="font-semibold text-emerald-400 text-base">{formatRupiah(computedTotal)}</span>
 					</div>
 				</div>
 

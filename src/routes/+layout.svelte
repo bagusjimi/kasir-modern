@@ -21,9 +21,9 @@
 	<title>Kasir Modern - POS Multi Cabang Offline-First</title>
 	<meta name="description" content="Aplikasi Kasir Multi-Cabang Berbasis SvelteKit dan Cloudflare dengan Dukungan Offline-First PWA" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-	<meta name="theme-color" content="#059669" />
+	<meta name="theme-color" content="#1e1b16" />
 </svelte:head>
 
-<div class="min-h-screen bg-slate-100/70 text-slate-900 antialiased font-sans">
+<div class="min-h-screen text-gray-900 antialiased">
 	{@render children()}
 </div>

@@ -87,7 +87,7 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
 		<div class="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl space-y-4">
 			<div class="flex items-center justify-between">
-				<h3 class="text-base font-black text-gray-900">Pasang di iPhone/iPad</h3>
+				<h3 class="text-base font-semibold text-gray-900">Pasang di iPhone/iPad</h3>
 				<button
 					onclick={() => (showIOSGuide = false)}
 					class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition cursor-pointer"

@@ -580,7 +580,7 @@
 				<div class="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center print:hidden">
 					<TrendingUp class="h-4 w-4" />
 				</div>
-				<h2 class="text-xl font-bold text-gray-900 tracking-tight">Laporan Penjualan Komprehensif</h2>
+				<h2 class="text-2xl font-semibold tracking-tight text-gray-900">Laporan Penjualan Komprehensif</h2>
 			</div>
 			<p class="text-xs text-gray-500 mt-1">
 				Analisis performa omset, laba kotor, metode pembayaran, dan produk terlaris
@@ -738,7 +738,7 @@
 						type="text"
 						value={authState.branch?.name || 'Cabang Kasir'}
 						disabled
-						class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-100 text-xs font-semibold text-gray-500 cursor-not-allowed"
+						class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-100 eyebrow text-[9px] text-gray-400 cursor-not-allowed"
 					/>
 				{/if}
 			</div>
@@ -810,35 +810,35 @@
 	<!-- 1. EXECUTIVE KPI SUMMARY CARDS -->
 	<div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		<!-- Total Revenue -->
-		<div class="bg-gradient-to-tr from-emerald-600 to-teal-600 rounded-2xl p-5 text-white shadow-lg shadow-emerald-600/20 col-span-2 sm:col-span-1 print:border print:border-gray-300 print:text-gray-900 print:bg-none print:shadow-none">
+		<div class="relative rounded-lg border border-emerald-800 bg-emerald-800 px-5 py-4 text-white shadow-xs col-span-2 sm:col-span-1 print:border print:border-gray-300 print:text-gray-900 print:bg-none print:shadow-none">
 			<div class="flex items-center justify-between">
 				<p class="text-xs font-semibold text-emerald-100 print:text-gray-600">Total Pendapatan (Omset)</p>
 				<DollarSign class="h-5 w-5 text-emerald-200 print:hidden" />
 			</div>
-			<p class="text-2xl font-black mt-2 print:text-xl">{formatRupiah(totalRevenue)}</p>
+			<p class="num mt-2 text-xl font-semibold print:text-xl">{formatRupiah(totalRevenue)}</p>
 			<p class="text-[11px] text-emerald-100 print:text-gray-500 mt-1">Dari {totalTransactionsCount} transaksi selesai</p>
 		</div>
 
 		<!-- Gross Profit & Margin -->
-		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between col-span-2 sm:col-span-1">
+		<div class="relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs col-span-2 sm:col-span-1">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Estimasi Laba Kotor</p>
+				<p class="eyebrow text-[9px] text-gray-400">Estimasi Laba Kotor</p>
 				<span class="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
 					<Percent class="h-3 w-3" /> {profitMarginPercentage}% Margin
 				</span>
 			</div>
-			<p class="text-2xl font-black text-gray-900 mt-2 print:text-xl">{formatRupiah(grossProfit)}</p>
-			<p class="text-[11px] text-gray-500 mt-1">Omset dikurangi HPP Produk</p>
+			<p class="num mt-2 text-xl font-semibold text-gray-900 print:text-xl">{formatRupiah(grossProfit)}</p>
+			<p class="mt-1 font-mono text-[10px] text-gray-400">Omset dikurangi HPP Produk</p>
 		</div>
 
 		<!-- Total Pengeluaran Operasional -->
-		<div class="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<div class="relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs">
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-gray-500">Biaya Operasional Toko</p>
+				<p class="eyebrow text-[9px] text-gray-400">Biaya Operasional Toko</p>
 				<TrendingDown class="h-4 w-4 text-rose-500 print:hidden" />
 			</div>
-			<p class="text-2xl font-bold text-rose-600 mt-2 print:text-xl">{formatRupiah(totalOperationalExpenses)}</p>
-			<p class="text-[11px] text-gray-500 mt-1">Total {filteredExpenses.length} catatan pengeluaran</p>
+			<p class="num mt-2 text-xl font-semibold text-rose-700 print:text-xl">{formatRupiah(totalOperationalExpenses)}</p>
+			<p class="mt-1 font-mono text-[10px] text-gray-400">Total {filteredExpenses.length} catatan pengeluaran</p>
 		</div>
 
 		<!-- Laba Bersih Operasional (Net Profit) -->
@@ -849,7 +849,7 @@
 					{netProfitMarginPercentage}% Net
 				</span>
 			</div>
-			<p class="text-2xl font-black mt-2 print:text-xl {netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}">{formatRupiah(netProfit)}</p>
+			<p class="num mt-2 text-xl font-semibold print:text-xl {netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}">{formatRupiah(netProfit)}</p>
 			<p class="text-[11px] {netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'} mt-1">Laba kotor - Biaya operasional</p>
 		</div>
 	</div>
@@ -857,7 +857,7 @@
 	<!-- 2. ANALISIS METODE PEMBAYARAN & KATEGORI -->
 	<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 		<!-- Distribusi Metode Pembayaran (5 Kolom) -->
-		<div class="lg:col-span-5 bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<div class="lg:col-span-5 relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs">
 			<div>
 				<div class="flex items-center justify-between mb-4">
 					<h3 class="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -888,7 +888,7 @@
 							</div>
 							<div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
 								<div
-									class="h-full rounded-full transition-all duration-500 {pay.key === 'cash' ? 'bg-emerald-500' : pay.key === 'qris' ? 'bg-blue-500' : 'bg-purple-500'}"
+									class="h-full rounded-full transition-all duration-500 {pay.key === 'cash' ? 'bg-emerald-700' : pay.key === 'qris' ? 'bg-gray-900' : 'bg-rose-600'}"
 									style="width: {pay.percentage}%"
 								></div>
 							</div>
@@ -905,7 +905,7 @@
 		</div>
 
 		<!-- Grafik Tren Penjualan Harian (7 Kolom) -->
-		<div class="lg:col-span-7 bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col justify-between">
+		<div class="lg:col-span-7 relative rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs">
 			<div class="flex items-center justify-between mb-4">
 				<h3 class="text-sm font-bold text-gray-900 flex items-center gap-2">
 					<TrendingUp class="h-4 w-4 text-emerald-600" />
@@ -931,7 +931,7 @@
 
 							<!-- Bar Visual -->
 							<div
-								class="w-full max-w-[28px] bg-gradient-to-t from-emerald-600 to-teal-400 rounded-t-md transition-all duration-300 hover:brightness-110"
+								class="w-full max-w-[28px] rounded-t-sm bg-emerald-700 transition-all duration-300 hover:brightness-110"
 								style="height: {day.heightPercent}%"
 							></div>
 

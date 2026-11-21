@@ -559,7 +559,7 @@
 	<!-- Header -->
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 		<div>
-			<h1 class="text-xl font-black text-zinc-900 flex items-center gap-2">
+			<h1 class="text-2xl font-semibold tracking-tight text-zinc-900 flex items-center gap-2">
 				<ArrowLeftRight class="h-5 w-5 text-emerald-600" />
 				Transfer Stok Antar Cabang
 			</h1>
@@ -997,7 +997,7 @@
 			<div id="transfer-document" class="rounded-xl border border-zinc-200 p-6 bg-white text-zinc-900 text-xs">
 				<!-- Kop Dokumen -->
 				<div class="text-center border-b-2 border-black pb-3">
-					<h2 class="text-base font-black uppercase tracking-wide">{storeSettings?.name?.trim() || docTransfer.from_branch_name || 'KASIR MODERN'}</h2>
+					<h2 class="text-base font-semibold uppercase tracking-wide">{storeSettings?.name?.trim() || docTransfer.from_branch_name || 'KASIR MODERN'}</h2>
 					{#if storeSettings?.name?.trim() && docTransfer.from_branch_name}
 						<p class="text-xs font-bold">{docTransfer.from_branch_name}</p>
 					{/if}

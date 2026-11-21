@@ -201,57 +201,71 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Summary Card & Filter Bar -->
-	<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-		<div class="bg-gradient-to-tr from-emerald-600 to-teal-600 rounded-2xl p-5 text-white shadow-lg shadow-emerald-600/20">
-			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold text-emerald-100">Total Omset Hari Ini</p>
-				<DollarSign class="h-5 w-5 text-emerald-200" />
-			</div>
-			<p class="text-2xl font-black mt-2">{formatRupiah(dailyTotal)}</p>
-			<p class="text-[11px] text-emerald-100 mt-1">{filteredTransactions.length} transaksi selesai</p>
-		</div>
+        <div class="flex flex-col justify-between gap-4 border-b border-gray-300/70 pb-5 lg:flex-row lg:items-end">
+                <div>
+                        <p class="eyebrow text-gray-400">Kasir · riwayat</p>
+                        <h1 class="mt-1.5 text-3xl font-semibold tracking-tight text-gray-900">Riwayat transaksi</h1>
+                        <p class="mt-1 text-xs text-gray-500">Setiap nota yang tercatat di perangkat ini, beserta status sinkronisasinya.</p>
+                </div>
 
-		<div class="md:col-span-2 bg-white rounded-2xl p-5 border border-gray-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-			<div class="w-full sm:w-auto">
-				<label for="filterDate" class="block text-xs font-semibold text-gray-600 mb-1">Pilih Tanggal</label>
-				<div class="relative">
-					<Calendar class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-					<input
-						id="filterDate"
-						type="date"
-						bind:value={selectedDate}
-						class="pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-emerald-500"
-					/>
-				</div>
-			</div>
+                <div class="flex flex-wrap items-end gap-2">
+                        <label class="block">
+                                <span class="eyebrow text-[9px] text-gray-400">Tanggal</span>
+                                <div class="relative mt-1">
+                                        <Calendar class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                                id="filterDate"
+                                                type="date"
+                                                bind:value={selectedDate}
+                                                class="rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-xs font-medium text-gray-700 shadow-xs transition focus:border-emerald-600 focus:outline-hidden"
+                                        />
+                                </div>
+                        </label>
+                        <label class="block">
+                                <span class="eyebrow text-[9px] text-gray-400">Cari nota</span>
+                                <div class="relative mt-1">
+                                        <Search class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                                id="searchInvoice"
+                                                type="text"
+                                                bind:value={searchQuery}
+                                                placeholder="No. invoice / pelanggan"
+                                                class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-xs shadow-xs transition focus:border-emerald-600 focus:outline-hidden sm:w-56"
+                                        />
+                                </div>
+                        </label>
+                </div>
+        </div>
 
-			<div class="w-full sm:flex-1">
-				<label for="searchInvoice" class="block text-xs font-semibold text-gray-600 mb-1">Pencarian Nota</label>
-				<div class="relative">
-					<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-					<input
-						id="searchInvoice"
-						type="text"
-						bind:value={searchQuery}
-						placeholder="Cari No. Invoice / Pelanggan..."
-						class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:border-emerald-500"
-					/>
-				</div>
-			</div>
-		</div>
-	</div>
+        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="reveal rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs" style="--i: 0">
+                        <dt class="eyebrow text-[9px] text-gray-400">Omset hari ini</dt>
+                        <dd class="num mt-2 text-2xl font-semibold text-gray-900">{formatRupiah(dailyTotal)}</dd>
+                </div>
+                <div class="reveal rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs" style="--i: 1">
+                        <dt class="eyebrow text-[9px] text-gray-400">Nota tercatat</dt>
+                        <dd class="num mt-2 text-2xl font-semibold text-gray-900">{filteredTransactions.length}</dd>
+                </div>
+                <div class="reveal rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-xs" style="--i: 2">
+                        <dt class="eyebrow text-[9px] text-gray-400">Cabang</dt>
+                        <dd class="mt-2 truncate text-sm font-semibold text-gray-900">{authState.branch?.name || 'Utama'}</dd>
+                        <p class="mt-1 font-mono text-[10px] text-gray-400">perangkat {authState.device?.name || 'kasir'}</p>
+                </div>
+        </dl>
 
-	<!-- Tabel Riwayat -->
-	<div class="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
-		<div class="p-4 border-b border-gray-100 flex items-center justify-between">
-			<h3 class="font-bold text-gray-900 text-sm">Daftar Transaksi Kasir</h3>
-			<span class="text-xs text-gray-500">Cabang: {authState.branch?.name || 'Utama'}</span>
-		</div>
+        <!-- Tabel Riwayat -->
+        <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs">
+                <div class="flex items-center justify-between gap-3 border-b border-dashed border-gray-200 px-5 py-3.5">
+                        <div class="flex items-center gap-2">
+                                <Receipt class="h-3.5 w-3.5 text-gray-400" />
+                                <h2 class="text-base font-semibold text-gray-900">Daftar transaksi</h2>
+                        </div>
+                        <span class="eyebrow text-[9px] text-gray-400">{filteredTransactions.length} nota</span>
+                </div>
 
-		<div class="overflow-x-auto">
-			<table class="w-full text-left text-xs">
-				<thead class="bg-gray-50/80 text-gray-500 font-semibold border-b border-gray-100">
+                <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="border-b border-gray-900/15">
 					<tr>
 						<th class="px-5 py-3.5">No. Invoice</th>
 						<th class="px-5 py-3.5">Waktu</th>
